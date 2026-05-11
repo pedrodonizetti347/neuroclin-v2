@@ -228,6 +228,46 @@ const TESTS_CONFIG = [
       { label: 'Total Token', value: ['parte1','parte2','parte3','parte4','parte5'].reduce((s,k)=>s+(+d[k]||0),0), max: 62 },
     ]
   },
+  {
+    key: 'IQCODE', label: 'IQCODE', group: 'Funcional',
+    desc: 'Informant Questionnaire on Cognitive Decline in the Elderly',
+    fields: [
+      { key: 'informante_nome',     label: 'Nome do informante',            type: 'input',  span: 'full' },
+      { key: 'informante_relacao',  label: 'Relação com o paciente',        type: 'select',
+        options: ['Cônjuge/Companheiro(a)', 'Filho(a)', 'Irmão/Irmã', 'Cuidador(a) formal', 'Outro familiar', 'Outro'] },
+      { key: 'score_media',         label: 'Escore médio (média dos 26 itens)', min: 1, max: 5, step: 0.01 },
+      { key: 'obs', label: 'Observações', type: 'text' },
+    ],
+    cutoff: '< 3,31 sem declínio cognitivo | ≥ 3,31 sugestivo de declínio cognitivo',
+  },
+  {
+    key: 'MEMIMP', label: 'MEMIMP', group: 'Memória',
+    desc: 'Memória Prospectiva e Retrospectiva (PRMQ)',
+    fields: [
+      { key: 'score_prospectivo',   label: 'Subtotal Prospectivo (8 itens × 1–5)',   min: 8, max: 40 },
+      { key: 'score_retrospectivo', label: 'Subtotal Retrospectivo (8 itens × 1–5)', min: 8, max: 40 },
+      { key: 'obs', label: 'Observações', type: 'text' },
+    ],
+    computed: d => {
+      const p = +d.score_prospectivo || 0
+      const r = +d.score_retrospectivo || 0
+      return [
+        { label: 'Total MEMIMP', value: p + r, max: 80, cutoff: 'maior pontuação = mais falhas de memória' },
+      ]
+    },
+  },
+  {
+    key: 'DEX', label: 'DEX', group: 'Funções Executivas',
+    desc: 'Dysexecutive Questionnaire — BADS',
+    fields: [
+      { key: 'versao',          label: 'Versão aplicada', type: 'select', span: 'full',
+        options: ['DEX — Autoavaliação (self-report)', 'DEX-I — Avaliação por informante'] },
+      { key: 'informante_nome', label: 'Nome do informante (se DEX-I)', type: 'input', span: 'full' },
+      { key: 'score_total',     label: 'Escore total (20 itens × 0–4)', max: 80 },
+      { key: 'obs', label: 'Observações', type: 'text' },
+    ],
+    cutoff: 'Escores mais altos indicam maior comprometimento executivo',
+  },
 ]
 
 const GROUPS = [...new Set(TESTS_CONFIG.map(t => t.group))]
@@ -366,10 +406,10 @@ export default function Tests() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {test?.fields.map(f => (
-                <div key={f.key} style={{ gridColumn: f.type === 'text' ? '1 / -1' : 'auto' }}>
+                <div key={f.key} style={{ gridColumn: (f.type === 'text' || f.span === 'full') ? '1 / -1' : 'auto' }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: S.muted, marginBottom: 5, letterSpacing: '0.02em' }}>
                     {f.label}
-                    {f.max !== undefined && f.type !== 'text' && (
+                    {f.max !== undefined && !['text','input','select'].includes(f.type) && (
                       <span style={{ color: 'rgba(255,255,255,0.2)', marginLeft: 4 }}>/ {f.max}</span>
                     )}
                   </label>
@@ -381,11 +421,29 @@ export default function Tests() {
                       placeholder="Observações clínicas..."
                       style={{ ...inputSt, resize: 'vertical' }}
                     />
+                  ) : f.type === 'input' ? (
+                    <input
+                      type="text"
+                      value={form[f.key] || ''}
+                      onChange={e => set(f.key, e.target.value)}
+                      placeholder={f.placeholder || ''}
+                      style={inputSt}
+                    />
+                  ) : f.type === 'select' ? (
+                    <select
+                      value={form[f.key] || ''}
+                      onChange={e => set(f.key, e.target.value)}
+                      style={inputSt}
+                    >
+                      <option value="">— Selecionar —</option>
+                      {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
                   ) : (
                     <input
                       type="number"
                       min={f.min ?? 0}
                       max={f.max}
+                      step={f.step ?? 1}
                       value={form[f.key] ?? ''}
                       onChange={e => set(f.key, e.target.value)}
                       style={inputSt}
