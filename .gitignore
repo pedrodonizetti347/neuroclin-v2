@@ -7,3 +7,4 @@ functions/.env
 .firebase/
 firebase-debug.log
 *.DS_Store
+.claude/settings.local.json

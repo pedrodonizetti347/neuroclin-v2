@@ -4,7 +4,7 @@ const Anthropic = require('@anthropic-ai/sdk')
 
 admin.initializeApp()
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+console.log('API Key exists:', !!process.env.ANTHROPIC_API_KEY)
 
 function setCors(res) {
   res.set('Access-Control-Allow-Origin',  '*')
@@ -172,6 +172,7 @@ Regras:
 - Laudo rigoroso, técnico e completamente individualizado para este paciente`
 
     try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const msg = await anthropic.messages.create({
         model: 'claude-opus-4-5',
         max_tokens: 4096,
