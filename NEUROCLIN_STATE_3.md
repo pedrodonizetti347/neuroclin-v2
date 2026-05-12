@@ -18,6 +18,30 @@ React + Vite + Tailwind | Firebase Auth (Google) + Firestore | Claude API via Cl
 
 ---
 
+## Sessão 12/05/2026 — download do laudo em PDF (pendente de implementação)
+
+### Próximo passo planejado: Cloud Function `generateReportPDF`
+
+Snippet de referência para download de PDF via Cloud Function foi definido.
+Ainda **não implementado** — requer criar a Cloud Function `generateReportPDF` no backend.
+
+#### Fluxo previsto
+1. Frontend já tem o HTML gerado por `generateReport`
+2. Chama `generateReportPDF` via `fetch` com `{ html, patient, dataFormatada, supervisor }` + Bearer token
+3. Função converte HTML → PDF (ex: `puppeteer` ou `html-pdf-node`) e retorna `{ pdfBase64 }`
+4. Frontend converte base64 → Blob e dispara download: `Laudo_<NomePaciente>.pdf`
+
+#### Arquivo de referência no frontend
+Criar `src/utils/downloadLaudoPDF.js` com a função `downloadLaudoPDF({ html, patient, dataFormatada, supervisor, token })`.
+
+#### Pendências para implementar
+- [ ] Instalar dependência de PDF em `functions/` (ex: `html-pdf-node` ou `puppeteer-core` + Chromium)
+- [ ] Criar `exports.generateReportPDF` em `functions/src/index.js`
+- [ ] Criar `src/utils/downloadLaudoPDF.js` no frontend
+- [ ] Adicionar botão "Baixar PDF" no componente que exibe o laudo (Reports.jsx ou Analytics.jsx)
+
+---
+
 ## Sessão 12/05/2026 — cabeçalho visual e assinatura com imagens
 
 ### O que foi feito
