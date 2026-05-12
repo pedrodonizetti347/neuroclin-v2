@@ -105,20 +105,23 @@ Aceita tanto z-scores numéricos (uso antigo) quanto strings classificatórias
 
 ---
 
-## DNS a configurar no registro.br
+## DNS — neuroclinlaudos.com.br
 
-Painel registro.br → Gerenciar DNS do domínio `neuroclinlaudos.com.br`:
+**Status (12/05/2026):** ✅ Configurado no registro.br | ⏳ Aguardando propagação | 🔒 HTTPS pendente
 
-| Tipo  | Nome   | Valor                             |
-|-------|--------|-----------------------------------|
-| A     | `@`    | `185.199.108.153`                 |
-| A     | `@`    | `185.199.109.153`                 |
-| A     | `@`    | `185.199.110.153`                 |
-| A     | `@`    | `185.199.111.153`                 |
-| CNAME | `www`  | `pedrodonizetti347.github.io`     |
+- Registro A configurado: `185.199.108.153` (IP GitHub Pages)
+- GitHub Pages ainda mostra "DNS check unsuccessful" — normal durante propagação (pode levar até 48h)
+- **Próximo passo:** quando o check verde aparecer no GitHub Pages → marcar **Enforce HTTPS**
 
-Após propagação (5–30 min): GitHub → repositório → **Settings → Pages → Custom domain**
-→ digitar `neuroclinlaudos.com.br` → marcar **Enforce HTTPS**.
+Registros configurados no registro.br:
+
+| Tipo  | Nome   | Valor                             | Status        |
+|-------|--------|-----------------------------------|---------------|
+| A     | `@`    | `185.199.108.153`                 | ✅ configurado |
+| A     | `@`    | `185.199.109.153`                 | (recomendado) |
+| A     | `@`    | `185.199.110.153`                 | (recomendado) |
+| A     | `@`    | `185.199.111.153`                 | (recomendado) |
+| CNAME | `www`  | `pedrodonizetti347.github.io`     | (recomendado) |
 
 ---
 
@@ -212,8 +215,8 @@ PRODOCTOR_PASS=...
 ---
 
 ## Pendências / próximas sessões
-- [ ] Configurar DNS neuroclinlaudos.com.br no registro.br
-- [ ] Ativar HTTPS no GitHub Pages após propagação do DNS
+- [x] Configurar DNS neuroclinlaudos.com.br no registro.br ✅ feito em 12/05/2026
+- [ ] Ativar HTTPS no GitHub Pages após propagação do DNS (aguardando)
 - [ ] Implementar Anamnese completa em MedicalRecords.jsx
 - [ ] Dashboard com métricas reais (laudos gerados, pacientes cadastrados)
 - [ ] Pfeffer e outros testes adicionais se necessário
