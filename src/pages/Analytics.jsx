@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { FileText, Loader2, Download, CheckCircle2, AlertCircle, Brain, Sparkles } from 'lucide-react'
 
@@ -10,13 +10,13 @@ const S = {
   amber: '#F59E0B', blue: '#60A5FA', danger: '#EF4444',
 }
 
-const SUPERVISOR = { name: 'Dr. Pedro Donizetti', crp: 'CRP 06/82060', clinic: 'Neuroavaliação — Neuropsicologia na Prática' }
+const SUPERVISOR = { name: 'Dr. Pedro Donizetti', crp: 'CRP 06/82060', clinic: 'NeuroavaliaÃ§Ã£o â€” Neuropsicologia na PrÃ¡tica' }
 
 const TEST_GROUPS = [
-  { group: 'Memória',           keys: ['RAVLT', 'BAMS'] },
+  { group: 'MemÃ³ria',           keys: ['RAVLT', 'BAMS'] },
   { group: 'Bateria Cognitiva', keys: ['NEUPSILIN', 'TRIACOG'] },
-  { group: 'Inteligência',      keys: ['WASI-III'] },
-  { group: 'Funções Executivas',keys: ['WCST-N', 'FAB'] },
+  { group: 'InteligÃªncia',      keys: ['WASI-III'] },
+  { group: 'FunÃ§Ãµes Executivas',keys: ['WCST-N', 'FAB'] },
   { group: 'Humor',             keys: ['GDS-15', 'BDI-II', 'HAD'] },
   { group: 'Ansiedade',         keys: ['IDATE', 'GAI'] },
   { group: 'Funcional',         keys: ['LAWTON', 'BADL', 'PCRS'] },
@@ -49,33 +49,33 @@ function buildPrompt(patient, testsData, selectedTests, appliedBy, queixa) {
       .filter(([k, v]) => k !== 'obs' && k !== '_appliedAt' && v !== '' && v !== undefined)
       .map(([k, v]) => `  ${k.replace(/_/g, ' ')}: ${v}`)
       .join('\n')
-    const obs = data.obs ? `\n  Observações: ${data.obs}` : ''
+    const obs = data.obs ? `\n  ObservaÃ§Ãµes: ${data.obs}` : ''
     return `- ${TEST_LABELS[key] || key}:\n${scores}${obs}`
   }).join('\n\n')
 
-  return `Você é um neuropsicólogo clínico especialista. Redija um Laudo Neuropsicológico completo e profissional em português brasileiro para o seguinte caso:
+  return `VocÃª Ã© um neuropsicÃ³logo clÃ­nico especialista. Redija um Laudo NeuropsicolÃ³gico completo e profissional em portuguÃªs brasileiro para o seguinte caso:
 
 DADOS DO PACIENTE:
 - Nome: ${patient.full_name}
-- Idade: ${age ? `${age} anos` : 'não informada'}
-- Sexo: ${patient.sex || 'não informado'}
-- Escolaridade: ${patient.education || 'não informada'}
-- Queixa principal: ${queixa || 'Avaliação neuropsicológica'}
+- Idade: ${age ? `${age} anos` : 'nÃ£o informada'}
+- Sexo: ${patient.sex || 'nÃ£o informado'}
+- Escolaridade: ${patient.education || 'nÃ£o informada'}
+- Queixa principal: ${queixa || 'AvaliaÃ§Ã£o neuropsicolÃ³gica'}
 
 TESTES APLICADOS E RESULTADOS:
 ${testsBlock}
 
 TESTES APLICADOS POR: ${appliedBy}
 
-INSTRUÇÕES PARA O LAUDO:
-1. Use linguagem técnica neuropsicológica, mas com clareza clínica
-2. Organize o laudo em seções: Identificação, Queixa, Instrumentos Utilizados, Resultados (por domínio cognitivo), Análise Clínica e Conclusão
-3. Interprete os escores em relação às normas brasileiras disponíveis
-4. Indique pontos fortes e deficitários do perfil cognitivo
-5. Faça recomendações clínicas específicas ao final
-6. Tom formal e científico, em português do Brasil
-7. Use HTML com tags h3 (seções), p (parágrafos) e ul/li (listas)
-8. Não inclua cabeçalho com nome da clínica (será adicionado automaticamente)
+INSTRUÃ‡Ã•ES PARA O LAUDO:
+1. Use linguagem tÃ©cnica neuropsicolÃ³gica, mas com clareza clÃ­nica
+2. Organize o laudo em seÃ§Ãµes: IdentificaÃ§Ã£o, Queixa, Instrumentos Utilizados, Resultados (por domÃ­nio cognitivo), AnÃ¡lise ClÃ­nica e ConclusÃ£o
+3. Interprete os escores em relaÃ§Ã£o Ã s normas brasileiras disponÃ­veis
+4. Indique pontos fortes e deficitÃ¡rios do perfil cognitivo
+5. FaÃ§a recomendaÃ§Ãµes clÃ­nicas especÃ­ficas ao final
+6. Tom formal e cientÃ­fico, em portuguÃªs do Brasil
+7. Use HTML com tags h3 (seÃ§Ãµes), p (parÃ¡grafos) e ul/li (listas)
+8. NÃ£o inclua cabeÃ§alho com nome da clÃ­nica (serÃ¡ adicionado automaticamente)
 
 Gere o laudo completo agora:`
 }
@@ -87,10 +87,10 @@ function buildSignature(appliedBy, user) {
     <div>
       <p style="font-size:12px;color:#555;margin-bottom:4px">Testes aplicados por:</p>
       <p style="font-size:14px;font-weight:bold;color:#1a1a2e">${appliedBy}</p>
-      <p style="font-size:12px;color:#555">${user?.crp || 'Psicólogo(a)'}</p>
+      <p style="font-size:12px;color:#555">${user?.crp || 'PsicÃ³logo(a)'}</p>
     </div>
     <div style="text-align:right">
-      <p style="font-size:12px;color:#555;margin-bottom:4px">Supervisão:</p>
+      <p style="font-size:12px;color:#555;margin-bottom:4px">SupervisÃ£o:</p>
       <p style="font-size:15px;font-weight:bold;color:#1a1a2e">${SUPERVISOR.name}</p>
       <p style="font-size:12px;color:#555">${SUPERVISOR.crp}</p>
       <p style="font-size:12px;color:#555">${SUPERVISOR.clinic}</p>
@@ -99,7 +99,7 @@ function buildSignature(appliedBy, user) {
   <div style="margin-top:30px;text-align:center">
     <div style="display:inline-block;border-top:1px solid #999;padding-top:8px;min-width:220px">
       <p style="font-size:13px;font-weight:bold;color:#1a1a2e">${SUPERVISOR.name}</p>
-      <p style="font-size:12px;color:#555">${SUPERVISOR.crp} · ${SUPERVISOR.clinic}</p>
+      <p style="font-size:12px;color:#555">${SUPERVISOR.crp} Â· ${SUPERVISOR.clinic}</p>
     </div>
   </div>
   <p style="font-size:10px;color:#aaa;text-align:center;margin-top:16px">
@@ -111,7 +111,7 @@ function buildSignature(appliedBy, user) {
 const STEPS = [
   'Carregando dados do paciente...',
   'Coletando resultados dos testes...',
-  'Analisando perfil neuropsicológico...',
+  'Analisando perfil neuropsicolÃ³gico...',
   'Redigindo laudo com IA...',
   'Finalizando documento...',
 ]
@@ -155,8 +155,6 @@ export default function Analytics() {
   const generate = async () => {
     if (!patientId)               return setError('Selecione um paciente.')
     if (selectedTests.length === 0) return setError('Selecione ao menos um teste.')
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-    if (!apiKey)                  return setError('VITE_ANTHROPIC_API_KEY não configurado no .env.local')
 
     setError('')
     setLoading(true)
@@ -170,27 +168,26 @@ export default function Analytics() {
       }
       setStep(3)
 
-      const prompt = buildPrompt(
-        patient,
-        sessions,
-        selectedTests,
-        appliedBy || user?.full_name || 'Profissional',
-        queixa,
-      )
+      const token  = await auth.currentUser?.getIdToken()
+      const fnUrl  = import.meta.env.VITE_FUNCTIONS_URL
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const payload = {
+        patient,
+        anamnesisData:  { queixas: queixa },
+        selectedTests,
+        testsData:      sessions,
+        appliedBy:      appliedBy || user?.full_name || 'Profissional',
+        supervisor:     SUPERVISOR,
+        dataFormatada:  new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      }
+
+      const res = await fetch(`${fnUrl}/generateReport`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          model: 'claude-opus-4-7',
-          max_tokens: 4096,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -200,7 +197,7 @@ export default function Analytics() {
 
       setStep(4)
       const data  = await res.json()
-      const text  = data.content?.[0]?.text || ''
+      const text  = data.html || ''
       const html  = text + buildSignature(appliedBy || user?.full_name || 'Profissional', user)
       setReport(html)
 
@@ -229,7 +226,7 @@ export default function Analytics() {
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html><html><head>
       <meta charset="UTF-8">
-      <title>Laudo Neuropsicológico — ${patient?.full_name || ''}</title>
+      <title>Laudo NeuropsicolÃ³gico â€” ${patient?.full_name || ''}</title>
       <style>
         body { font-family: Georgia, serif; padding: 48px; max-width: 820px; margin: 0 auto; color: #1a1a2e; line-height: 1.7; }
         h1, h2 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
@@ -241,7 +238,7 @@ export default function Analytics() {
       </style>
     </head><body>
       <div class="header">
-        <h1>LAUDO NEUROPSICOLÓGICO</h1>
+        <h1>LAUDO NEUROPSICOLÃ“GICO</h1>
         <p style="font-size:13px;color:#555">
           Paciente: <strong>${patient?.full_name || ''}</strong><br>
           Data: ${new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' })}<br>
@@ -258,8 +255,8 @@ export default function Analytics() {
     <div style={{ maxWidth: 1060, margin: '0 auto' }}>
 
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>RELATÓRIOS</h1>
-        <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Geração de laudos neuropsicológicos com Inteligência Artificial</p>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>RELATÃ“RIOS</h1>
+        <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>GeraÃ§Ã£o de laudos neuropsicolÃ³gicos com InteligÃªncia Artificial</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 16 }}>
@@ -271,7 +268,7 @@ export default function Analytics() {
           <div style={{ background: S.cardG, borderRadius: 10, border: '1px solid rgba(46,125,50,0.3)', padding: '12px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Brain size={14} color={S.greenL} />
-              <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em' }}>SUPERVISÃO</div>
+              <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em' }}>SUPERVISÃƒO</div>
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginTop: 6 }}>{SUPERVISOR.name}</div>
             <div style={{ fontSize: 11, color: S.greenL }}>{SUPERVISOR.crp}</div>
@@ -282,14 +279,14 @@ export default function Analytics() {
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: 14 }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 8 }}>1. PACIENTE</div>
             <select value={patientId} onChange={e => { setPatientId(e.target.value); setReport(''); setSaved(false) }} style={inputSt}>
-              <option value="">— Selecionar paciente —</option>
+              <option value="">â€” Selecionar paciente â€”</option>
               {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
             </select>
             {patient && (
               <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(46,125,50,0.1)', borderRadius: 6, fontSize: 11, color: S.greenL }}>
                 {patient.birth_date && `${new Date().getFullYear() - new Date(patient.birth_date).getFullYear()} anos`}
-                {patient.sex ? ` · ${patient.sex}` : ''}
-                {patient.education ? ` · ${patient.education}` : ''}
+                {patient.sex ? ` Â· ${patient.sex}` : ''}
+                {patient.education ? ` Â· ${patient.education}` : ''}
               </div>
             )}
           </div>
@@ -297,7 +294,7 @@ export default function Analytics() {
           {/* Queixa */}
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: 14 }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 8 }}>2. QUEIXA PRINCIPAL</div>
-            <input value={queixa} onChange={e => setQueixa(e.target.value)} placeholder="Ex: dificuldades de memória, avaliação pré-cirúrgica..." style={inputSt} />
+            <input value={queixa} onChange={e => setQueixa(e.target.value)} placeholder="Ex: dificuldades de memÃ³ria, avaliaÃ§Ã£o prÃ©-cirÃºrgica..." style={inputSt} />
           </div>
 
           {/* Aplicador */}
@@ -306,7 +303,7 @@ export default function Analytics() {
             <input value={appliedBy} onChange={e => setAppliedBy(e.target.value)} placeholder={user?.full_name || 'Nome do profissional...'} style={inputSt} />
           </div>
 
-          {/* Seleção de testes */}
+          {/* SeleÃ§Ã£o de testes */}
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: 14 }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
               4. TESTES APLICADOS ({selectedTests.length})
@@ -357,12 +354,12 @@ export default function Analytics() {
           </button>
         </div>
 
-        {/* Painel direito — laudo */}
+        {/* Painel direito â€” laudo */}
         <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', minHeight: 500 }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <FileText size={15} color={S.greenL} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>LAUDO NEUROPSICOLÓGICO</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>LAUDO NEUROPSICOLÃ“GICO</span>
               {saved && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: S.greenL, background: 'rgba(46,125,50,0.15)', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>
                   <CheckCircle2 size={10} /> SALVO
@@ -396,7 +393,7 @@ export default function Analytics() {
             {!loading && !report && (
               <div style={{ textAlign: 'center', padding: 60, color: S.muted }}>
                 <Sparkles size={36} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
-                <p style={{ fontSize: 13, fontWeight: 600 }}>O laudo aparecerá aqui</p>
+                <p style={{ fontSize: 13, fontWeight: 600 }}>O laudo aparecerÃ¡ aqui</p>
                 <p style={{ fontSize: 11, marginTop: 6 }}>Preencha o painel e clique em Gerar Laudo</p>
               </div>
             )}
@@ -413,3 +410,4 @@ export default function Analytics() {
     </div>
   )
 }
+
