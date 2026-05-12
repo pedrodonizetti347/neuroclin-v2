@@ -18,26 +18,27 @@ React + Vite + Tailwind | Firebase Auth (Google) + Firestore | Claude API via Cl
 
 ---
 
-## Sessão 12/05/2026 — download do laudo em PDF (pendente de implementação)
+## Sessão 12/05/2026 — Cloud Function `generateReportPDF` + gerador PDF nativo
 
-### Próximo passo planejado: Cloud Function `generateReportPDF`
+### O que foi feito
 
-Snippet de referência para download de PDF via Cloud Function foi definido.
-Ainda **não implementado** — requer criar a Cloud Function `generateReportPDF` no backend.
+#### Nova Cloud Function: `generateReportPDF` ✅ em produção
+- URL: `https://us-central1-neuroclin-f55a5.cloudfunctions.net/generateReportPDF`
+- Dependências instaladas em `functions/`: `pdfkit`, `sharp`
+- Recebe `{ html, patient, dataFormatada, supervisor }` + Bearer token
+- Retorna `{ pdfBase64 }` — PDF gerado sem custo adicional de IA (reutiliza o HTML já gerado)
 
-#### Fluxo previsto
-1. Frontend já tem o HTML gerado por `generateReport`
-2. Chama `generateReportPDF` via `fetch` com `{ html, patient, dataFormatada, supervisor }` + Bearer token
-3. Função converte HTML → PDF (ex: `puppeteer` ou `html-pdf-node`) e retorna `{ pdfBase64 }`
-4. Frontend converte base64 → Blob e dispara download: `Laudo_<NomePaciente>.pdf`
+#### Gerador PDF (`buildPDF`) — detalhes técnicos
+- **Parser HTML→blocos**: `htmlParaBlocks()` extrai `h3`, `h4`, `p` (com flag `italic`), `li` das divs `.mb-6`
+- **Cabeçalho**: `sharp` recorta os primeiros 275px do logo (timbrado) e repete em cada página via evento `pageAdded`
+- **Layout A4**: margens 68pt L/R, cabeçalho ~116pt, rodapé 55pt
+- **Tipografia**: Helvetica-Bold (títulos azul `#1B4F8A`), Helvetica (corpo preto `#1A1A1A`), Helvetica-Oblique (ENFIM itálico)
+- **Assinatura**: imagem da assinatura + carimbo lado a lado (posição absoluta), nome/CRP abaixo
+- **Rodapé**: "Clínica Neuroavaliação — CNPJ 29.313.355/0001-12 — Página X de Y" (total real via `bufferPages`)
+- **Paginação automática**: `ensureSpace(n)` adiciona nova página antes de cada bloco
 
-#### Arquivo de referência no frontend
-Criar `src/utils/downloadLaudoPDF.js` com a função `downloadLaudoPDF({ html, patient, dataFormatada, supervisor, token })`.
-
-#### Pendências para implementar
-- [ ] Instalar dependência de PDF em `functions/` (ex: `html-pdf-node` ou `puppeteer-core` + Chromium)
-- [ ] Criar `exports.generateReportPDF` em `functions/src/index.js`
-- [ ] Criar `src/utils/downloadLaudoPDF.js` no frontend
+#### Pendente — frontend
+- [ ] Criar `src/utils/downloadLaudoPDF.js` com `downloadLaudoPDF({ html, patient, dataFormatada, supervisor, token })`
 - [ ] Adicionar botão "Baixar PDF" no componente que exibe o laudo (Reports.jsx ou Analytics.jsx)
 
 ---

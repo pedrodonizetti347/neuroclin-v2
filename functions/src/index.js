@@ -1,13 +1,16 @@
 // deploy: 2026-05-12
 const { onRequest } = require('firebase-functions/v2/https')
-const admin = require('firebase-admin')
+const admin        = require('firebase-admin')
 const AnthropicPkg = require('@anthropic-ai/sdk')
-const Anthropic = AnthropicPkg.default ?? AnthropicPkg
-const fs = require('fs')
-const path = require('path')
+const Anthropic    = AnthropicPkg.default ?? AnthropicPkg
+const PDFDocument  = require('pdfkit')
+const sharp        = require('sharp')
+const fs           = require('fs')
+const path         = require('path')
 
 admin.initializeApp()
 
+// ── Imagens em base64 (para o HTML exibido na tela) ───────────────────────────
 function imgBase64(filename, mime) {
   try {
     const buf = fs.readFileSync(path.join(__dirname, '..', 'assets', filename))
@@ -15,19 +18,26 @@ function imgBase64(filename, mime) {
   } catch { return '' }
 }
 
-const LOGO_SRC     = imgBase64('logo_neuroavaliacao.png',  'image/png')
-const ASSIN_SRC    = imgBase64('assinatura_pedro.jpeg',    'image/jpeg')
-const CARIMBO_SRC  = imgBase64('carimbo_neuroavaliacao.jpeg', 'image/jpeg')
+const LOGO_SRC    = imgBase64('logo_neuroavaliacao.png',     'image/png')
+const ASSIN_SRC   = imgBase64('assinatura_pedro.jpeg',       'image/jpeg')
+const CARIMBO_SRC = imgBase64('carimbo_neuroavaliacao.jpeg', 'image/jpeg')
+
+// ── Caminhos para o PDF (pdfkit precisa de arquivo ou Buffer) ────────────────
+const ASSETS_DIR   = path.join(__dirname, '..', 'assets')
+const LOGO_PATH    = path.join(ASSETS_DIR, 'logo_neuroavaliacao.png')
+const ASSIN_PATH   = path.join(ASSETS_DIR, 'assinatura_pedro.jpeg')
+const CARIMBO_PATH = path.join(ASSETS_DIR, 'carimbo_neuroavaliacao.jpeg')
 
 console.log('API Key exists:', !!process.env.ANTHROPIC_API_KEY)
 
+// =============================================================================
+// HELPERS
+// =============================================================================
 function setCors(res) {
   res.set('Access-Control-Allow-Origin',  '*')
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
-
-const PRODOCTOR_BASE = 'https://open-api.prodoctor.net'
 
 async function verifyToken(req) {
   const header = req.headers.authorization || req.headers.Authorization
@@ -36,7 +46,228 @@ async function verifyToken(req) {
   catch { return null }
 }
 
-// --- prodoctorProxy ---
+// =============================================================================
+// PDF — PARSER HTML → BLOCOS TIPADOS
+// =============================================================================
+function cleanText(str) {
+  return (str || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function htmlParaBlocks(html) {
+  const blocks = []
+  const divRx = /<div[^>]*mb-6[^>]*>([\s\S]*?)<\/div>/gi
+  let divMatch
+  while ((divMatch = divRx.exec(html)) !== null) {
+    const inner = divMatch[1]
+    const h3m = inner.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i)
+    if (h3m) blocks.push({ type: 'h3', text: cleanText(h3m[1]) })
+
+    const elemRx = /<h4[^>]*>([\s\S]*?)<\/h4>|<p[^>]*>([\s\S]*?)<\/p>|<ul[^>]*>([\s\S]*?)<\/ul>/gi
+    let em
+    while ((em = elemRx.exec(inner)) !== null) {
+      if (em[1] !== undefined) {
+        blocks.push({ type: 'h4', text: cleanText(em[1]) })
+      } else if (em[2] !== undefined) {
+        const italic = /<em>/.test(em[2])
+        const text   = cleanText(em[2])
+        if (text) blocks.push({ type: 'p', text, italic })
+      } else if (em[3] !== undefined) {
+        const liRx = /<li[^>]*>([\s\S]*?)<\/li>/gi
+        let li
+        while ((li = liRx.exec(em[3])) !== null) {
+          const text = cleanText(li[1])
+          if (text) blocks.push({ type: 'li', text })
+        }
+      }
+    }
+  }
+  // fallback se o HTML não tiver divs mb-6
+  if (blocks.length === 0) {
+    const text = cleanText(html)
+    if (text) blocks.push({ type: 'p', text })
+  }
+  return blocks
+}
+
+// =============================================================================
+// PDF — GERADOR
+// =============================================================================
+async function buildPDF(html, patient, meta) {
+  // Recorta só o cabeçalho do timbrado (top ~14% da imagem 1414×2000)
+  const CROP_H      = 275
+  const headerBuffer = await sharp(LOGO_PATH)
+    .extract({ left: 0, top: 0, width: 1414, height: CROP_H })
+    .toBuffer()
+
+  const PAGE_W    = 595.28
+  const PAGE_H    = 841.89
+  const HEADER_H  = PAGE_W * CROP_H / 1414   // ≈ 116 pts
+  const MARGIN_L  = 68
+  const MARGIN_R  = 68
+  const MARGIN_T  = HEADER_H + 14
+  const MARGIN_B  = 55
+  const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R
+
+  const AZUL  = '#1B4F8A'
+  const PRETO = '#1A1A1A'
+  const CINZA = '#555555'
+  const LINHA = '#CCCCCC'
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: MARGIN_T, bottom: MARGIN_B, left: MARGIN_L, right: MARGIN_R },
+      autoFirstPage: false,
+      bufferPages: true,
+    })
+
+    const chunks = []
+    doc.on('data',  c  => chunks.push(c))
+    doc.on('end',   () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    // Cabeçalho repetido em cada página
+    const drawHeader = () => {
+      doc.save()
+      doc.image(headerBuffer, 0, 0, { width: PAGE_W })
+      doc.restore()
+    }
+
+    // Rodapé com paginação (chamado no final, quando total de páginas é conhecido)
+    const drawFooter = (pageNum, total) => {
+      doc.save()
+      doc.switchToPage(pageNum - 1)
+      doc.fontSize(7.5).fillColor('#888888').font('Helvetica')
+      doc.text(
+        `Clínica Neuroavaliação — CNPJ 29.313.355/0001-12 — Página ${pageNum} de ${total}`,
+        MARGIN_L, PAGE_H - MARGIN_B + 8,
+        { width: CONTENT_W, align: 'center' }
+      )
+      doc.restore()
+    }
+
+    const hRule = (color = AZUL, lw = 1.0) => {
+      const y = doc.y
+      doc.save()
+      doc.moveTo(MARGIN_L, y).lineTo(PAGE_W - MARGIN_R, y)
+        .strokeColor(color).lineWidth(lw).stroke()
+      doc.restore()
+      doc.moveDown(0.5)
+    }
+
+    const ensureSpace = (needed = 60) => {
+      if (doc.y > PAGE_H - MARGIN_B - needed) doc.addPage()
+    }
+
+    doc.on('pageAdded', drawHeader)
+    doc.addPage()
+
+    // ── Título ───────────────────────────────────────────────────────────────
+    doc.fontSize(14).fillColor(AZUL).font('Helvetica-Bold')
+    doc.text('LAUDO NEUROPSICOLÓGICO', { align: 'center' })
+    doc.fontSize(9).fillColor(CINZA).font('Helvetica')
+    doc.text('Avaliação Clínica — Confidencial', { align: 'center' })
+    doc.moveDown(0.6)
+    hRule(AZUL, 1.2)
+
+    // ── Dados do paciente ─────────────────────────────────────────────────────
+    const p  = patient || {}
+    const sv = meta.supervisor || {}
+    const infos = [
+      ['Paciente',          p.full_name || ''],
+      ['Data da avaliação', meta.dataFormatada || ''],
+      ['Supervisão técnica', (sv.name || 'Dr. Pedro Donizetti') + '  —  ' + (sv.crp || 'CRP 06/82060')],
+    ].filter(([, v]) => v)
+
+    for (const [label, value] of infos) {
+      doc.fontSize(9)
+      doc.fillColor(CINZA).font('Helvetica-Bold').text(`${label}: `, { continued: true })
+      doc.fillColor(PRETO).font('Helvetica').text(value)
+    }
+    doc.moveDown(0.8)
+
+    // ── Seções do laudo ───────────────────────────────────────────────────────
+    const blocks = htmlParaBlocks(html)
+    for (const block of blocks) {
+      switch (block.type) {
+        case 'h3':
+          ensureSpace(70)
+          doc.moveDown(0.6)
+          doc.fontSize(11).fillColor(AZUL).font('Helvetica-Bold')
+          doc.text(block.text)
+          hRule(AZUL, 0.8)
+          break
+        case 'h4':
+          ensureSpace(50)
+          doc.moveDown(0.3)
+          doc.fontSize(10).fillColor(AZUL).font('Helvetica-Bold')
+          doc.text(block.text)
+          doc.moveDown(0.2)
+          break
+        case 'p':
+          ensureSpace(40)
+          doc.fontSize(10).fillColor(PRETO)
+            .font(block.italic ? 'Helvetica-Oblique' : 'Helvetica')
+          doc.text(block.text, { align: 'justify', lineGap: 3 })
+          doc.moveDown(0.4)
+          break
+        case 'li':
+          ensureSpace(25)
+          doc.fontSize(10).fillColor(PRETO).font('Helvetica')
+          doc.text(`•  ${block.text}`, { indent: 12, align: 'justify', lineGap: 3 })
+          doc.moveDown(0.2)
+          break
+      }
+    }
+
+    // ── Assinatura + Carimbo ──────────────────────────────────────────────────
+    ensureSpace(140)
+    doc.moveDown(1.2)
+    hRule(LINHA, 0.5)
+
+    const dataStr = meta.dataFormatada
+      || new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    doc.fontSize(9).fillColor(CINZA).font('Helvetica')
+    doc.text(`São Paulo, ${dataStr}`)
+    doc.moveDown(1.2)
+
+    const sigY  = doc.y
+    const colW  = CONTENT_W / 3
+    const imgW  = colW * 0.82
+
+    if (fs.existsSync(ASSIN_PATH))   doc.image(ASSIN_PATH,    MARGIN_L,            sigY, { width: imgW })
+    if (fs.existsSync(CARIMBO_PATH)) doc.image(CARIMBO_PATH,  MARGIN_L + colW * 2, sigY, { width: imgW })
+
+    const textY = sigY + 88
+    doc.fontSize(9).fillColor(PRETO).font('Helvetica-Bold')
+    doc.text('Pedro Donizetti de Oliveira', MARGIN_L, textY, { width: colW * 1.1, align: 'center' })
+    doc.fontSize(8).fillColor(CINZA).font('Helvetica')
+    doc.text('Neuropsicólogo e Psicólogo Clínico', MARGIN_L, doc.y, { width: colW * 1.1, align: 'center' })
+    doc.text('CRP 82060', MARGIN_L, doc.y, { width: colW * 1.1, align: 'center' })
+
+    // ── Rodapés com total real ────────────────────────────────────────────────
+    const total = doc.bufferedPageRange().count
+    for (let i = 1; i <= total; i++) drawFooter(i, total)
+
+    doc.end()
+  })
+}
+
+// =============================================================================
+// FUNCTION: prodoctorProxy  (inalterada)
+// =============================================================================
+const PRODOCTOR_BASE = 'https://open-api.prodoctor.net'
+
 exports.prodoctorProxy = onRequest(
   { region: 'us-central1', timeoutSeconds: 30, invoker: 'public' },
   async (req, res) => {
@@ -59,9 +290,7 @@ exports.prodoctorProxy = onRequest(
         'X-APITIMEZONENAME': 'America/Sao_Paulo',
       },
     }
-    if (body && method !== 'GET') {
-      fetchOpts.body = JSON.stringify(body)
-    }
+    if (body && method !== 'GET') fetchOpts.body = JSON.stringify(body)
 
     try {
       const pdRes = await fetch(`${PRODOCTOR_BASE}${path}`, fetchOpts)
@@ -74,7 +303,9 @@ exports.prodoctorProxy = onRequest(
   }
 )
 
-// --- generateReport ---
+// =============================================================================
+// FUNCTION: generateReport  (inalterada — retorna HTML com logo/assinatura)
+// =============================================================================
 exports.generateReport = onRequest(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB', invoker: 'public' },
   async (req, res) => {
@@ -237,8 +468,8 @@ Estilos obrigatórios:
 </div>`
 
       const assinatura = `<div style="margin-top:40px;padding-top:16px;border-top:2px solid #1A3D2B;display:flex;align-items:flex-end;gap:24px">
-${ASSIN_SRC ? `<img src="${ASSIN_SRC}" alt="Assinatura" style="max-width:160px;height:auto" />` : ''}
-${CARIMBO_SRC ? `<img src="${CARIMBO_SRC}" alt="Carimbo" style="max-width:120px;height:auto" />` : ''}
+${ASSIN_SRC   ? `<img src="${ASSIN_SRC}"   alt="Assinatura" style="max-width:160px;height:auto" />` : ''}
+${CARIMBO_SRC ? `<img src="${CARIMBO_SRC}" alt="Carimbo"    style="max-width:120px;height:auto" />` : ''}
 <div>
 <p style="font-size:13px;margin-bottom:2px;line-height:1.5">Pedro Donizetti de Oliveira</p>
 <p style="font-size:13px;margin-bottom:2px;line-height:1.5">Neuropsicólogo — CRP 06/82.060</p>
@@ -247,10 +478,39 @@ ${CARIMBO_SRC ? `<img src="${CARIMBO_SRC}" alt="Carimbo" style="max-width:120px;
 </div>`
 
       const html = cabecalho + body + assinatura
-
       res.status(200).json({ html })
     } catch (e) {
       console.error('[generateReport]', e)
+      res.status(500).json({ error: e.message })
+    }
+  }
+)
+
+// =============================================================================
+// FUNCTION: generateReportPDF  ← NOVA
+// Recebe o HTML já gerado (output de generateReport) e devolve PDF em base64.
+// Chame APÓS ter o HTML — sem gastar crédito extra de IA.
+//
+// Body: { html, patient, dataFormatada, supervisor }
+// Retorna: { pdfBase64 }
+// =============================================================================
+exports.generateReportPDF = onRequest(
+  { region: 'us-central1', timeoutSeconds: 60, memory: '512MiB', invoker: 'public' },
+  async (req, res) => {
+    setCors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+
+    const decoded = await verifyToken(req)
+    if (!decoded) { res.status(401).json({ error: 'Não autorizado' }); return }
+
+    const { html, patient, dataFormatada, supervisor } = req.body
+    if (!html) { res.status(400).json({ error: 'Campo "html" é obrigatório.' }); return }
+
+    try {
+      const pdfBuffer = await buildPDF(html, patient, { dataFormatada, supervisor })
+      res.status(200).json({ pdfBase64: pdfBuffer.toString('base64') })
+    } catch (e) {
+      console.error('[generateReportPDF]', e)
       res.status(500).json({ error: e.message })
     }
   }
