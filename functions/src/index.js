@@ -1,7 +1,8 @@
-﻿// deploy: 2026-05-12 07:45:06
+﻿// deploy: 2026-05-12 21:00:00
 const { onRequest } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
-const Anthropic = require('@anthropic-ai/sdk')
+const AnthropicPkg = require('@anthropic-ai/sdk')
+const Anthropic = AnthropicPkg.default ?? AnthropicPkg
 
 admin.initializeApp()
 
@@ -175,7 +176,9 @@ Regras:
 - Laudo rigoroso, tÃ©cnico e completamente individualizado para este paciente`
 
     try {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const apiKey = process.env.ANTHROPIC_API_KEY
+      if (!apiKey) throw new Error('ANTHROPIC_API_KEY não configurada nas Cloud Functions')
+      const anthropic = new Anthropic({ apiKey })
       const msg = await anthropic.messages.create({
         model: 'claude-opus-4-5',
         max_tokens: 4096,
