@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Get-Process *)"
+      "PowerShell(Get-Process *)",
+      "WebSearch",
+      "WebFetch(domain:open-api.prodoctor.net)",
+      "WebFetch(domain:prodoctor.net)",
+      "Bash(npm run *)",
+      "Bash(firebase deploy *)",
+      "Bash(Test-Path *)",
+      "Bash(npm install *)",
+      "Bash(firebase functions:log --project neuroclin-f55a5 --only prodoctorProxy)"
     ]
   }
 }

@@ -1,61 +1,31 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db, googleProvider } from './firebase'
-import { Brain } from 'lucide-react'
+import { auth, db } from './firebase'
+import { Brain, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 const AuthContext = createContext(null)
 
-export function AuthProvider({ children }) {
-  const [user,      setUser]      = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [loginErr,  setLoginErr]  = useState(null)
+function LoginScreen({ onLogin, error }) {
+  const [email,    setEmail]    = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw,   setShowPw]   = useState(false)
+  const [loading,  setLoading]  = useState(false)
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (fu) => {
-      if (fu) {
-        try {
-          const ref  = doc(db, 'users', fu.uid)
-          const snap = await getDoc(ref)
-          if (snap.exists()) {
-            setUser({ id: fu.uid, ...snap.data() })
-            await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
-          } else {
-            const profile = {
-              email:      fu.email,
-              full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
-              photo_url:  fu.photoURL || '',
-              role:       'professional',
-              created_at: serverTimestamp(),
-              last_login: serverTimestamp(),
-            }
-            await setDoc(ref, profile)
-            setUser({ id: fu.uid, ...profile })
-          }
-        } catch {
-          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: 'professional' })
-        }
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
-    })
-    return unsub
-  }, [])
-
-  const login = async () => {
-    try {
-      setLoginErr(null)
-      await signInWithPopup(auth, googleProvider)
-    } catch (e) {
-      setLoginErr('Não foi possível fazer login. Tente novamente.')
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    await onLogin(email, password)
+    setLoading(false)
   }
 
-  const logout = () => signOut(auth)
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', borderRadius: 9,
+    border: '1.5px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)',
+    color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box',
+  }
 
-  // Tela de login — tema escuro igual ao Neuroavaliação
-  const LoginScreen = () => (
+  return (
     <div style={{
       minHeight: '100vh', background: '#0D1117',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -78,52 +48,146 @@ export function AuthProvider({ children }) {
       {/* Card */}
       <div style={{
         background: '#1A2744', borderRadius: 16, padding: '36px 32px',
-        width: '100%', maxWidth: 380, border: '1px solid rgba(255,255,255,0.08)',
+        width: '100%', maxWidth: 400, border: '1px solid rgba(255,255,255,0.08)',
       }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#fff', textAlign: 'center', marginBottom: 6 }}>
           Bem-vindo!
         </h1>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 28 }}>
-          Acesse com sua conta Google autorizada
+          Acesse com seu e-mail e senha
         </p>
 
-        {loginErr && (
+        {error && (
           <div style={{
             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16
+            borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#EF4444', marginBottom: 16,
+            textAlign: 'center',
           }}>
-            {loginErr}
+            {error}
           </div>
         )}
 
-        <button onClick={login} style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: 12, padding: '13px 20px',
-          background: '#2E7D32', border: 'none', borderRadius: 10,
-          fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#fff',
-          letterSpacing: '0.02em', transition: 'background 0.15s',
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="rgba(255,255,255,0.8)" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="rgba(255,255,255,0.6)" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="rgba(255,255,255,0.9)" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Entrar com Google
-        </button>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', display: 'block', marginBottom: 7, letterSpacing: '0.08em' }}>
+              EMAIL
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoFocus
+              placeholder="seu@email.com"
+              style={inputStyle}
+            />
+          </div>
 
-        <p style={{ marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', display: 'block', marginBottom: 7, letterSpacing: '0.08em' }}>
+              SENHA
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                style={{ ...inputStyle, paddingRight: 42 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                style={{
+                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.35)', display: 'flex', padding: 2,
+                }}
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 8, padding: '13px 20px', marginTop: 4,
+              background: '#2E7D32', border: 'none', borderRadius: 10,
+              fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+              color: '#fff', opacity: loading ? 0.7 : 1, letterSpacing: '0.03em',
+            }}
+          >
+            {loading && <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} />}
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+
+        <p style={{ marginTop: 22, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.6 }}>
           Acesso restrito a profissionais autorizados<br />
           Neuroavaliação — Neuropsicologia na Prática
         </p>
       </div>
 
-      {/* Supervisor */}
-      <div style={{ marginTop: 24, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+      <div style={{ marginTop: 24, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
         Supervisão: Dr. Pedro Donizetti · CRP 06/82060
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
+}
+
+export function AuthProvider({ children }) {
+  const [user,     setUser]     = useState(null)
+  const [loading,  setLoading]  = useState(true)
+  const [loginErr, setLoginErr] = useState(null)
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fu) => {
+      if (fu) {
+        try {
+          const ref  = doc(db, 'users', fu.uid)
+          const snap = await getDoc(ref)
+          if (snap.exists()) {
+            setUser({ id: fu.uid, ...snap.data() })
+            await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+          } else {
+            const profile = {
+              email:      fu.email,
+              full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
+              photo_url:  '',
+              role:       'professional',
+              created_at: serverTimestamp(),
+              last_login: serverTimestamp(),
+            }
+            await setDoc(ref, profile)
+            setUser({ id: fu.uid, ...profile })
+          }
+        } catch {
+          setUser({ id: fu.uid, email: fu.email, full_name: fu.email?.split('@')[0] || 'Profissional', role: 'professional' })
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+    return unsub
+  }, [])
+
+  const login = async (email, password) => {
+    try {
+      setLoginErr(null)
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch {
+      setLoginErr('Email ou senha incorretos.')
+    }
+  }
+
+  const logout = () => signOut(auth)
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0D1117' }}>
@@ -137,7 +201,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
-      {!user ? <LoginScreen /> : children}
+      {!user ? <LoginScreen onLogin={login} error={loginErr} /> : children}
     </AuthContext.Provider>
   )
 }

@@ -10,6 +10,7 @@ import Tests from '@/pages/Tests'
 import MedicalRecords from '@/pages/MedicalRecords'
 import Analytics from '@/pages/Analytics'
 import AdminSetup from '@/pages/AdminSetup'
+import Settings    from '@/pages/Settings'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } }
@@ -25,8 +26,9 @@ function AppRoutes() {
         <Route path="/testes"     element={<Tests />} />
         <Route path="/prontuario" element={<MedicalRecords />} />
         <Route path="/relatorios" element={<Analytics />} />
-        <Route path="/admin-setup" element={<AdminSetup />} />
-        <Route path="*"           element={<Dashboard />} />
+        <Route path="/configuracoes" element={<Settings />} />
+        <Route path="/admin-setup"   element={<AdminSetup />} />
+        <Route path="*"              element={<Dashboard />} />
       </Routes>
     </Layout>
   )

@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
-import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2 } from 'lucide-react'
+import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, AlertCircle } from 'lucide-react'
+import { searchPatients, getPatient } from '@/services/prodoctorApi'
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
@@ -52,6 +53,107 @@ const inputStyle = {
   outline: 'none', boxSizing: 'border-box'
 }
 
+// ─── Busca ProDoctor ──────────────────────────────────────────────────────────
+function ProDoctorSearch({ onImport }) {
+  const [query,    setQuery]    = useState('')
+  const [results,  setResults]  = useState([])
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+  const [selected,    setSelected]    = useState(null)
+  const [importing,   setImporting]   = useState(false)
+  const debounce = useRef(null)
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setResults([]); setError(''); return }
+    clearTimeout(debounce.current)
+    debounce.current = setTimeout(async () => {
+      setLoading(true); setError(''); setResults([])
+      try {
+        const list = await searchPatients(query)
+        setResults(list)
+        if (list.length === 0) setError('Nenhum paciente encontrado no ProDoctor.')
+      } catch (e) {
+        setError(`Erro ProDoctor (${e.status || 'rede'}): ${e.message}`)
+      } finally { setLoading(false) }
+    }, 600)
+  }, [query])
+
+  const handleImport = async () => {
+    if (!selected) return
+    setImporting(true); setError('')
+    try {
+      const detail = await getPatient(selected.prodoctor_id)
+      onImport(detail)
+      setQuery(''); setResults([]); setSelected(null); setError('')
+    } catch (e) {
+      setError(`Erro ao detalhar paciente (${e.status || 'rede'}): ${e.message}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div style={{ background: '#0F1B2D', borderRadius: 10, padding: 14, marginBottom: 16, border: '1px solid rgba(46,125,50,0.3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <CloudDownload size={14} color="#4CAF50" />
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#4CAF50', letterSpacing: '0.06em' }}>BUSCAR NO PRODOCTOR</span>
+      </div>
+
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        <Search size={14} color="#aaa" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Digite o nome do paciente..."
+          style={{ ...inputStyle, paddingLeft: 32, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+        />
+        {loading && <Loader2 size={14} color="#4CAF50" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite' }} />}
+      </div>
+
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#F59E0B', padding: '6px 0' }}>
+          <AlertCircle size={12} /> {error}
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div style={{ maxHeight: 180, overflowY: 'auto', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 }}>
+          {results.map((p, i) => (
+            <div key={p.prodoctor_id || i}
+              onClick={() => setSelected(p)}
+              style={{
+                padding: '8px 12px', cursor: 'pointer', fontSize: 12,
+                background: selected?.prodoctor_id === p.prodoctor_id ? 'rgba(46,125,50,0.25)' : (i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent'),
+                borderBottom: i < results.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              }}>
+              <span style={{ color: '#fff', fontWeight: 600 }}>{p.full_name}</span>
+              <span style={{ color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
+                {p.birth_date ? `${new Date().getFullYear() - new Date(p.birth_date).getFullYear()} anos` : ''}
+                {p.cpf ? ` · ${p.cpf}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <button onClick={handleImport} disabled={importing} style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 6, padding: '8px', borderRadius: 8, border: 'none',
+          background: '#2E7D32', color: '#fff', fontSize: 12, fontWeight: 700,
+          cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.7 : 1,
+        }}>
+          {importing
+            ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Carregando dados...</>
+            : <><CloudDownload size={13} /> Importar "{selected.full_name}"</>
+          }
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
 export default function Patients() {
   const { patients, loading, create, update, remove } = usePatients()
   const [search,  setSearch]  = useState('')
@@ -200,6 +302,20 @@ export default function Patients() {
 
       {/* Dialog */}
       <Modal open={dialog} onClose={closeDialog} title={editing ? 'Editar paciente' : 'Novo paciente'}>
+        {/* Busca ProDoctor — só aparece em novos cadastros */}
+        {!editing && (
+          <ProDoctorSearch onImport={p => setForm(prev => ({
+            ...prev,
+            full_name:  p.full_name  || prev.full_name,
+            birth_date: p.birth_date || prev.birth_date,
+            cpf:        p.cpf        || prev.cpf,
+            phone:      p.phone      || prev.phone,
+            email:      p.email      || prev.email,
+            sex:        p.sex        || prev.sex,
+            education:  p.education  || prev.education,
+            prodoctor_id: p.prodoctor_id || prev.prodoctor_id,
+          }))} />
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label="Nome completo *">

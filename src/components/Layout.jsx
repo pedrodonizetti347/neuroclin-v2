@@ -14,6 +14,7 @@ const NAV = [
   { label: 'Testes',          icon: FlaskConical,     path: '/testes' },
   { label: 'Prontuário',      icon: BookOpen,         path: '/prontuario' },
   { label: 'Relatórios',      icon: BarChart3,        path: '/relatorios' },
+  { label: 'Configurações',   icon: Settings,         path: '/configuracoes' },
 ]
 
 const S = {

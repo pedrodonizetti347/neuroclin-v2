@@ -6,11 +6,13 @@ admin.initializeApp()
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+function setCors(res) {
+  res.set('Access-Control-Allow-Origin',  '*')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
+
+const PRODOCTOR_BASE = 'https://open-api.prodoctor.net'
 
 async function verifyToken(req) {
   const header = req.headers.authorization || req.headers.Authorization
@@ -19,14 +21,53 @@ async function verifyToken(req) {
   catch { return null }
 }
 
-// ─── generateReport ───────────────────────────────────────────────────────────
-exports.generateReport = onRequest(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB', cors: true },
+// ─── prodoctorProxy ───────────────────────────────────────────────────────────
+exports.prodoctorProxy = onRequest(
+  { region: 'us-central1', timeoutSeconds: 30, invoker: 'public' },
   async (req, res) => {
-    if (req.method === 'OPTIONS') { res.set(CORS).status(204).send(''); return }
+    setCors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
 
     const decoded = await verifyToken(req)
-    if (!decoded) { res.set(CORS).status(401).json({ error: 'Não autorizado' }); return }
+    if (!decoded) { res.status(401).json({ error: 'Não autorizado' }); return }
+
+    const { path, method = 'GET', body } = req.body || {}
+    if (!path) { res.status(400).json({ error: 'path obrigatório' }); return }
+
+    const fetchOpts = {
+      method,
+      headers: {
+        'Content-Type':      'application/json',
+        'X-APIKEY':          process.env.PRODOCTOR_KEY  || '',
+        'X-APIPASSWORD':     process.env.PRODOCTOR_PASS || '',
+        'X-APITIMEZONE':     '-03:00',
+        'X-APITIMEZONENAME': 'America/Sao_Paulo',
+      },
+    }
+    if (body && method !== 'GET') {
+      fetchOpts.body = JSON.stringify(body)
+    }
+
+    try {
+      const pdRes = await fetch(`${PRODOCTOR_BASE}${path}`, fetchOpts)
+      const data  = await pdRes.json().catch(() => ({}))
+      res.status(pdRes.status).json(data)
+    } catch (e) {
+      console.error('[prodoctorProxy]', e)
+      res.status(502).json({ error: e.message })
+    }
+  }
+)
+
+// ─── generateReport ───────────────────────────────────────────────────────────
+exports.generateReport = onRequest(
+  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB', invoker: 'public' },
+  async (req, res) => {
+    setCors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+
+    const decoded = await verifyToken(req)
+    if (!decoded) { res.status(401).json({ error: 'Não autorizado' }); return }
 
     const {
       patient, anamnesisData: ad, selectedTests,
@@ -142,10 +183,10 @@ Regras:
         .map(b => b.text)
         .join('')
 
-      res.set(CORS).status(200).json({ html })
+      res.status(200).json({ html })
     } catch (e) {
       console.error('[generateReport]', e)
-      res.set(CORS).status(500).json({ error: e.message })
+      res.status(500).json({ error: e.message })
     }
   }
 )
