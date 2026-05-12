@@ -27,6 +27,9 @@ React + Vite + Tailwind | Firebase Auth (Google) + Firestore | Claude API via Cl
 |----------|-----------|
 | `bd04a40` | fix: Analytics usa Cloud Function em vez de chamar Anthropic direto |
 | `40a31cc` | feat: testes completos + CNAME neuroclinlaudos.com.br + estado documentado |
+| `16c1047` | docs: atualiza NEUROCLIN_STATE_3.md com sessão completa |
+| `2103b53` | chore: remove public/CNAME |
+| `0395f97` | fix: corrige import Anthropic SDK v0.39 (ESM/CJS) e adiciona guard apiKey |
 
 ### O que foi feito
 
@@ -216,7 +219,32 @@ PRODOCTOR_PASS=...
 
 ## Pendências / próximas sessões
 - [x] Configurar DNS neuroclinlaudos.com.br no registro.br ✅ feito em 12/05/2026
+- [x] Corrigir erro "apiKey is not defined" na Cloud Function ✅ feito em 12/05/2026
 - [ ] Ativar HTTPS no GitHub Pages após propagação do DNS (aguardando)
 - [ ] Implementar Anamnese completa em MedicalRecords.jsx
 - [ ] Dashboard com métricas reais (laudos gerados, pacientes cadastrados)
 - [ ] Pfeffer e outros testes adicionais se necessário
+
+## Correção crítica — import Anthropic SDK (12/05/2026)
+
+**Problema:** `require('@anthropic-ai/sdk')` no SDK v0.39 (ESM-first) retornava
+o módulo inteiro em vez do construtor, causando erro "apiKey is not defined".
+
+**Fix aplicado em `functions/src/index.js`:**
+```js
+// Antes
+const Anthropic = require('@anthropic-ai/sdk')
+
+// Depois
+const AnthropicPkg = require('@anthropic-ai/sdk')
+const Anthropic = AnthropicPkg.default ?? AnthropicPkg
+```
+
+Guard explícito adicionado:
+```js
+const apiKey = process.env.ANTHROPIC_API_KEY
+if (!apiKey) throw new Error('ANTHROPIC_API_KEY não configurada nas Cloud Functions')
+const anthropic = new Anthropic({ apiKey })
+```
+
+**Deploy functions:** ✅ `0395f97` — produção atualizada em 12/05/2026.
