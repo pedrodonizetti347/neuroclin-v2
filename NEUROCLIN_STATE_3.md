@@ -18,6 +18,20 @@ React + Vite + Tailwind | Firebase Auth (Google) + Firestore | Claude API via Cl
 
 ---
 
+## Sessão 12/05/2026 — cabeçalho visual e assinatura com imagens
+
+### O que foi feito
+
+#### Cabeçalho e assinatura visual no laudo
+- Imagens copiadas para `functions/assets/`: `logo_neuroavaliacao.png`, `assinatura_pedro.jpeg`, `carimbo_neuroavaliacao.jpeg`
+- Função `imgBase64()` em `index.js` lê as imagens no startup da Cloud Function e converte para base64
+- **Cabeçalho**: logo centralizado no topo, separado por linha verde `#1A3D2B`
+- **Assinatura**: bloco com imagem da assinatura + carimbo lado a lado, seguidos do nome/CRP/clínica em texto
+- Pacote da função passou de 35 KB para 214 KB (inclui as 3 imagens)
+- Cloud Functions deployadas com sucesso em 12/05/2026
+
+---
+
 ## Sessão 12/05/2026 — estrutura do laudo (prompt generateReport)
 
 ### O que foi feito

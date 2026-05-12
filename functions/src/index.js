@@ -3,8 +3,21 @@ const { onRequest } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const AnthropicPkg = require('@anthropic-ai/sdk')
 const Anthropic = AnthropicPkg.default ?? AnthropicPkg
+const fs = require('fs')
+const path = require('path')
 
 admin.initializeApp()
+
+function imgBase64(filename, mime) {
+  try {
+    const buf = fs.readFileSync(path.join(__dirname, '..', 'assets', filename))
+    return `data:${mime};base64,${buf.toString('base64')}`
+  } catch { return '' }
+}
+
+const LOGO_SRC     = imgBase64('logo_neuroavaliacao.png',  'image/png')
+const ASSIN_SRC    = imgBase64('assinatura_pedro.jpeg',    'image/jpeg')
+const CARIMBO_SRC  = imgBase64('carimbo_neuroavaliacao.jpeg', 'image/jpeg')
 
 console.log('API Key exists:', !!process.env.ANTHROPIC_API_KEY)
 
@@ -215,13 +228,25 @@ Estilos obrigatórios:
         .map(b => b.text)
         .join('')
 
-      const assinatura = `<div class="mb-6" style="margin-top:32px;border-top:2px solid #1A3D2B;padding-top:16px">
-<p style="font-size:13px;margin-bottom:4px;line-height:1.7">Pedro Donizetti de Oliveira</p>
-<p style="font-size:13px;margin-bottom:4px;line-height:1.7">Neuropsicólogo — CRP 06/82.060</p>
-<p style="font-size:13px;margin-bottom:4px;line-height:1.7">NEUROAVALIAÇÃO ME</p>
+      const cabecalho = LOGO_SRC
+        ? `<div style="text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1A3D2B">
+<img src="${LOGO_SRC}" alt="Neuroavaliação" style="max-width:220px;height:auto;display:block;margin:0 auto 8px auto" />
+</div>`
+        : `<div style="text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #1A3D2B">
+<p style="font-size:18px;font-weight:bold;color:#1A3D2B;margin:0">NEUROAVALIAÇÃO ME</p>
 </div>`
 
-      const html = body + assinatura
+      const assinatura = `<div style="margin-top:40px;padding-top:16px;border-top:2px solid #1A3D2B;display:flex;align-items:flex-end;gap:24px">
+${ASSIN_SRC ? `<img src="${ASSIN_SRC}" alt="Assinatura" style="max-width:160px;height:auto" />` : ''}
+${CARIMBO_SRC ? `<img src="${CARIMBO_SRC}" alt="Carimbo" style="max-width:120px;height:auto" />` : ''}
+<div>
+<p style="font-size:13px;margin-bottom:2px;line-height:1.5">Pedro Donizetti de Oliveira</p>
+<p style="font-size:13px;margin-bottom:2px;line-height:1.5">Neuropsicólogo — CRP 06/82.060</p>
+<p style="font-size:13px;margin-bottom:2px;line-height:1.5">NEUROAVALIAÇÃO ME</p>
+</div>
+</div>`
+
+      const html = cabecalho + body + assinatura
 
       res.status(200).json({ html })
     } catch (e) {
