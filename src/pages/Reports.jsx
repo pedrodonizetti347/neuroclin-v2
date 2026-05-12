@@ -72,6 +72,7 @@ export default function Reports() {
   const [step,           setStep]           = useState(0)
   const [saved,          setSaved]          = useState(false)
   const [error,          setError]          = useState('')
+  const [pdfLoading,     setPdfLoading]     = useState(false)  // ← NOVO
 
   const session = useTestSession(patientId)
 
@@ -170,6 +171,48 @@ export default function Reports() {
       setStep(0)
     }
   }
+
+  // ── NOVO: download do PDF via generateReportPDF ───────────────────────────
+  const downloadPDF = async () => {
+    if (!report) return
+    setPdfLoading(true)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const fnUrl = import.meta.env.VITE_FUNCTIONS_URL
+
+      const res = await fetch(`${fnUrl}/generateReportPDF`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          html:          report,
+          patient,
+          dataFormatada: new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' }),
+          supervisor:    SUPERVISOR,
+        }),
+      })
+
+      if (!res.ok) throw new Error(`Erro ${res.status}`)
+      const { pdfBase64 } = await res.json()
+
+      // Converte base64 → Blob → dispara download
+      const bytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0))
+      const blob  = new Blob([bytes], { type: 'application/pdf' })
+      const url   = URL.createObjectURL(blob)
+      const a     = document.createElement('a')
+      a.href      = url
+      a.download  = `Laudo_${patient?.full_name?.replace(/\s+/g, '_') || 'Neuropsicologico'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError('Erro ao gerar PDF: ' + e.message)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const print = () => {
     const w = window.open('', '_blank')
@@ -325,15 +368,36 @@ export default function Reports() {
                 </span>
               )}
             </div>
+
+            {/* ── Botões de exportação ── */}
             {report && (
-              <button onClick={print} style={{
-                display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
-                padding: '5px 12px', borderRadius: 7,
-                border: `1px solid ${S.border}`, background: 'transparent',
-                cursor: 'pointer', color: S.greenL,
-              }}>
-                <Download size={13} /> IMPRIMIR / PDF
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+
+                {/* Imprimir (existente) */}
+                <button onClick={print} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
+                  padding: '5px 12px', borderRadius: 7,
+                  border: `1px solid ${S.border}`, background: 'transparent',
+                  cursor: 'pointer', color: S.muted,
+                }}>
+                  <Download size={13} /> IMPRIMIR
+                </button>
+
+                {/* ── NOVO: Baixar PDF com timbrado ── */}
+                <button onClick={downloadPDF} disabled={pdfLoading} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
+                  padding: '5px 12px', borderRadius: 7,
+                  border: `1.5px solid ${S.greenL}`,
+                  background: pdfLoading ? 'rgba(76,175,80,0.1)' : 'rgba(76,175,80,0.15)',
+                  cursor: pdfLoading ? 'not-allowed' : 'pointer',
+                  color: S.greenL,
+                }}>
+                  {pdfLoading
+                    ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</>
+                    : <><Download size={13} /> BAIXAR PDF</>}
+                </button>
+
+              </div>
             )}
           </div>
 
