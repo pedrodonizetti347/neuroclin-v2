@@ -136,14 +136,27 @@ export default function Reports() {
       const token  = await auth.currentUser?.getIdToken()
       const fnUrl  = import.meta.env.VITE_FUNCTIONS_URL
 
+      const neu = session.session.tests.NEUPSILIN || {}
+      const neupsilinZScores = {
+        orientation: neu.orientation_z,
+        attention:   neu.attention_z,
+        perception:  neu.perception_z,
+        memory:      neu.memory_z,
+        arithmetic:  neu.arithmetic_z,
+        language:    neu.language_z,
+        praxis:      neu.praxis_z,
+        executive:   neu.executive_z,
+      }
+
       const payload = {
         patient,
-        anamnesisData:  session.session.anamnesis,
+        anamnesisData:    session.session.anamnesis,
         selectedTests,
-        testsData:      session.session.tests,
-        appliedBy:      appliedBy || user?.full_name,
-        supervisor:     SUPERVISOR,
-        dataFormatada:  new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' }),
+        testsData:        session.session.tests,
+        neupsilinZScores,
+        appliedBy:        appliedBy || user?.full_name,
+        supervisor:       SUPERVISOR,
+        dataFormatada:    new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' }),
       }
 
       const res = await fetch(`${fnUrl}/generateReport`, {
