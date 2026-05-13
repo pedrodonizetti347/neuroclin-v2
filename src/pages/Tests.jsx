@@ -211,29 +211,35 @@ function RAVLTForm({ data, onChange }) {
   )
 }
 
-// ─── NEUPSILIN (Z-scores) ─────────────────────────────────────────────────────
+// ─── NEUPSILIN (Escore Bruto + Z-score) ──────────────────────────────────────
 function NEUPSILINForm({ data, onChange }) {
   const d = data || {}
-  const set = (k, v) => onChange({ ...d, zScores: { ...(d.zScores||{}), [k]: v } })
-  const z = d.zScores || {}
+  const setZ = (k, v) => onChange({ ...d, zScores:    { ...(d.zScores   ||{}), [k]: v } })
+  const setR = (k, v) => onChange({ ...d, rawScores:  { ...(d.rawScores ||{}), [k]: v } })
+  const z = d.zScores    || {}
+  const r = d.rawScores  || {}
   const fields = [
-    { key: 'orientation', label: 'Orientação' },
-    { key: 'attention',   label: 'Atenção' },
-    { key: 'perception',  label: 'Percepção' },
-    { key: 'memory',      label: 'Memória' },
-    { key: 'arithmetic',  label: 'Aritmética' },
-    { key: 'language',    label: 'Linguagem' },
-    { key: 'praxis',      label: 'Praxia' },
-    { key: 'executive',   label: 'Funções Executivas' },
+    { key: 'orientation', label: '1 – Orientação' },
+    { key: 'attention',   label: '2 – Atenção' },
+    { key: 'perception',  label: '3 – Percepção' },
+    { key: 'memory',      label: '4 – Memória' },
+    { key: 'arithmetic',  label: '5 – Aritmética' },
+    { key: 'language',    label: '6 – Linguagem' },
+    { key: 'praxis',      label: '7 – Praxia' },
+    { key: 'executive',   label: '8 – Funções Executivas' },
   ]
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
       {fields.map(f => {
         const c = classify.zscore(z[f.key])
         return (
-          <div key={f.key}>
-            <NumField label={f.label} value={z[f.key]} onChange={v => set(f.key, v)} step={0.01} hint="z-score" />
-            {c && <div style={{ marginTop: 3 }}><Badge {...c} /></div>}
+          <div key={f.key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '8px 10px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginBottom: 6 }}>{f.label}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <NumField label="Escore Bruto" value={r[f.key]} onChange={v => setR(f.key, v)} hint="bruto" />
+              <NumField label="Z-Escore" value={z[f.key]} onChange={v => setZ(f.key, v)} step={0.01} hint="z" />
+            </div>
+            {c && <div style={{ marginTop: 4 }}><Badge {...c} /></div>}
           </div>
         )
       })}

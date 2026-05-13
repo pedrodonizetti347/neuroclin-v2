@@ -185,27 +185,30 @@ function buildNeupsilinSection(td) {
   const d = td?.NEUPSILIN
   if (!d) return ''
 
-  const zs = d.zScores || {}
+  const zs = d.zScores   || {}
+  const rs = d.rawScores || {}
+
   const domains = [
-    { label: '1 – Orientação',            key: 'orientation', score: d.scores?.orientation ?? d.orientation_total ?? '—' },
-    { label: '2 – Atenção',                key: 'attention',   score: d.scores?.attention   ?? d.attention_total   ?? '—' },
-    { label: '3 – Percepção',              key: 'perception',  score: d.scores?.perception  ?? d.perception_total  ?? '—' },
-    { label: '4 – Memória',                key: 'memory',      score: d.scores?.memory      ?? d.memory_total      ?? '—' },
-    { label: '5 – Habilidades Aritméticas',key: 'arithmetic',  score: d.scores?.arithmetic  ?? d.arithmetic_total  ?? '—' },
-    { label: '6 – Linguagem',              key: 'language',    score: d.scores?.language    ?? d.language_total    ?? '—' },
-    { label: '7 – Praxias',                key: 'praxis',      score: d.scores?.praxis      ?? d.praxis_total      ?? '—' },
-    { label: '8 – Funções Executivas',     key: 'executive',   score: d.scores?.executive   ?? d.executive_total   ?? '—' },
+    { label: '1 – Orientação',             key: 'orientation' },
+    { label: '2 – Atenção',                key: 'attention'   },
+    { label: '3 – Percepção',              key: 'perception'  },
+    { label: '4 – Memória',                key: 'memory'      },
+    { label: '5 – Habilidades Aritméticas',key: 'arithmetic'  },
+    { label: '6 – Linguagem',              key: 'language'    },
+    { label: '7 – Praxias',                key: 'praxis'      },
+    { label: '8 – Funções Executivas',     key: 'executive'   },
   ]
 
   const rows = domains.map((dom, i) => {
     const z    = zs[dom.key]
+    const raw  = rs[dom.key]
     const cls  = classZ(z)
     const bg   = i % 2 === 0 ? '#fff' : HR
     const zLbl = z != null ? parseFloat(z).toFixed(2) : '—'
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(dom.label, 'font-weight:bold;')}
-      ${tdCell(dom.score, 'text-align:center;')}
-      ${tdCell(zLbl,      'text-align:center;')}
+      ${tdCell(raw ?? '—', 'text-align:center;')}
+      ${tdCell(zLbl,        'text-align:center;')}
       ${tdCell(`<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>`, 'text-align:center;')}
     </tr>`
   }).join('')
@@ -224,54 +227,90 @@ function buildNeupsilinSection(td) {
 }
 
 // ── Tabela RAVLT ──────────────────────────────────────────────────────────────
+const clsRAVLT = (s) => {
+  if (s == null || s === '') return { label: '—', color: '#6b7280' }
+  const v = Number(s)
+  if (v >= 13) return { label: 'Superior',        color: '#15803d' }
+  if (v >= 11) return { label: 'Acima da Média',  color: '#059669' }
+  if (v >= 8)  return { label: 'Média',           color: '#1d4ed8' }
+  if (v >= 5)  return { label: 'Abaixo da Média', color: '#d97706' }
+  return             { label: 'Déficit',          color: '#dc2626' }
+}
+const clsRAVLT_total = (v) => {
+  if (v == null) return { label: '—', color: '#6b7280' }
+  if (v >= 50) return { label: 'Superior',        color: '#15803d' }
+  if (v >= 40) return { label: 'Média',           color: '#1d4ed8' }
+  if (v >= 30) return { label: 'Abaixo da Média', color: '#d97706' }
+  return             { label: 'Déficit',          color: '#dc2626' }
+}
+const clsRAVLT_rec = (v) => {
+  if (v == null) return { label: '—', color: '#6b7280' }
+  if (v >= 13) return { label: 'Superior',        color: '#15803d' }
+  if (v >= 10) return { label: 'Média',           color: '#1d4ed8' }
+  if (v >= 7)  return { label: 'Abaixo da Média', color: '#d97706' }
+  return             { label: 'Déficit',          color: '#dc2626' }
+}
+
 function buildRAVLTSection(td) {
   const d = td?.RAVLT
   if (!d) return ''
 
-  const trials = [
-    { label: 'A1 — Tentativa 1', score: d.a1 },
-    { label: 'A2 — Tentativa 2', score: d.a2 },
-    { label: 'A3 — Tentativa 3', score: d.a3 },
-    { label: 'A4 — Tentativa 4', score: d.a4 },
-    { label: 'A5 — Tentativa 5', score: d.a5 },
+  const trialList = [
+    { label: 'A1 — Tentativa 1',      score: d.a1 },
+    { label: 'A2 — Tentativa 2',      score: d.a2 },
+    { label: 'A3 — Tentativa 3',      score: d.a3 },
+    { label: 'A4 — Tentativa 4',      score: d.a4 },
+    { label: 'A5 — Tentativa 5',      score: d.a5 },
     { label: 'B1 — Lista Distratora', score: d.b1 },
-    { label: 'A6 — Evocação Imediata', score: d.a6 },
-    { label: 'A7 — Evocação Tardia', score: d.a7 },
+    { label: 'A6 — Evocação Imediata após Interferência', score: d.a6 },
+    { label: 'A7 — Evocação Tardia',  score: d.a7 },
   ]
 
-  const total = (d.a1 ?? 0) + (d.a2 ?? 0) + (d.a3 ?? 0) + (d.a4 ?? 0) + (d.a5 ?? 0)
+  const total = [d.a1, d.a2, d.a3, d.a4, d.a5]
+    .reduce((s, v) => s + (v != null && v !== '' ? Number(v) : 0), 0)
+  const hasTotal = [d.a1, d.a2, d.a3, d.a4, d.a5].some(v => v != null && v !== '')
 
-  const trialRows = trials.map((t, i) => {
-    const bg = i % 2 === 0 ? '#fff' : HR
+  const trialRows = trialList.map((t, i) => {
+    const cls = clsRAVLT(t.score)
+    const bg  = i % 2 === 0 ? '#fff' : HR
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(t.label)}
       ${tdCell(t.score ?? '—', 'text-align:center;font-weight:bold;')}
-      ${tdCell('', 'text-align:center;')}
+      ${tdCell(`<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>`, 'text-align:center;')}
     </tr>`
   }).join('')
 
-  const totalRow = `<tr style="background:#dce8dc;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-    ${tdCell('Total A1–A5 (Aprendizagem Total)', 'font-weight:bold;')}
-    ${tdCell(total, 'text-align:center;font-weight:bold;')}
-    ${tdCell(d.classification ?? '—', 'text-align:center;font-weight:bold;')}
-  </tr>`
+  const totalCls  = clsRAVLT_total(hasTotal ? total : null)
+  const altScore  = d.a1 != null && d.a5 != null ? Number(d.a5) - Number(d.a1) : null
+  const recCls    = clsRAVLT_rec(d.recognition != null && d.recognition !== '' ? Number(d.recognition) : null)
 
-  const recRow = `<tr style="background:#fff;">
+  const summaryRows = `
+  <tr style="background:#dce8dc;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('<strong>Total A1–A5 (Aprendizagem Total)</strong>')}
+    ${tdCell(hasTotal ? total : '—', 'text-align:center;font-weight:bold;')}
+    ${tdCell(`<span style="color:${totalCls.color};font-weight:bold;">${totalCls.label}</span>`, 'text-align:center;')}
+  </tr>
+  ${altScore != null ? `<tr style="background:#fff;">
+    ${tdCell('ALT — Aprendizagem ao Longo das Tentativas (A5–A1)')}
+    ${tdCell(altScore >= 0 ? '+' + altScore : altScore, 'text-align:center;font-weight:bold;')}
+    ${tdCell(altScore >= 7 ? '<span style="color:#15803d;font-weight:bold;">Adequada</span>' : '<span style="color:#d97706;font-weight:bold;">Abaixo do Esperado</span>', 'text-align:center;')}
+  </tr>` : ''}
+  <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Reconhecimento')}
     ${tdCell(d.recognition ?? '—', 'text-align:center;font-weight:bold;')}
-    ${tdCell('', 'text-align:center;')}
+    ${tdCell(`<span style="color:${recCls.color};font-weight:bold;">${recCls.label}</span>`, 'text-align:center;')}
   </tr>`
 
   const head = `<thead>
     <tr><th colspan="3" style="border:1px solid #a5c6a5;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT</th></tr>
     <tr>
-      ${thCell('Índice')}
+      ${thCell('Índice / Tentativa')}
       ${thCell('Escore', 'text-align:center;')}
       ${thCell('Classificação', 'text-align:center;')}
     </tr>
   </thead>`
 
-  return tableWrap(trialRows + totalRow + recRow, head)
+  return tableWrap(trialRows + summaryRows, head)
 }
 
 // ── Tabela WASI/WASI-III ──────────────────────────────────────────────────────
@@ -338,21 +377,39 @@ function buildBAMSSection(td) {
 }
 
 // ── Tabela WCST-N ─────────────────────────────────────────────────────────────
+const clsWCST_pct = (pct) => {
+  if (pct <  5) return { label: 'LIMÍTROFE',      color: '#D32F2F' }
+  if (pct < 10) return { label: 'ABAIXO DA MÉDIA',color: '#E64A19' }
+  if (pct < 25) return { label: 'MÉDIA INFERIOR', color: '#F57C00' }
+  if (pct < 75) return { label: 'MÉDIA',          color: '#1b5e20' }
+  if (pct < 90) return { label: 'MÉDIA SUPERIOR', color: '#2E7D32' }
+  return              { label: 'SUPERIOR',        color: '#1B5E20' }
+}
+const wcstCatPct   = (n) => n >= 6 ? 95 : n >= 5 ? 75 : n >= 4 ? 50 : n >= 3 ? 25 : n >= 2 ? 10 : n >= 1 ? 5 : 2
+const wcstPersPct  = (n) => n <= 5 ? 95 : n <= 10 ? 75 : n <= 16 ? 50 : n <= 22 ? 25 : n <= 30 ? 10 : n <= 41 ? 5 : 2
+const wcstRespPct  = (n) => n <= 6 ? 95 : n <= 12 ? 75 : n <= 18 ? 50 : n <= 24 ? 25 : n <= 32 ? 10 : 5
+
 function buildWCSTSection(td) {
   const d = td?.['WCST-N']
   if (!d) return ''
 
-  const rows = [
-    ['Categorias completadas', d.categories_completed],
-    ['Erros perseverativos', d.perseverative_errors],
-    ['Erros não perseverativos', d.non_perseverative_errors],
-    ['Total de erros', d.total_errors],
-  ].filter(r => r[1] != null).map((r, i) => {
-    const bg = i % 2 === 0 ? '#fff' : HR
+  const rows_data = [
+    { label: 'Categorias completadas',          val: d.categories_completed,      pctFn: wcstCatPct,  note: '(0–6, maior = melhor)' },
+    { label: 'Erros perseverativos',            val: d.perseverative_errors,      pctFn: wcstPersPct, note: '(menor = melhor)' },
+    { label: 'Respostas perseverativas',        val: d.perseverative_responses,   pctFn: wcstRespPct, note: '(menor = melhor)' },
+    { label: 'Total de erros',                  val: d.total_errors,              pctFn: null,        note: '' },
+  ].filter(r => r.val != null && r.val !== '')
+
+  if (rows_data.length === 0) return ''
+
+  const rows = rows_data.map((r, i) => {
+    const pct  = r.pctFn ? r.pctFn(Number(r.val)) : null
+    const cls  = pct != null ? clsWCST_pct(pct) : { label: '—', color: '#6b7280' }
+    const bg   = i % 2 === 0 ? '#fff' : HR
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      ${tdCell(r[0])}
-      ${tdCell(r[1], 'text-align:center;font-weight:bold;')}
-      ${tdCell('', 'text-align:center;')}
+      ${tdCell(`${r.label} <span style="color:#888;font-size:9pt;">${r.note}</span>`)}
+      ${tdCell(r.val, 'text-align:center;font-weight:bold;')}
+      ${tdCell(pct != null ? `<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>` : '—', 'text-align:center;')}
     </tr>`
   }).join('')
 
@@ -513,7 +570,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     ${aiBody}
   </div>
 
-  <!-- DATA + ASSINATURA -->
+  <!-- DATA + NOTA LEGAL -->
   <p style="font-size:11pt;color:#555;text-align:right;margin-top:36px;">
     São Paulo, ${dataFormatada}.
   </p>
@@ -522,22 +579,36 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     <strong>P.S.:</strong> Os resultados deste exame baseiam-se em informações obtidas na anamnese, observação clínica e aplicação de instrumentos aprovados para uso em população brasileira, de acordo com o Conselho Federal de Psicologia e a Resolução CFP nº 31/2022. O exame neuropsicológico é um exame complementar e deve ser interpretado em conjunto com outros dados clínicos. Este documento não tem validade para fins judiciais.
   </p>
 
-  <div style="margin-top:44px;padding-top:20px;border-top:2px solid ${H};">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:24px;">
-      <div style="text-align:center;min-width:220px;">
-        <div style="border-top:1.5px solid ${H};padding-top:8px;">
+  <!-- ASSINATURAS E CARIMBOS -->
+  <div style="margin-top:50px;padding-top:16px;border-top:2px solid ${H};">
+    <div style="display:flex;justify-content:space-around;align-items:flex-end;flex-wrap:wrap;gap:32px;margin-top:56px;">
+
+      <!-- Profissional aplicador -->
+      <div style="text-align:center;min-width:240px;">
+        <div style="border-top:2px solid #1a1a2e;padding-top:10px;margin-top:8px;">
           <div style="font-size:13px;font-weight:700;color:#1a1a2e;">${professional}</div>
-          <div style="font-size:11px;color:#555;">${user?.crp || 'CRP ___________'}</div>
-          <div style="font-size:10px;color:#777;">Neuropsicólogo(a) Responsável</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">Neuropsicólogo(a)</div>
+          <div style="font-size:11px;color:#555;">${user?.crp || 'CRP: ___________'}</div>
+          <div style="font-size:10px;color:#777;margin-top:2px;">Técnico Profissional — CNES: _______</div>
         </div>
       </div>
-      <div style="text-align:center;min-width:220px;">
-        <div style="border-top:1.5px solid ${H};padding-top:8px;">
+
+      <!-- Supervisor / Diretor + Carimbo da clínica -->
+      <div style="text-align:center;min-width:240px;">
+        <div style="border-top:2px solid ${H};padding-top:10px;margin-top:8px;">
           <div style="font-size:14px;font-weight:800;color:${H};">${SUPERVISOR.name}</div>
-          <div style="font-size:11px;color:#555;">${SUPERVISOR.crp}</div>
-          <div style="font-size:10px;color:#777;">Supervisor Técnico · Diretor Clínico</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">${SUPERVISOR.crp}</div>
+          <div style="font-size:11px;color:#555;">Neuropsicólogo · Supervisor Técnico</div>
+          <div style="font-size:10px;color:#777;margin-top:1px;">Diretor Clínico — Neuroavaliação</div>
+        </div>
+        <!-- Carimbo institucional -->
+        <div style="border:1.5px solid ${H};border-radius:4px;padding:8px 16px;margin-top:14px;display:inline-block;text-align:center;min-width:200px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+          <div style="font-size:11px;font-weight:800;color:${H};letter-spacing:0.04em;">NEUROAVALIAÇÃO ME</div>
+          <div style="font-size:9px;color:#555;margin-top:3px;">CRPJ 06/6481 &nbsp;|&nbsp; CNES 49795</div>
+          <div style="font-size:9px;color:#555;">CNPJ 29.313.355/0001-12</div>
         </div>
       </div>
+
     </div>
   </div>
 
