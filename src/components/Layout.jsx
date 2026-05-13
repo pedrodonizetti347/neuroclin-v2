@@ -20,10 +20,6 @@ const NAV_ADMIN = [
   { label: 'Administrador',   icon: ShieldCheck,      path: '/admin' },
 ]
 
-const NAV_ADMIN = [
-  { label: 'Administrador',   icon: ShieldCheck,      path: '/admin' },
-]
-
 const S = {
   bg:      '#0D1117',
   nav:     '#0B1929',

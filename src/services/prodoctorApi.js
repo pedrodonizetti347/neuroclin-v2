@@ -77,7 +77,7 @@ function normSex(val) {
 let _allPatientsCache = null
 let _cacheTimestamp   = 0
 const CACHE_TTL_MS    = 5 * 60 * 1000
-const PAGE_SIZE       = 20
+const PAGE_SIZE       = 100
 
 async function loadAllPatients() {
   const now = Date.now()
@@ -87,14 +87,24 @@ async function loadAllPatients() {
 
   const all = []
   const seenIds = new Set()
-  let page  = 1
+  let page = 1
 
   while (true) {
-    const data = await request('/api/v1/Pacientes', 'POST', {
-      termo: '', campo: 1, pagina: page, somenteAtivos: true, quantidade: PAGE_SIZE,
-    })
-    const batch = data?.payload?.pacientes ?? []
+    let batch = []
+    // Tenta dois formatos — sem termo (todos os pacientes) e com paginação
+    for (const body of [
+      { pagina: page, quantidade: PAGE_SIZE, somenteAtivos: true },
+      { termo: '', campo: 0, pagina: page, somenteAtivos: true, quantidade: PAGE_SIZE },
+    ]) {
+      try {
+        const data = await request('/api/v1/Pacientes', 'POST', body)
+        batch = data?.payload?.pacientes ?? []
+        if (batch.length > 0) break
+      } catch { /* tenta próximo */ }
+    }
+
     console.log(`[ProDoctor] página ${page} → ${batch.length} pacientes`, batch.map(p => p.nome || p.nomeCivil))
+    if (batch.length === 0) break
 
     let novos = 0
     for (const raw of batch) {
@@ -106,65 +116,32 @@ async function loadAllPatients() {
       }
     }
 
-    // Para se a API repetiu os mesmos pacientes (não suporta paginação real)
     if (novos === 0 || batch.length < PAGE_SIZE) break
     page++
-    if (page > 200) break
+    if (page > 100) break  // max 10.000 pacientes
   }
 
   console.log(`[ProDoctor] total carregado: ${all.length} pacientes únicos`)
-
   _allPatientsCache = all
   _cacheTimestamp   = now
   return all
 }
 
 /**
- * Busca pacientes por nome com filtro local.
- * A API ProDoctor retorna no máx. 20 por página independente do campo buscado —
- * por isso paginamos tudo e filtramos no cliente.
+ * Busca pacientes por nome — carrega todos via paginação e filtra localmente.
+ * A API ProDoctor ignora parâmetros de filtro por nome; a única abordagem
+ * confiável é paginar tudo e filtrar no cliente.
  */
 export async function searchPatients(termo) {
   if (!termo || termo.trim().length < 2) return []
 
-  const t = termo.trim()
-
-  // Tenta busca direta pelo nome no servidor (vários formatos possíveis)
-  const formatos = [
-    { nome: t, pagina: 1, quantidade: 50 },
-    { termo: t, campo: 0, pagina: 1, somenteAtivos: true, quantidade: 50 },
-    { termo: t, campo: 2, pagina: 1, somenteAtivos: true, quantidade: 50 },
-    { filtro: t, pagina: 1, quantidade: 50 },
-  ]
-
-  for (const body of formatos) {
-    try {
-      const data  = await request('/api/v1/Pacientes', 'POST', body)
-      const batch = data?.payload?.pacientes ?? []
-      console.log(`[ProDoctor] formato ${JSON.stringify(body)} → ${batch.length} pacientes:`, batch.map(p => p.nome || p.nomeCivil))
-
-      if (batch.length === 0) continue
-
-      const q       = t.toLowerCase()
-      const results = batch.map(normalizePatient)
-      const matched = results.filter(p => p.full_name?.toLowerCase().includes(q))
-
-      // Se ao menos um resultado bate com o termo, a API filtrou corretamente
-      if (matched.length > 0) {
-        console.log(`[ProDoctor] ✓ formato funcional: ${JSON.stringify(body)}`)
-        return results
-      }
-      // Se veio resultado mas nenhum tem o nome, a API ignorou o filtro → tenta próximo formato
-    } catch (e) {
-      console.warn(`[ProDoctor] formato falhou:`, e.message)
-    }
-  }
-
-  // Nenhum formato filtrou no servidor → filtra localmente nos 20 disponíveis
-  console.warn('[ProDoctor] API não suporta filtro por nome — usando cache local')
-  const all     = await loadAllPatients()
+  const t       = termo.trim()
   const q       = t.toLowerCase()
   const qDigits = q.replace(/\D/g, '')
+
+  const all = await loadAllPatients()
+  console.log(`[ProDoctor] filtrando "${t}" em ${all.length} pacientes`)
+
   return all.filter(p => {
     if (p.full_name?.toLowerCase().includes(q)) return true
     if (qDigits.length >= 3 && p.cpf?.replace(/\D/g, '').includes(qDigits)) return true
