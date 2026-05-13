@@ -20,6 +20,10 @@ const NAV_ADMIN = [
   { label: 'Administrador',   icon: ShieldCheck,      path: '/admin' },
 ]
 
+const NAV_ADMIN = [
+  { label: 'Administrador',   icon: ShieldCheck,      path: '/admin' },
+]
+
 const S = {
   bg:      '#0D1117',
   nav:     '#0B1929',
@@ -80,7 +84,7 @@ export default function Layout({ children }) {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {NAV.map(({ label, icon: Icon, path }) => {
+          {[...NAV, ...((['admin','supervisor'].includes(user?.role)) ? NAV_ADMIN : [])].map(({ label, icon: Icon, path }) => {
             const active = location.pathname === path
             return (
               <Link key={path} to={path}>

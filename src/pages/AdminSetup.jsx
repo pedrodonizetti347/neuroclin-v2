@@ -6,6 +6,12 @@ import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 const USERS_TO_CREATE = [
   {
+    uid:       'i5nwg569WabTUk69wzCWV5PRw9E3',
+    email:     'pedrodonizettipalestrante@gmail.com',
+    full_name: 'Dr. Pedro Donizetti',
+    role:      'admin',
+  },
+  {
     uid:       'rNxtVUIqeJainAJDWb72ezlnfQh2',
     email:     'oliveiraldebora@gmail.com',
     full_name: 'Débora Oliveira',
@@ -31,17 +37,16 @@ export default function AdminSetup() {
         const ref  = doc(db, 'users', u.uid)
         const snap = await getDoc(ref)
 
-        if (snap.exists()) {
-          res[u.uid] = { status: 'exists', msg: 'Documento já existe — não sobrescrito.' }
-        } else {
-          await setDoc(ref, {
-            email:      u.email,
-            full_name:  u.full_name,
-            role:       u.role,
-            createdAt:  serverTimestamp(),
-            last_login: serverTimestamp(),
-          })
-          res[u.uid] = { status: 'created', msg: 'Documento criado com sucesso.' }
+        await setDoc(ref, {
+          email:      u.email,
+          full_name:  u.full_name,
+          role:       u.role,
+          ...(snap.exists() ? {} : { createdAt: serverTimestamp(), last_login: serverTimestamp() }),
+        }, { merge: true })
+
+        res[u.uid] = {
+          status: snap.exists() ? 'created' : 'created',
+          msg: snap.exists() ? `Role atualizado para "${u.role}".` : 'Documento criado com sucesso.',
         }
       } catch (e) {
         res[u.uid] = { status: 'error', msg: e.message }

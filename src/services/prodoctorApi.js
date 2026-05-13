@@ -47,7 +47,7 @@ function normalizePatient(raw) {
 
   return {
     prodoctor_id: String(raw.codigo ?? raw.id ?? ''),
-    full_name:    raw.nomeCivil || raw.nome || '',
+    full_name:    raw.nome || raw.nomeCivil || '',
     birth_date:   normDate(raw.dataNascimento ?? ''),
     cpf:          raw.cpf ?? '',
     phone:        String(phone),
@@ -74,21 +74,66 @@ function normSex(val) {
   return ''
 }
 
+let _allPatientsCache = null
+let _cacheTimestamp   = 0
+const CACHE_TTL_MS    = 5 * 60 * 1000
+const PAGE_SIZE       = 20
+
+async function loadAllPatients() {
+  const now = Date.now()
+  if (_allPatientsCache && (now - _cacheTimestamp) < CACHE_TTL_MS) {
+    return _allPatientsCache
+  }
+
+  const all = []
+  const seenIds = new Set()
+  let page  = 1
+
+  while (true) {
+    const data = await request('/api/v1/Pacientes', 'POST', {
+      termo: '', campo: 1, pagina: page, somenteAtivos: true, quantidade: PAGE_SIZE,
+    })
+    const batch = data?.payload?.pacientes ?? []
+    console.log(`[ProDoctor] página ${page} → ${batch.length} pacientes`, batch.map(p => p.nome || p.nomeCivil))
+
+    let novos = 0
+    for (const raw of batch) {
+      const id = String(raw.codigo ?? raw.id ?? '')
+      if (!seenIds.has(id)) {
+        seenIds.add(id)
+        all.push(normalizePatient(raw))
+        novos++
+      }
+    }
+
+    // Para se a API repetiu os mesmos pacientes (não suporta paginação real)
+    if (novos === 0 || batch.length < PAGE_SIZE) break
+    page++
+    if (page > 200) break
+  }
+
+  console.log(`[ProDoctor] total carregado: ${all.length} pacientes únicos`)
+
+  _allPatientsCache = all
+  _cacheTimestamp   = now
+  return all
+}
+
 /**
- * Busca pacientes por nome.
- * POST /api/v1/Pacientes → response.payload.pacientes[]
+ * Busca pacientes por nome com filtro local.
+ * A API ProDoctor retorna no máx. 20 por página independente do campo buscado —
+ * por isso paginamos tudo e filtramos no cliente.
  */
 export async function searchPatients(termo) {
   if (!termo || termo.trim().length < 2) return []
-
-  const data = await request('/api/v1/Pacientes', 'POST', {
-    nome:       termo.trim(),
-    pagina:     1,
-    quantidade: 20,
+  const all = await loadAllPatients()
+  const q   = termo.trim().toLowerCase()
+  const qDigits = q.replace(/\D/g, '')
+  return all.filter(p => {
+    if (p.full_name?.toLowerCase().includes(q)) return true
+    if (qDigits.length >= 3 && p.cpf?.replace(/\D/g, '').includes(qDigits)) return true
+    return false
   })
-
-  const list = data?.payload?.pacientes ?? data?.pacientes ?? data ?? []
-  return Array.isArray(list) ? list.map(normalizePatient) : []
 }
 
 /**
