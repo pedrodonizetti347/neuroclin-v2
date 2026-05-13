@@ -91,32 +91,114 @@ export default function Reports() {
 
   const patient = patients.find(p => p.id === patientId)
 
-  // Assinatura oficial do laudo
-  const buildSignature = () => `
-<div style="margin-top:40px;padding-top:20px;border-top:2px solid #1A2744;font-family:Georgia,serif">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:20px">
+  const calcAge = (bd) => {
+    if (!bd) return null
+    const diff = Date.now() - new Date(bd).getTime()
+    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000))
+  }
+
+  // Monta o documento completo no padrão da clínica (tela + impressão)
+  const buildFullDocument = (aiBody) => {
+    const dataFormatada = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const age = calcAge(patient?.birth_date)
+    const professional = appliedBy || user?.full_name || 'Profissional responsável'
+
+    return `
+<div style="font-family:Georgia,serif;color:#1a1a2e;line-height:1.7;max-width:760px;margin:0 auto">
+
+  <!-- CABEÇALHO -->
+  <div style="border-bottom:3px solid #1A3D2B;padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end">
     <div>
-      <p style="font-size:12px;color:#555;margin-bottom:4px">Testes aplicados por:</p>
-      <p style="font-size:14px;font-weight:bold;color:#1a1a2e">${appliedBy || user?.full_name || 'Profissional responsável'}</p>
-      <p style="font-size:12px;color:#555">${user?.crp || 'Psicólogo(a)'}</p>
+      <div style="font-size:10px;color:#2E7D32;font-weight:700;letter-spacing:0.12em;margin-bottom:3px">NEUROPSICOLOGIA NA PRÁTICA</div>
+      <div style="font-size:22px;font-weight:800;color:#1A3D2B;letter-spacing:-0.01em">NEUROAVALIAÇÃO</div>
+      <div style="font-size:10px;color:#555;margin-top:2px">Neuropsicologia Clínica · Psicoterapia · Terapia ABA</div>
     </div>
-    <div style="text-align:right">
-      <p style="font-size:12px;color:#555;margin-bottom:4px">Laudo elaborado sob supervisão de:</p>
-      <p style="font-size:15px;font-weight:bold;color:#1a1a2e">${SUPERVISOR.name}</p>
-      <p style="font-size:12px;color:#555">${SUPERVISOR.crp}</p>
-      <p style="font-size:12px;color:#555">${SUPERVISOR.clinic}</p>
-    </div>
-  </div>
-  <div style="margin-top:30px;text-align:center">
-    <div style="display:inline-block;border-top:1px solid #999;padding-top:8px;min-width:220px">
-      <p style="font-size:13px;font-weight:bold;color:#1a1a2e">${SUPERVISOR.name}</p>
-      <p style="font-size:12px;color:#555">${SUPERVISOR.crp} · ${SUPERVISOR.clinic}</p>
+    <div style="text-align:right;font-size:10px;color:#555;line-height:1.6">
+      <div style="font-weight:700;color:#1A3D2B">${SUPERVISOR.name}</div>
+      <div>${SUPERVISOR.crp}</div>
+      <div>São Paulo — SP</div>
     </div>
   </div>
-  <p style="font-size:10px;color:#aaa;text-align:center;margin-top:16px">
-    Documento gerado em ${new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' })}
-  </p>
+
+  <!-- TÍTULO -->
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="display:inline-block;background:#1A3D2B;color:#fff;font-size:13px;font-weight:700;letter-spacing:0.1em;padding:8px 32px;border-radius:4px">
+      LAUDO NEUROPSICOLÓGICO
+    </div>
+  </div>
+
+  <!-- DADOS DO PACIENTE -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px">
+    <thead>
+      <tr><th colspan="4" style="background:#1A3D2B;color:#fff;padding:7px 10px;text-align:left;font-size:11px;letter-spacing:0.06em">DADOS DO PACIENTE</th></tr>
+    </thead>
+    <tbody>
+      <tr style="background:#f0f7f0">
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700;width:22%">Paciente</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;width:28%">${patient?.full_name || '—'}</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700;width:22%">Data da avaliação</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;width:28%">${dataFormatada}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700">Idade</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8">${age != null ? age + ' anos' : '—'}</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700">Sexo</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8">${patient?.sex || '—'}</td>
+      </tr>
+      <tr style="background:#f0f7f0">
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700">Escolaridade</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8">${patient?.education || '—'}</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700">Testes aplicados por</td>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8">${professional}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #c8dfc8;font-weight:700">Testes</td>
+        <td colspan="3" style="padding:6px 10px;border:1px solid #c8dfc8">${selectedTests.join(' · ')}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- CORPO GERADO PELA IA -->
+  <div style="font-size:13px;line-height:1.8;color:#1a1a2e">
+    ${aiBody}
+  </div>
+
+  <!-- ASSINATURA -->
+  <div style="margin-top:50px;padding-top:24px;border-top:2px solid #1A3D2B">
+    <p style="font-size:11px;color:#555;text-align:right;margin-bottom:4px">
+      São Paulo, ${dataFormatada}
+    </p>
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;flex-wrap:wrap;gap:24px">
+      <div style="text-align:center;min-width:220px">
+        <div style="border-top:1.5px solid #1A3D2B;padding-top:8px">
+          <div style="font-size:13px;font-weight:700;color:#1a1a2e">${professional}</div>
+          <div style="font-size:11px;color:#555">${user?.crp || 'CRP ___________'}</div>
+          <div style="font-size:10px;color:#777">Neuropsicólogo(a) Responsável</div>
+        </div>
+      </div>
+      <div style="text-align:center;min-width:220px">
+        <div style="border-top:1.5px solid #1A3D2B;padding-top:8px">
+          <div style="font-size:14px;font-weight:800;color:#1A3D2B">${SUPERVISOR.name}</div>
+          <div style="font-size:11px;color:#555">${SUPERVISOR.crp}</div>
+          <div style="font-size:10px;color:#777">Supervisor Técnico · Diretor Clínico</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RODAPÉ -->
+  <div style="margin-top:36px;padding-top:12px;border-top:1px solid #c8dfc8;text-align:center;font-size:9px;color:#888;line-height:1.6">
+    <div style="font-weight:700;color:#2E7D32;font-size:10px;margin-bottom:2px">NEUROAVALIAÇÃO — Neuropsicologia na Prática</div>
+    <div>São Paulo · SP · neuroavaliacao.com.br</div>
+    <div style="margin-top:4px;font-style:italic">
+      Este laudo é um documento complementar e deve ser interpretado em conjunto com a avaliação clínica global.<br>
+      Documento gerado em ${dataFormatada} · Uso exclusivo para fins diagnósticos.
+    </div>
+  </div>
+
 </div>`
+  }
 
   const generate = async () => {
     if (!patientId)               return setError('Selecione um paciente.')
@@ -255,13 +337,14 @@ Regras:
       }
 
       const data = await res.json()
-      const html = data.content
+      const aiBody = data.content
         .filter(b => b.type === 'text')
         .map(b => b.text)
-        .join('') + buildSignature()
+        .join('')
 
-      setReport(html)
-      const reportId = await session.saveReport(html, selectedTests)
+      const fullDoc = buildFullDocument(aiBody)
+      setReport(fullDoc)
+      const reportId = await session.saveReport(fullDoc, selectedTests)
       if (reportId) setSaved(true)
 
     } catch (e) {
@@ -274,32 +357,38 @@ Regras:
 
   const print = () => {
     const w = window.open('', '_blank')
-    w.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="UTF-8">
-      <title>Laudo Neuropsicológico — ${patient?.full_name || ''}</title>
-      <style>
-        body { font-family: Georgia, serif; padding: 48px; max-width: 820px; margin: 0 auto; color: #1a1a2e; line-height: 1.7; }
-        h1 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
-        .header { border-bottom: 2px solid #1A2744; padding-bottom: 16px; margin-bottom: 24px; }
-        h3 { font-size: 14px; font-weight: bold; color: #0C447C; border-bottom: 1px solid #B5D4F4; padding-bottom: 4px; margin: 16px 0 8px; }
-        p { font-size: 13px; margin-bottom: 8px; }
-        ul { margin-left: 20px; font-size: 13px; }
-        li { margin-bottom: 4px; }
-        @media print { body { padding: 20px; } }
-      </style>
-    </head><body>
-      <div class="header">
-        <h1>LAUDO NEUROPSICOLÓGICO</h1>
-        <p style="font-size:13px;color:#555">
-          Paciente: <strong>${patient?.full_name || ''}</strong><br>
-          Data: ${new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' })}<br>
-          Testes: ${selectedTests.join(', ')}
-        </p>
-      </div>
-      ${report}
-    </body></html>`)
+    w.document.write(`<!DOCTYPE html>
+<html lang="pt-BR"><head>
+  <meta charset="UTF-8">
+  <title>Laudo Neuropsicológico — ${patient?.full_name || ''}</title>
+  <style>
+    @page { size: A4; margin: 2cm 2cm 2.5cm 2cm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 11pt; line-height: 1.7; color: #1a1a2e;
+      background: #fff; max-width: 21cm; margin: 0 auto; padding: 24px;
+    }
+    h3 { font-size: 12pt; font-weight: bold; color: #1A3D2B; border-bottom: 2px solid #1A3D2B; padding-bottom: 4px; margin: 20px 0 10px; }
+    p  { font-size: 11pt; margin-bottom: 8px; text-align: justify; }
+    ul { margin-left: 22px; font-size: 11pt; }
+    li { margin-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    td, th { padding: 5px 9px; border: 1px solid #c8dfc8; }
+    th { background: #1A3D2B; color: #fff; }
+    .preservado  { color: #2E7D32; font-weight: bold; }
+    .limitrofe   { color: #b45309; font-weight: bold; }
+    .comprometido{ color: #dc2626; font-weight: bold; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head><body>
+  ${report}
+</body></html>`)
     w.document.close()
-    setTimeout(() => w.print(), 500)
+    setTimeout(() => w.print(), 600)
   }
 
   const groups = [...new Set(TESTS_LIST.map(t => t.group))]
@@ -463,7 +552,10 @@ Regras:
             )}
 
             {!loading && report && (
-              <div style={{ fontSize: 13, lineHeight: 1.75, color: 'rgba(255,255,255,0.85)' }}
+              <div style={{
+                background: '#fff', borderRadius: 6, padding: '32px 28px',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
+              }}
                 dangerouslySetInnerHTML={{ __html: report }} />
             )}
           </div>
