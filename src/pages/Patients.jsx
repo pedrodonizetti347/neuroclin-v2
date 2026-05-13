@@ -197,6 +197,18 @@ export default function Patients() {
   const [form,         setForm]         = useState(EMPTY)
   const [saving,       setSaving]       = useState(false)
   const [pdImported,   setPdImported]   = useState(false)
+  const [pdRefreshing, setPdRefreshing] = useState(false)
+  const [pdCacheQty,   setPdCacheQty]   = useState(() => getCachedCount())
+
+  const handlePdRefresh = async () => {
+    setPdRefreshing(true)
+    clearPatientsCache()
+    try {
+      await searchPatients('a', true)  // força recarregamento de todos os pacientes
+    } catch { /* ignora */ }
+    setPdCacheQty(getCachedCount())
+    setPdRefreshing(false)
+  }
 
   const filtered = patients.filter(p =>
     p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -258,13 +270,34 @@ export default function Patients() {
             {patients.length} paciente{patients.length !== 1 ? 's' : ''} cadastrado{patients.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={openNew} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: '#185FA5', color: '#fff', border: 'none',
-          padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer'
-        }}>
-          <Plus size={16} /> Novo paciente
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={handlePdRefresh}
+            disabled={pdRefreshing}
+            title="Recarregar lista de pacientes do ProDoctor"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: pdRefreshing ? 'rgba(24,95,165,0.05)' : '#EBF4FF',
+              color: '#185FA5', border: '1.5px solid #C3DAFA', borderRadius: 10,
+              padding: '9px 14px', fontSize: 13, fontWeight: 500,
+              cursor: pdRefreshing ? 'not-allowed' : 'pointer', opacity: pdRefreshing ? 0.7 : 1,
+            }}
+          >
+            <RefreshCw size={14} style={pdRefreshing ? { animation: 'spin 1s linear infinite' } : {}} />
+            {pdRefreshing
+              ? 'Atualizando...'
+              : pdCacheQty > 0
+                ? `ProDoctor (${pdCacheQty})`
+                : 'Atualizar ProDoctor'}
+          </button>
+          <button onClick={openNew} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#185FA5', color: '#fff', border: 'none',
+            padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer'
+          }}>
+            <Plus size={16} /> Novo paciente
+          </button>
+        </div>
       </div>
 
       {/* Search */}
