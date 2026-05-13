@@ -19,6 +19,50 @@ async function verifyToken(req) {
   catch { return null }
 }
 
+// ─── prodoctorProxy ───────────────────────────────────────────────────────────
+const PRODOCTOR_BASE = 'https://api.prodoctorcloud.com'
+
+exports.prodoctorProxy = onRequest(
+  { region: 'us-central1', timeoutSeconds: 30, memory: '256MiB', cors: true },
+  async (req, res) => {
+    if (req.method === 'OPTIONS') { res.set(CORS).status(204).send(''); return }
+
+    const decoded = await verifyToken(req)
+    if (!decoded) { res.set(CORS).status(401).json({ error: 'Não autorizado' }); return }
+
+    const { path, method = 'GET', body = null } = req.body || {}
+    if (!path) { res.set(CORS).status(400).json({ error: 'path obrigatório' }); return }
+
+    const apiKey  = process.env.PRODOCTOR_APIKEY
+    const apiPass = process.env.PRODOCTOR_APIPASSWORD
+
+    if (!apiKey || !apiPass) {
+      res.set(CORS).status(500).json({ error: 'Credenciais ProDoctor não configuradas no servidor' })
+      return
+    }
+
+    try {
+      const pdRes = await fetch(`${PRODOCTOR_BASE}${path}`, {
+        method,
+        headers: {
+          'Content-Type':      'application/json',
+          'X-APIKEY':          apiKey,
+          'X-APIPASSWORD':     apiPass,
+          'X-APITIMEZONE':     '-03:00',
+          'X-APITIMEZONENAME': 'America/Sao_Paulo',
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      })
+
+      const data = await pdRes.json().catch(() => ({}))
+      res.set(CORS).status(pdRes.status).json(data)
+    } catch (e) {
+      console.error('[prodoctorProxy]', e)
+      res.set(CORS).status(500).json({ error: e.message })
+    }
+  }
+)
+
 // ─── generateReport ───────────────────────────────────────────────────────────
 exports.generateReport = onRequest(
   { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB', cors: true },
