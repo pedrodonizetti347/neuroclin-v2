@@ -80,7 +80,7 @@ export default function Layout({ children }) {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {[...NAV, ...((['admin','supervisor'].includes(user?.role)) ? NAV_ADMIN : [])].map(({ label, icon: Icon, path }) => {
+          {NAV.map(({ label, icon: Icon, path }) => {
             const active = location.pathname === path
             return (
               <Link key={path} to={path}>

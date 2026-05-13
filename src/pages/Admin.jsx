@@ -181,6 +181,77 @@ function CreateModal({ onClose, onCreated }) {
   )
 }
 
+function SyncModal({ onClose, onSaved }) {
+  const [uid,     setUid]     = useState('')
+  const [name,    setName]    = useState('')
+  const [email,   setEmail]   = useState('')
+  const [role,    setRole]    = useState('professional')
+  const [loading, setLoading] = useState(false)
+  const [err,     setErr]     = useState('')
+  const [ok,      setOk]      = useState(false)
+
+  const handleSync = async () => {
+    if (!uid.trim() || !name.trim() || !email.trim()) {
+      setErr('Preencha UID, nome e e-mail.'); return
+    }
+    setErr(''); setLoading(true)
+    try {
+      await setDoc(doc(db, 'users', uid.trim()), {
+        email:      email.trim().toLowerCase(),
+        full_name:  name.trim(),
+        role,
+        active:     true,
+        created_at: serverTimestamp(),
+        last_login: null,
+      }, { merge: true })
+      setOk(true)
+      setTimeout(() => { onSaved(); onClose() }, 1200)
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal title="Registrar usuário existente" onClose={onClose}>
+      {ok ? (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <CheckCircle2 size={36} color="#4CAF50" style={{ margin: '0 auto 12px', display: 'block' }} />
+          <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Documento criado com sucesso!</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 14, lineHeight: 1.6 }}>
+            Use quando o usuário já foi criado no Firebase Auth mas não aparece na lista.
+            O UID está disponível no Firebase Console → Authentication.
+          </div>
+          {err && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
+              {err}
+            </div>
+          )}
+          <Fld label="UID (Firebase Auth)" value={uid} onChange={setUid} placeholder="fVJ20b5FyxeEVzxLDfck7Ga76oE2" />
+          <Fld label="NOME COMPLETO" value={name} onChange={setName} placeholder="Ex: Maria Caroline" />
+          <Fld label="E-MAIL" value={email} onChange={setEmail} placeholder="usuario@email.com" />
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 5 }}>CARGO / PERFIL</div>
+            <select value={role} onChange={e => setRole(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}>
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button onClick={onClose} style={{ padding: '11px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={handleSync} disabled={loading} style={{ padding: '11px', borderRadius: 9, border: 'none', background: loading ? 'rgba(46,125,50,0.5)' : '#2E7D32', color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : 'Registrar'}
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
 function EditModal({ user: u, onClose, onSaved }) {
   const [name,    setName]    = useState(u.full_name || '')
   const [role,    setRole]    = useState(u.role || 'professional')
@@ -331,6 +402,7 @@ export default function Admin() {
   const [users,       setUsers]       = useState([])
   const [loading,     setLoading]     = useState(true)
   const [showCreate,  setShowCreate]  = useState(false)
+  const [showSync,    setShowSync]    = useState(false)
   const [editUser,    setEditUser]    = useState(null)
   const [resetUser,   setResetUser]   = useState(null)
 
@@ -390,6 +462,13 @@ export default function Admin() {
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <RefreshCw size={13} /> Atualizar
+          </button>
+          <button onClick={() => setShowSync(true)} style={{
+            padding: '8px 14px', borderRadius: 8, border: `1px solid ${S.border}`,
+            background: 'transparent', color: S.muted, fontSize: 12, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Settings size={13} /> Registrar por UID
           </button>
           <button onClick={() => setShowCreate(true)} style={{
             padding: '8px 18px', borderRadius: 8, border: 'none',
@@ -512,6 +591,7 @@ export default function Admin() {
 
       {/* Modals */}
       {showCreate  && <CreateModal        onClose={() => setShowCreate(false)} onCreated={loadUsers} />}
+      {showSync    && <SyncModal          onClose={() => setShowSync(false)}  onSaved={loadUsers} />}
       {editUser    && <EditModal  user={editUser}  onClose={() => setEditUser(null)}  onSaved={loadUsers} />}
       {resetUser   && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
 
