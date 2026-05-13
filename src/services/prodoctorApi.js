@@ -74,72 +74,116 @@ function normSex(val) {
   return ''
 }
 
-let _allPatientsCache = null
-let _cacheTimestamp   = 0
-const CACHE_TTL_MS    = 5 * 60 * 1000
-const PAGE_SIZE       = 100
+let _allPatientsCache   = null
+let _cacheTimestamp     = 0
+let _loadingPromise     = null
+const CACHE_TTL_MS      = 10 * 60 * 1000  // 10 min
 
-async function loadAllPatients() {
-  const now = Date.now()
-  if (_allPatientsCache && (now - _cacheTimestamp) < CACHE_TTL_MS) {
-    return _allPatientsCache
+// Formatos de paginação que a API ProDoctor pode aceitar (tenta em ordem)
+const PAGINATION_FORMATS = (page) => [
+  { pagina: page, quantidade: 100, somenteAtivos: true },
+  { pagina: page, quantidade: 100 },
+  { pagina: page, limite: 100, somenteAtivos: true },
+  { page,         per_page: 100 },
+  { offset: (page - 1) * 100, limite: 100, somenteAtivos: true },
+  { termo: '', campo: 0, pagina: page, somenteAtivos: true, quantidade: 100 },
+  { termo: '', campo: 1, pagina: page, somenteAtivos: true, quantidade: 100 },
+]
+
+async function fetchPage(page) {
+  for (const body of PAGINATION_FORMATS(page)) {
+    try {
+      const data  = await request('/api/v1/Pacientes', 'POST', body)
+      const batch = data?.payload?.pacientes ?? data?.pacientes ?? []
+      if (batch.length > 0) {
+        console.log(`[ProDoctor] pág.${page} formato ${JSON.stringify(body)} → ${batch.length}`)
+        return batch
+      }
+    } catch { /* tenta próximo */ }
   }
+  return []
+}
 
-  const all = []
+async function _doLoad() {
+  const all     = []
   const seenIds = new Set()
-  let page = 1
+  let   page    = 1
 
-  while (true) {
-    let batch = []
-    // Tenta dois formatos — sem termo (todos os pacientes) e com paginação
-    for (const body of [
-      { pagina: page, quantidade: PAGE_SIZE, somenteAtivos: true },
-      { termo: '', campo: 0, pagina: page, somenteAtivos: true, quantidade: PAGE_SIZE },
-    ]) {
-      try {
-        const data = await request('/api/v1/Pacientes', 'POST', body)
-        batch = data?.payload?.pacientes ?? []
-        if (batch.length > 0) break
-      } catch { /* tenta próximo */ }
+  while (page <= 200) {
+    const batch = await fetchPage(page)
+
+    if (batch.length === 0) {
+      console.log(`[ProDoctor] pág.${page} vazia — fim da lista`)
+      break
     }
-
-    console.log(`[ProDoctor] página ${page} → ${batch.length} pacientes`, batch.map(p => p.nome || p.nomeCivil))
-    if (batch.length === 0) break
 
     let novos = 0
     for (const raw of batch) {
       const id = String(raw.codigo ?? raw.id ?? '')
-      if (!seenIds.has(id)) {
+      if (id && !seenIds.has(id)) {
         seenIds.add(id)
         all.push(normalizePatient(raw))
         novos++
       }
     }
 
-    if (novos === 0 || batch.length < PAGE_SIZE) break
+    console.log(`[ProDoctor] pág.${page} → ${batch.length} recebidos, ${novos} novos (total: ${all.length})`)
+
+    // Se não chegou nenhum novo ID a API não suporta paginação real
+    if (novos === 0) break
     page++
-    if (page > 100) break  // max 10.000 pacientes
   }
 
-  console.log(`[ProDoctor] total carregado: ${all.length} pacientes únicos`)
-  _allPatientsCache = all
-  _cacheTimestamp   = now
+  console.log(`[ProDoctor] carregamento concluído: ${all.length} pacientes únicos`)
   return all
 }
 
+async function loadAllPatients(forceRefresh = false) {
+  const now = Date.now()
+  if (!forceRefresh && _allPatientsCache && (now - _cacheTimestamp) < CACHE_TTL_MS) {
+    return _allPatientsCache
+  }
+
+  // Evita múltiplos carregamentos paralelos
+  if (!_loadingPromise) {
+    _loadingPromise = _doLoad().then(all => {
+      _allPatientsCache = all
+      _cacheTimestamp   = Date.now()
+      _loadingPromise   = null
+      return all
+    }).catch(err => {
+      _loadingPromise = null
+      throw err
+    })
+  }
+
+  return _loadingPromise
+}
+
+/** Limpa o cache — útil quando o usuário clica em "Atualizar" */
+export function clearPatientsCache() {
+  _allPatientsCache = null
+  _cacheTimestamp   = 0
+  _loadingPromise   = null
+}
+
+/** Quantos pacientes estão em cache no momento */
+export function getCachedCount() {
+  return _allPatientsCache?.length ?? 0
+}
+
 /**
- * Busca pacientes por nome — carrega todos via paginação e filtra localmente.
- * A API ProDoctor ignora parâmetros de filtro por nome; a única abordagem
- * confiável é paginar tudo e filtrar no cliente.
+ * Busca pacientes por nome ou CPF.
+ * Carrega todos os pacientes via paginação e filtra localmente.
  */
-export async function searchPatients(termo) {
+export async function searchPatients(termo, forceRefresh = false) {
   if (!termo || termo.trim().length < 2) return []
 
   const t       = termo.trim()
   const q       = t.toLowerCase()
   const qDigits = q.replace(/\D/g, '')
 
-  const all = await loadAllPatients()
+  const all = await loadAllPatients(forceRefresh)
   console.log(`[ProDoctor] filtrando "${t}" em ${all.length} pacientes`)
 
   return all.filter(p => {
