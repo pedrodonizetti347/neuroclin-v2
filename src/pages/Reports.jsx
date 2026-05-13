@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db, auth } from '@/lib/firebase'
+import React, { useState, useEffect, useRef } from 'react'
+import { collection, getDocs, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
-import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, Eye, EyeOff, X } from 'lucide-react'
+import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
 
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
@@ -837,6 +837,27 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 </div>`
 }
 
+function ReportBody({ html, editMode, reportRef }) {
+  useEffect(() => {
+    if (reportRef.current) reportRef.current.innerHTML = html
+  }, [html])
+
+  return (
+    <div
+      ref={reportRef}
+      contentEditable={editMode}
+      suppressContentEditableWarning
+      style={{
+        background: '#fff', borderRadius: 6, padding: '32px 28px',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
+        outline: editMode ? '2px solid rgba(96,165,250,0.5)' : 'none',
+        cursor: editMode ? 'text' : 'default',
+        minHeight: 200,
+      }}
+    />
+  )
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Reports() {
   const { user } = useAuth()
@@ -853,10 +874,10 @@ export default function Reports() {
   const [reportStatus,   setReportStatus]   = useState('rascunho')
   const [approvalInfo,   setApprovalInfo]   = useState(null)
   const [showApproval,   setShowApproval]   = useState(false)
-  const [supPass,        setSupPass]        = useState('')
-  const [supPassVisible, setSupPassVisible] = useState(false)
   const [approvalLoading,setApprovalLoading]= useState(false)
   const [approvalErr,    setApprovalErr]    = useState('')
+  const [editMode,       setEditMode]       = useState(false)
+  const reportRef = useRef(null)
 
   const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
 
@@ -1035,7 +1056,11 @@ Regras:
     }
   }
 
+  const getReportContent = () =>
+    reportRef.current ? reportRef.current.innerHTML : report
+
   const print = () => {
+    const content = getReportContent()
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
@@ -1054,16 +1079,36 @@ Regras:
     p  { font-size: 11pt; margin-bottom: 8px; text-align: justify; }
     ul { margin-left: 24px; font-size: 11pt; }
     li { margin-bottom: 4px; }
-    @media print {
-      body { padding: 0; }
-      .no-print { display: none; }
-    }
+    @media print { body { padding: 0; } .no-print { display: none; } }
   </style>
-</head><body>
-  ${report}
-</body></html>`)
+</head><body>${content}</body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 600)
+  }
+
+  const downloadWord = () => {
+    const content = getReportContent()
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><style>
+body{font-family:'Times New Roman',serif;font-size:12pt;margin:2.5cm 2cm;line-height:1.7;}
+h2{font-size:14pt;margin-top:18pt;margin-bottom:6pt;}
+h3{font-size:12pt;margin-top:12pt;}
+table{border-collapse:collapse;width:100%;margin-bottom:12pt;}
+td,th{border:1px solid #999;padding:5pt;font-size:10pt;}
+th{background:#f0f0f0;font-weight:bold;}
+p{font-size:11pt;margin-bottom:6pt;text-align:justify;}
+ul{margin-left:18pt;}li{margin-bottom:3pt;}
+</style></head><body>`
+    const blob = new Blob(['﻿', header + content + '</body></html>'], {
+      type: 'application/msword',
+    })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `laudo-${patient?.full_name?.replace(/\s+/g, '-') || 'paciente'}.doc`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const requestApproval = async () => {
@@ -1080,22 +1125,10 @@ Regras:
   }
 
   const handleApprove = async () => {
-    if (!savedReportId) return
+    if (!isSupervisor) return
     setApprovalErr('')
     setApprovalLoading(true)
     try {
-      const settingsSnap = await getDoc(doc(db, 'clinic_settings', 'main'))
-      const settings = settingsSnap.exists() ? settingsSnap.data() : {}
-      if (!settings.supervisor_password) {
-        setApprovalErr('Senha de supervisor não configurada. Configure em Administrador → Configurações da Clínica.')
-        setApprovalLoading(false)
-        return
-      }
-      if (supPass.trim() !== settings.supervisor_password.trim()) {
-        setApprovalErr('Senha incorreta.')
-        setApprovalLoading(false)
-        return
-      }
       const now = new Date()
       const approval = {
         approved: true,
@@ -1103,15 +1136,16 @@ Regras:
         supervisor_id: user?.id || '',
         approval_date: now.toISOString(),
       }
-      await updateDoc(doc(db, 'reports', savedReportId), {
-        status: 'aprovado',
-        supervisor_approval: approval,
-        updatedAt: serverTimestamp(),
-      })
+      if (savedReportId) {
+        await updateDoc(doc(db, 'reports', savedReportId), {
+          status: 'aprovado',
+          supervisor_approval: approval,
+          updatedAt: serverTimestamp(),
+        })
+      }
       setApprovalInfo(approval)
       setReportStatus('aprovado')
       setShowApproval(false)
-      setSupPass('')
     } catch (e) {
       setApprovalErr('Erro ao aprovar: ' + e.message)
     } finally {
@@ -1234,15 +1268,27 @@ Regras:
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* Editar na tela */}
+              {report && (
+                <button onClick={() => setEditMode(m => !m)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.5)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.1)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
+                  <Pencil size={12} /> {editMode ? 'EDITANDO' : 'EDITAR'}
+                </button>
+              )}
+              {/* Download Word */}
+              {report && (
+                <button onClick={downloadWord} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.08)', cursor: 'pointer', color: '#60A5FA' }}>
+                  <FileDown size={13} /> WORD
+                </button>
+              )}
               {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
               {report && saved && !isSupervisor && reportStatus === 'rascunho' && (
                 <button onClick={requestApproval} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', cursor: 'pointer', color: '#F59E0B' }}>
                   <Send size={12} /> SOLICITAR APROVAÇÃO
                 </button>
               )}
-              {/* Aprovar — supervisor, laudo aguardando */}
-              {report && saved && isSupervisor && (reportStatus === 'aguardando_aprovacao' || reportStatus === 'rascunho') && (
+              {/* Aprovar — supervisor, laudo aguardando ou em rascunho */}
+              {report && isSupervisor && reportStatus !== 'aprovado' && (
                 <button onClick={() => { setApprovalErr(''); setShowApproval(true) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(46,125,50,0.4)', background: 'rgba(46,125,50,0.1)', cursor: 'pointer', color: S.greenL }}>
                   <ShieldCheck size={13} /> APROVAR LAUDO
                 </button>
@@ -1292,8 +1338,7 @@ Regras:
             )}
 
             {!loading && report && (
-              <div style={{ background: '#fff', borderRadius: 6, padding: '32px 28px', boxShadow: '0 2px 16px rgba(0,0,0,0.25)' }}
-                dangerouslySetInnerHTML={{ __html: report }} />
+              <ReportBody html={report} editMode={editMode} reportRef={reportRef} />
             )}
           </div>
         </div>
@@ -1308,40 +1353,27 @@ Regras:
                 <ShieldCheck size={18} color={S.greenL} />
                 <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Aprovação de Supervisor</span>
               </div>
-              <button onClick={() => setShowApproval(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.muted }}>
+              <button onClick={() => { setShowApproval(false); setApprovalErr('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.muted }}>
                 <X size={18} />
               </button>
             </div>
-            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#F59E0B', marginBottom: 18 }}>
-              Esta ação aprova e libera o laudo para impressão. A aprovação ficará registrada com seu nome e data.
+            <div style={{ background: 'rgba(46,125,50,0.08)', border: '1px solid rgba(46,125,50,0.2)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: S.greenL, marginBottom: 18 }}>
+              <strong>{user?.full_name || 'Supervisor'}</strong>, ao confirmar você aprova este laudo e libera a impressão. A aprovação será registrada com seu nome e data.
+            </div>
+            <div style={{ fontSize: 12, color: S.muted, marginBottom: 20, padding: '0 2px' }}>
+              Paciente: <span style={{ color: '#fff' }}>{patient?.full_name || '—'}</span>
             </div>
             {approvalErr && (
               <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
                 {approvalErr}
               </div>
             )}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 5 }}>SENHA DO SUPERVISOR</div>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={supPassVisible ? 'text' : 'password'}
-                  value={supPass} onChange={e => setSupPass(e.target.value)}
-                  placeholder="Digite a senha..."
-                  autoFocus
-                  onKeyDown={e => e.key === 'Enter' && handleApprove()}
-                  style={{ width: '100%', padding: '10px 40px 10px 12px', borderRadius: 8, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
-                />
-                <button type="button" onClick={() => setSupPassVisible(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: S.muted, padding: 0 }}>
-                  {supPassVisible ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={() => { setShowApproval(false); setSupPass(''); setApprovalErr('') }} style={{ padding: '11px', borderRadius: 9, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => { setShowApproval(false); setApprovalErr('') }} style={{ padding: '11px', borderRadius: 9, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleApprove} disabled={approvalLoading} style={{ padding: '11px', borderRadius: 9, border: 'none', background: approvalLoading ? 'rgba(46,125,50,0.5)' : S.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: approvalLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {approvalLoading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Verificando...</> : <><ShieldCheck size={14} /> Confirmar</>}
+                {approvalLoading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</> : <><ShieldCheck size={14} /> Confirmar Aprovação</>}
               </button>
             </div>
           </div>

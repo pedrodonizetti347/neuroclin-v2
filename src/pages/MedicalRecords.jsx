@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { collection, getDocs, doc, getDoc, setDoc, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
@@ -171,8 +172,12 @@ function NoteEditor({ patientId }) {
 }
 
 export default function MedicalRecords() {
+  const { id: paramId } = useParams()
+  const [searchParams] = useSearchParams()
+  const urlId = paramId || searchParams.get('id') || ''
+
   const [patients, setPatients] = useState([])
-  const [patientId, setPatientId] = useState('')
+  const [patientId, setPatientId] = useState(urlId)
   const [session, setSession] = useState(null)
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(false)

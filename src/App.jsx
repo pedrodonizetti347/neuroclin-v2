@@ -22,8 +22,9 @@ function AppRoutes() {
     <Layout>
       <Routes>
         <Route path="/"           element={<Dashboard />} />
-        <Route path="/pacientes"  element={<Patients />} />
-        <Route path="/laudos"     element={<Reports />} />
+        <Route path="/pacientes"     element={<Patients />} />
+        <Route path="/pacientes/:id" element={<MedicalRecords />} />
+        <Route path="/laudos"        element={<Reports />} />
         <Route path="/testes"     element={<Tests />} />
         <Route path="/prontuario" element={<MedicalRecords />} />
         <Route path="/relatorios"    element={<Analytics />} />
