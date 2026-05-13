@@ -454,20 +454,24 @@ function buildRAVLTSection(td) {
   const d = td?.RAVLT
   if (!d) return ''
 
+  // Base44 field names: a1_score … a7_score, b1_score, recognition_hits, recognition_false, recognition_score
+  const g = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
+
   const trialList = [
-    { label: 'A1 — Tentativa 1',      score: d.a1 },
-    { label: 'A2 — Tentativa 2',      score: d.a2 },
-    { label: 'A3 — Tentativa 3',      score: d.a3 },
-    { label: 'A4 — Tentativa 4',      score: d.a4 },
-    { label: 'A5 — Tentativa 5',      score: d.a5 },
-    { label: 'B1 — Lista Distratora', score: d.b1 },
-    { label: 'A6 — Evocação Imediata após Interferência', score: d.a6 },
-    { label: 'A7 — Evocação Tardia',  score: d.a7 },
+    { label: 'A1 — Tentativa 1',                          score: g('a1_score') },
+    { label: 'A2 — Tentativa 2',                          score: g('a2_score') },
+    { label: 'A3 — Tentativa 3',                          score: g('a3_score') },
+    { label: 'A4 — Tentativa 4',                          score: g('a4_score') },
+    { label: 'A5 — Tentativa 5',                          score: g('a5_score') },
+    { label: 'B1 — Lista Distratora',                     score: g('b1_score') },
+    { label: 'A6 — Evocação Imediata após Interferência', score: g('a6_score') },
+    { label: 'A7 — Evocação Tardia',                      score: g('a7_score') },
   ]
 
-  const total = [d.a1, d.a2, d.a3, d.a4, d.a5]
-    .reduce((s, v) => s + (v != null && v !== '' ? Number(v) : 0), 0)
-  const hasTotal = [d.a1, d.a2, d.a3, d.a4, d.a5].some(v => v != null && v !== '')
+  // Use pre-computed total_score from form; fallback to manual sum
+  const total    = g('total_score') ?? [g('a1_score'),g('a2_score'),g('a3_score'),g('a4_score'),g('a5_score')]
+                    .reduce((s,v) => s + (v ?? 0), 0)
+  const hasTotal = trialList.slice(0,5).some(t => t.score != null)
 
   const trialRows = trialList.map((t, i) => {
     const cls = clsRAVLT(t.score)
@@ -479,9 +483,17 @@ function buildRAVLTSection(td) {
     </tr>`
   }).join('')
 
-  const totalCls  = clsRAVLT_total(hasTotal ? total : null)
-  const altScore  = d.a1 != null && d.a5 != null ? Number(d.a5) - Number(d.a1) : null
-  const recCls    = clsRAVLT_rec(d.recognition != null && d.recognition !== '' ? Number(d.recognition) : null)
+  // Pre-computed indices from form (Base44 fields)
+  const altScore    = g('alt_score')    ?? (g('a1_score')!=null && g('a5_score')!=null ? g('a5_score')-g('a1_score') : null)
+  const forgSpeed   = g('forgetting_speed')
+  const proactive   = g('proactive_interference')
+  const retroactive = g('retroactive_interference')
+  const recScore    = g('recognition_score')
+  const recHits     = g('recognition_hits')
+  const recFalse    = g('recognition_false')
+
+  const totalCls = clsRAVLT_total(hasTotal ? total : null)
+  const recCls   = clsRAVLT_rec(recScore)
 
   const summaryRows = `
   <tr style="background:#dce8dc;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
@@ -489,14 +501,29 @@ function buildRAVLTSection(td) {
     ${tdCell(hasTotal ? total : '—', 'text-align:center;font-weight:bold;')}
     ${tdCell(`<span style="color:${totalCls.color};font-weight:bold;">${totalCls.label}</span>`, 'text-align:center;')}
   </tr>
-  ${altScore != null ? `<tr style="background:#fff;">
-    ${tdCell('ALT — Aprendizagem ao Longo das Tentativas (A5–A1)')}
-    ${tdCell(altScore >= 0 ? '+' + altScore : altScore, 'text-align:center;font-weight:bold;')}
+  ${altScore != null ? `<tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('ALT — Aprendizagem ao Longo das Tentativas (A5−A1)')}
+    ${tdCell(altScore >= 0 ? '+'+altScore : altScore, 'text-align:center;font-weight:bold;')}
     ${tdCell(altScore >= 7 ? '<span style="color:#15803d;font-weight:bold;">Adequada</span>' : '<span style="color:#d97706;font-weight:bold;">Abaixo do Esperado</span>', 'text-align:center;')}
   </tr>` : ''}
-  <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-    ${tdCell('Reconhecimento')}
-    ${tdCell(d.recognition ?? '—', 'text-align:center;font-weight:bold;')}
+  ${forgSpeed != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('Velocidade de Esquecimento (A7/A6) <span style="color:#888;font-size:9pt;">≈1,0 sem esquecimento</span>')}
+    ${tdCell(forgSpeed, 'text-align:center;font-weight:bold;')}
+    ${tdCell(forgSpeed >= 0.9 ? '<span style="color:#15803d;font-weight:bold;">Preservada</span>' : forgSpeed >= 0.7 ? '<span style="color:#d97706;font-weight:bold;">Leve Declínio</span>' : '<span style="color:#dc2626;font-weight:bold;">Esquecimento Acelerado</span>', 'text-align:center;')}
+  </tr>` : ''}
+  ${retroactive != null ? `<tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('Interferência Retroativa (A6/A5) <span style="color:#888;font-size:9pt;">efeito de B1 sobre A6</span>')}
+    ${tdCell(retroactive, 'text-align:center;font-weight:bold;')}
+    ${tdCell(retroactive >= 0.8 ? '<span style="color:#15803d;font-weight:bold;">Baixa</span>' : retroactive >= 0.6 ? '<span style="color:#d97706;font-weight:bold;">Moderada</span>' : '<span style="color:#dc2626;font-weight:bold;">Alta</span>', 'text-align:center;')}
+  </tr>` : ''}
+  ${proactive != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('Interferência Proativa (B1/A1) <span style="color:#888;font-size:9pt;">efeito de A sobre B</span>')}
+    ${tdCell(proactive, 'text-align:center;font-weight:bold;')}
+    ${tdCell('—', 'text-align:center;')}
+  </tr>` : ''}
+  <tr style="background:#dce8dc;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell(`<strong>Reconhecimento</strong> <span style="color:#888;font-size:9pt;">${recHits!=null?'hits='+recHits:''} ${recFalse!=null?'FP='+recFalse:''}</span>`)}
+    ${tdCell(recScore ?? '—', 'text-align:center;font-weight:bold;')}
     ${tdCell(`<span style="color:${recCls.color};font-weight:bold;">${recCls.label}</span>`, 'text-align:center;')}
   </tr>`
 
@@ -1025,8 +1052,8 @@ OBSERVAÇÕES COMPORTAMENTAIS:
       const npZ2  = (k) => npZscores[k] != null ? parseFloat(npZscores[k]).toFixed(2) : 'N/A'
 
       const ravltTotal = td?.RAVLT
-        ? [td.RAVLT.a1, td.RAVLT.a2, td.RAVLT.a3, td.RAVLT.a4, td.RAVLT.a5]
-            .reduce((acc, v) => acc + (v != null && v !== '' ? Number(v) : 0), 0)
+        ? (td.RAVLT.total_score ?? [td.RAVLT.a1_score, td.RAVLT.a2_score, td.RAVLT.a3_score, td.RAVLT.a4_score, td.RAVLT.a5_score]
+            .reduce((acc, v) => acc + (v != null && v !== '' ? Number(v) : 0), 0))
         : null
 
       const resultsSummary = `
@@ -1047,7 +1074,7 @@ WASI/WASI-III: ${td?.WASI
     : 'Não aplicado'}
 
 RAVLT: ${td?.RAVLT
-  ? `A1=${td.RAVLT.a1 ?? '—'}, A2=${td.RAVLT.a2 ?? '—'}, A3=${td.RAVLT.a3 ?? '—'}, A4=${td.RAVLT.a4 ?? '—'}, A5=${td.RAVLT.a5 ?? '—'} (total A1-A5=${ravltTotal}), A6 interferência=${td.RAVLT.a6 ?? '—'}, A7 tardia=${td.RAVLT.a7 ?? '—'}, Reconhecimento=${td.RAVLT.recognition ?? '—'}`
+  ? `A1=${td.RAVLT.a1_score ?? '—'}, A2=${td.RAVLT.a2_score ?? '—'}, A3=${td.RAVLT.a3_score ?? '—'}, A4=${td.RAVLT.a4_score ?? '—'}, A5=${td.RAVLT.a5_score ?? '—'} (total A1-A5=${ravltTotal}), B1=${td.RAVLT.b1_score ?? '—'}, A6 interferência=${td.RAVLT.a6_score ?? '—'}, A7 tardia=${td.RAVLT.a7_score ?? '—'}, ALT=${td.RAVLT.alt_score ?? '—'}, Velocidade esquecimento=${td.RAVLT.forgetting_speed ?? '—'}, Interf. retroativa=${td.RAVLT.retroactive_interference ?? '—'}, Reconhecimento (hits−FP)=${td.RAVLT.recognition_score ?? '—'}`
   : 'Não aplicado'}
 
 BAMS: ${td?.BAMS
