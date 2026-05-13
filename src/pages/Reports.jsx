@@ -505,7 +505,10 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   ${escalasSection}
   ${testesSection}
 
-  <!-- CORPO GERADO PELA IA (Análise + Conclusão + Encaminhamentos) -->
+  <!-- Análise elaborada pelo supervisor -->
+  <p style="font-size:9pt;color:#555;font-style:italic;text-align:right;margin:20px 0 4px;">
+    Análise elaborada pelo supervisor: ${SUPERVISOR.name} — ${SUPERVISOR.crp}
+  </p>
   <div style="font-size:11pt;line-height:1.8;color:#1a1a2e;">
     ${aiBody}
   </div>
