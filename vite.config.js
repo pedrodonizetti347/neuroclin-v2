@@ -4,7 +4,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/neuroclin-v2/',
+  base: '/',
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   server: { port: 3000, open: true }
 })
