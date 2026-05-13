@@ -592,11 +592,16 @@ function buildWCSTSection(td) {
   const d = td?.['WCST-N']
   if (!d) return ''
 
+  const wcstBreakPct = (n) => n === 0 ? 95 : n <= 1 ? 75 : n <= 2 ? 50 : n <= 4 ? 25 : 10
+
   const rows_data = [
-    { label: 'Categorias completadas',          val: d.categories_completed,      pctFn: wcstCatPct,  note: '(0–6, maior = melhor)' },
-    { label: 'Erros perseverativos',            val: d.perseverative_errors,      pctFn: wcstPersPct, note: '(menor = melhor)' },
-    { label: 'Respostas perseverativas',        val: d.perseverative_responses,   pctFn: wcstRespPct, note: '(menor = melhor)' },
-    { label: 'Total de erros',                  val: d.total_errors,              pctFn: null,        note: '' },
+    { label: 'Ensaios administrados',           val: d.trials_administered,      pctFn: null,          note: '(máx 48)' },
+    { label: 'Categorias completadas',          val: d.categories_completed,     pctFn: wcstCatPct,    note: '(0–6, maior = melhor)' },
+    { label: 'Total de acertos',                val: d.total_correct,            pctFn: null,          note: '' },
+    { label: 'Total de erros',                  val: d.total_errors,             pctFn: null,          note: '' },
+    { label: 'Erros perseverativos',            val: d.perseverative_errors,     pctFn: wcstPersPct,   note: '(menor = melhor)' },
+    { label: 'Erros não-perseverativos',        val: d.non_perseverative_errors, pctFn: null,          note: '' },
+    { label: 'Total de rupturas',               val: d.total_breaks,             pctFn: wcstBreakPct,  note: '(menor = melhor)' },
   ].filter(r => r.val != null && r.val !== '')
 
   if (rows_data.length === 0) return ''
@@ -1050,7 +1055,7 @@ BAMS: ${td?.BAMS
   : 'Não aplicado'}
 
 WCST-N: ${td?.['WCST-N']
-  ? `Categorias=${td['WCST-N'].categories_completed}, Tentativas=${td['WCST-N'].trials_administered ?? td['WCST-N'].total_trials ?? '—'}, Erros Persev.=${td['WCST-N'].perseverative_errors}, Não-Persev.=${td['WCST-N'].non_perseverative_errors ?? '—'}, Total Erros=${td['WCST-N'].total_errors}`
+  ? `Ensaios=${td['WCST-N'].trials_administered ?? '—'}, Categorias=${td['WCST-N'].categories_completed ?? '—'}, Acertos=${td['WCST-N'].total_correct ?? '—'}, Erros=${td['WCST-N'].total_errors ?? '—'}, Erros Persev.=${td['WCST-N'].perseverative_errors ?? '—'}, Erros Não-Persev.=${td['WCST-N'].non_perseverative_errors ?? '—'}, Rupturas=${td['WCST-N'].total_breaks ?? '—'}`
   : 'Não aplicado'}
 
 Token Test: ${td?.TOKEN
