@@ -126,8 +126,44 @@ async function loadAllPatients() {
  */
 export async function searchPatients(termo) {
   if (!termo || termo.trim().length < 2) return []
-  const all = await loadAllPatients()
-  const q   = termo.trim().toLowerCase()
+
+  const t = termo.trim()
+
+  // Tenta busca direta pelo nome no servidor (vários formatos possíveis)
+  const formatos = [
+    { nome: t, pagina: 1, quantidade: 50 },
+    { termo: t, campo: 0, pagina: 1, somenteAtivos: true, quantidade: 50 },
+    { termo: t, campo: 2, pagina: 1, somenteAtivos: true, quantidade: 50 },
+    { filtro: t, pagina: 1, quantidade: 50 },
+  ]
+
+  for (const body of formatos) {
+    try {
+      const data  = await request('/api/v1/Pacientes', 'POST', body)
+      const batch = data?.payload?.pacientes ?? []
+      console.log(`[ProDoctor] formato ${JSON.stringify(body)} → ${batch.length} pacientes:`, batch.map(p => p.nome || p.nomeCivil))
+
+      if (batch.length === 0) continue
+
+      const q       = t.toLowerCase()
+      const results = batch.map(normalizePatient)
+      const matched = results.filter(p => p.full_name?.toLowerCase().includes(q))
+
+      // Se ao menos um resultado bate com o termo, a API filtrou corretamente
+      if (matched.length > 0) {
+        console.log(`[ProDoctor] ✓ formato funcional: ${JSON.stringify(body)}`)
+        return results
+      }
+      // Se veio resultado mas nenhum tem o nome, a API ignorou o filtro → tenta próximo formato
+    } catch (e) {
+      console.warn(`[ProDoctor] formato falhou:`, e.message)
+    }
+  }
+
+  // Nenhum formato filtrou no servidor → filtra localmente nos 20 disponíveis
+  console.warn('[ProDoctor] API não suporta filtro por nome — usando cache local')
+  const all     = await loadAllPatients()
+  const q       = t.toLowerCase()
   const qDigits = q.replace(/\D/g, '')
   return all.filter(p => {
     if (p.full_name?.toLowerCase().includes(q)) return true
