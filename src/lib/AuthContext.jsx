@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { Brain, Eye, EyeOff } from 'lucide-react'
@@ -22,7 +22,15 @@ export function AuthProvider({ children }) {
           const ref  = doc(db, 'users', fu.uid)
           const snap = await getDoc(ref)
           if (snap.exists()) {
-            setUser({ id: fu.uid, ...snap.data() })
+            const profile = snap.data()
+            if (profile.active === false) {
+              await firebaseSignOut(auth)
+              setLoginErr('Seu acesso está desativado. Entre em contato com o administrador.')
+              setUser(null)
+              setLoading(false)
+              return
+            }
+            setUser({ id: fu.uid, ...profile })
             await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
           } else {
             const profile = {
@@ -77,7 +85,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => signOut(auth)
+  const logout = () => firebaseSignOut(auth)
 
   const inputStyle = {
     width: '100%', padding: '11px 14px', borderRadius: 8, fontSize: 13,

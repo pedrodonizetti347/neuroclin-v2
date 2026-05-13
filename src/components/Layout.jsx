@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext'
 import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3,
-  LogOut, Menu, ChevronRight, Settings
+  LogOut, Menu, ChevronRight, Settings, ShieldCheck
 } from 'lucide-react'
 
 const NAV = [
@@ -14,6 +14,10 @@ const NAV = [
   { label: 'Testes',          icon: FlaskConical,     path: '/testes' },
   { label: 'Prontuário',      icon: BookOpen,         path: '/prontuario' },
   { label: 'Relatórios',      icon: BarChart3,        path: '/relatorios' },
+]
+
+const NAV_ADMIN = [
+  { label: 'Administrador',   icon: ShieldCheck,      path: '/admin' },
 ]
 
 const S = {
@@ -29,6 +33,7 @@ const S = {
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
+  const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -99,6 +104,35 @@ export default function Layout({ children }) {
               </Link>
             )
           })}
+          {isAdmin && (
+            <>
+              {!collapsed && (
+                <div style={{ fontSize: 9, color: S.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '10px 12px 4px', opacity: 0.6 }}>
+                  Gestão
+                </div>
+              )}
+              {NAV_ADMIN.map(({ label, icon: Icon, path }) => {
+                const active = location.pathname === path
+                return (
+                  <Link key={path} to={path}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center',
+                      gap: 9, padding: collapsed ? '10px 12px' : '9px 12px',
+                      borderRadius: 7, marginBottom: 2,
+                      background: active ? '#3730A3' : 'transparent',
+                      color: active ? '#fff' : S.muted,
+                      fontSize: 12, fontWeight: active ? 700 : 400,
+                      cursor: 'pointer', transition: 'all 0.15s',
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                    }}>
+                      <Icon size={16} style={{ flexShrink: 0 }} />
+                      {!collapsed && <span>{label}</span>}
+                    </div>
+                  </Link>
+                )
+              })}
+            </>
+          )}
         </nav>
 
         {/* User footer */}
@@ -118,7 +152,7 @@ export default function Layout({ children }) {
                   {user?.full_name || 'Profissional'}
                 </div>
                 <div style={{ fontSize: 10, color: S.muted }}>
-                  {user?.role === 'supervisor' ? 'Supervisor' : 'Profissional'}
+                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : 'Profissional'}
                 </div>
               </div>
             </div>

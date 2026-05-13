@@ -10,6 +10,7 @@ import Tests from '@/pages/Tests'
 import MedicalRecords from '@/pages/MedicalRecords'
 import Analytics from '@/pages/Analytics'
 import AdminSetup from '@/pages/AdminSetup'
+import Admin from '@/pages/Admin'
 import Settings from '@/pages/Settings'
 
 const queryClient = new QueryClient({
@@ -28,6 +29,7 @@ function AppRoutes() {
         <Route path="/relatorios"    element={<Analytics />} />
         <Route path="/configuracoes" element={<Settings />} />
         <Route path="/admin-setup"   element={<AdminSetup />} />
+        <Route path="/admin"         element={<Admin />} />
         <Route path="*"              element={<Dashboard />} />
       </Routes>
     </Layout>
