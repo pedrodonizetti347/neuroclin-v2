@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
   UserPlus, Users, Shield, RefreshCw, CheckCircle2,
-  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save,
+  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings,
 } from 'lucide-react'
 
 const S = {
