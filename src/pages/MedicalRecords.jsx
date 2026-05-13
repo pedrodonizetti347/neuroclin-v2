@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { collection, getDocs, doc, getDoc, setDoc, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, query, orderBy, where, serverTimestamp } from 'firebase/firestore'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
@@ -184,9 +184,12 @@ export default function MedicalRecords() {
   const [tab, setTab] = useState('testes')
 
   useEffect(() => {
-    getDocs(collection(db, 'patients'))
-      .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-  }, [])
+    if (!user) return
+    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
+    const base = collection(db, 'patients')
+    const q = isAdmin ? base : query(base, where('createdBy', '==', user.id))
+    getDocs(q).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+  }, [user])
 
   useEffect(() => {
     if (!patientId) return

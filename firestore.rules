@@ -1,8 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdminOrSupervisor() {
+      return request.auth != null && userRole() in ['admin', 'supervisor'];
+    }
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Perfis de usuário
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
+      allow write: if isAdminOrSupervisor();
+    }
+
+    // Pacientes — admin/supervisor vê todos; profissional só vê os seus (createdBy)
+    match /patients/{patientId} {
+      allow read, write: if isAdminOrSupervisor();
+      allow read, update, delete: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    // Sessões de testes — admin vê todas; profissional só vê as suas
+    match /sessions/{sessionId} {
+      allow read, write: if isAdminOrSupervisor();
+      allow read, update, delete: if isAuth() && resource.data.professionalId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.professionalId == request.auth.uid;
+    }
+
+    // Laudos — admin vê todos; profissional só vê os seus
+    match /reports/{reportId} {
+      allow read, write: if isAdminOrSupervisor();
+      allow read, update, delete: if isAuth() && resource.data.professionalId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.professionalId == request.auth.uid;
+    }
+
+    // Observações clínicas (notes) — por patientId; profissional acessa se for dono do paciente
+    match /notes/{patientId} {
+      allow read, write: if isAdminOrSupervisor();
+      allow read, write: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
+    }
+
+    // Configurações da clínica — apenas admin/supervisor
+    match /clinic_settings/{doc} {
+      allow read, write: if isAdminOrSupervisor();
     }
   }
 }

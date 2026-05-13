@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
@@ -884,11 +884,19 @@ export default function Reports() {
   const session = useTestSession(patientId)
 
   useEffect(() => {
-    getDocs(query(collection(db, 'patients'), orderBy('createdAt', 'desc')))
+    if (!user) return
+    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
+    const base = collection(db, 'patients')
+    const q = isAdmin
+      ? query(base, orderBy('createdAt', 'desc'))
+      : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
+    getDocs(q)
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => getDocs(collection(db, 'patients'))
-        .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
-  }, [])
+      .catch(() => {
+        const qFallback = isAdmin ? base : query(base, where('createdBy', '==', user.id))
+        getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      })
+  }, [user])
 
   useEffect(() => {
     if (patientId) session.loadSession()
