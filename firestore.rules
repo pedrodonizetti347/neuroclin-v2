@@ -2,12 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isHardcodedAdmin() {
+      return request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
+    }
+
     function userRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
     function isAdminOrSupervisor() {
-      return request.auth != null && userRole() in ['admin', 'supervisor'];
+      return request.auth != null && (isHardcodedAdmin() || userRole() in ['admin', 'supervisor']);
     }
 
     function isAuth() {
