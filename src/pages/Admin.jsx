@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary } from 'firebase/auth'
-import { collection, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
   UserPlus, Users, Shield, RefreshCw, CheckCircle2,
-  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save,
+  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, KeyRound,
 } from 'lucide-react'
 
 const S = {
@@ -325,6 +325,81 @@ function ResetPasswordModal({ user: u, onClose }) {
   )
 }
 
+function SupervisorPasswordConfig() {
+  const [current,  setCurrent]  = useState('')
+  const [newPass,  setNewPass]  = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [loadingGet, setLoadingGet] = useState(true)
+  const [ok,       setOk]       = useState(false)
+  const [err,      setErr]      = useState('')
+
+  useEffect(() => {
+    getDoc(doc(db, 'clinic_settings', 'main')).then(snap => {
+      if (snap.exists() && snap.data().supervisor_password) {
+        setCurrent('(configurada)')
+      } else {
+        setCurrent('')
+      }
+    }).catch(() => {}).finally(() => setLoadingGet(false))
+  }, [])
+
+  const handleSave = async () => {
+    if (!newPass || newPass.length < 4) { setErr('Senha deve ter pelo menos 4 caracteres.'); return }
+    setErr(''); setLoading(true)
+    try {
+      await setDoc(doc(db, 'clinic_settings', 'main'), {
+        supervisor_password: newPass,
+        updated_at: serverTimestamp(),
+      }, { merge: true })
+      setOk(true)
+      setNewPass('')
+      setCurrent('(configurada)')
+      setTimeout(() => setOk(false), 2000)
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, marginTop: 24, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <KeyRound size={15} color={S.greenL} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Senha de Aprovação de Laudos</span>
+      </div>
+      <div style={{ padding: '18px 18px' }}>
+        <p style={{ fontSize: 12, color: S.muted, marginBottom: 16, lineHeight: 1.6 }}>
+          O supervisor usa esta senha para aprovar laudos antes da impressão.
+          {current === '(configurada)' ? ' Senha já configurada — defina uma nova abaixo para alterar.' : ' Nenhuma senha configurada ainda.'}
+        </p>
+        {err && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 14 }}>
+            {err}
+          </div>
+        )}
+        {ok && (
+          <div style={{ background: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: S.greenL, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <CheckCircle2 size={13} /> Senha salva com sucesso!
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+          <Fld label={current === '(configurada)' ? 'NOVA SENHA DE SUPERVISOR' : 'DEFINIR SENHA DE SUPERVISOR'} type="password" value={newPass} onChange={setNewPass} placeholder="Mínimo 4 caracteres" />
+          <button onClick={handleSave} disabled={loading} style={{
+            padding: '10px 18px', borderRadius: 9, border: 'none', marginBottom: 14,
+            background: loading ? 'rgba(46,125,50,0.5)' : S.green,
+            color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+          }}>
+            {loading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />}
+            {loading ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [users,       setUsers]       = useState([])
@@ -508,6 +583,9 @@ export default function Admin() {
         O profissional recebe o e-mail e a senha definidos aqui para acessar o NeuroClin. Recomende trocar a senha no primeiro acesso.
         Para redefinir senha, o profissional pode usar a opção de recuperação na tela de login ou solicitar ao administrador.
       </div>
+
+      {/* Configuração da senha de aprovação de laudos */}
+      <SupervisorPasswordConfig />
 
       {/* Modals */}
       {showCreate  && <CreateModal        onClose={() => setShowCreate(false)} onCreated={loadUsers} />}
