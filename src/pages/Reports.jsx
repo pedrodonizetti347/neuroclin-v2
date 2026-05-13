@@ -942,35 +942,143 @@ export default function Reports() {
 
       // Dados resumidos para o prompt (a IA NÃO re-descreve — apenas interpreta)
       const anamSummary = Object.keys(ad).length ? `
-Objetivo: ${s(ad.objetivo_avaliacao || ad.motivo_encaminhamento)}
-Queixas: ${s(ad.queixas || ad.queixas_cognitivas_emocionais)}
-Início dos sintomas: ${s(ad.inicio_sintomas_data)} | Desenvolvimento: ${s(ad.desenvolvimento_sintomas)}
-Medicamentos: ${s(ad.medicamentos)} | Doenças: ${arr(ad.doencas_preexistentes)}
-Sono: ${s(ad.sono)} | Apetite: ${s(ad.apetite)}
+MOTIVO E ENCAMINHAMENTO:
+  Objetivo: ${s(ad.objetivo_avaliacao || ad.motivo_encaminhamento)}
+  Encaminhado por: ${s(ad.encaminhado_por || ad.origem_encaminhamento)}
+  Queixas principais: ${s(ad.queixas)}
+  Queixas cognitivas/emocionais: ${s(ad.queixas_cognitivas_emocionais)}
+
+CRONOLOGIA DOS SINTOMAS:
+  Início: ${s(ad.inicio_sintomas_data)}
+  Desenvolvimento: ${s(ad.desenvolvimento_sintomas)}
+  Evolução/progressão: ${s(ad.evolucao_sintomas || ad.progressao)}
+
+HISTÓRICO CLÍNICO:
+  Doenças preexistentes: ${arr(ad.doencas_preexistentes)}
+  Medicamentos em uso: ${s(ad.medicamentos)}
+  Cirurgias/hospitalizações: ${s(ad.cirurgias || ad.hospitalizacoes)}
+  Exames de neuroimagem: ${s(ad.exames)}
+  Hipótese diagnóstica prévia: ${s(ad.hipotese_diagnostica_previa)}
+  Histórico familiar (memória/cognição): ${s(ad.historico_familiar_memoria || ad.historia_familiar)}
+  Queda/trauma craniano: ${s(ad.trauma || ad.quedas)}
+
+PERFIL BIOGRÁFICO:
+  Escolaridade: ${s(ad.escolaridade || patient?.education)}
+  Profissão: ${s(ad.profissao || patient?.occupation)}
+  Lateralidade: ${s(ad.lateralidade || patient?.lateralidade)}
+  Estado civil: ${s(ad.estado_civil || patient?.marital_status)}
+  Situação de moradia: ${s(ad.moradia)}
+
+ESTILO DE VIDA:
+  Sono: ${s(ad.sono || ad.sono_como_e)}
+  Apetite: ${s(ad.apetite || ad.apetite_como_e)}
+  Atividade física: ${s(ad.atividade_fisica)}
+  Atividades de lazer: ${s(ad.lazer)}
+  Uso de álcool/tabaco: ${s(ad.uso_substancias || ad.alcool_tabaco)}
+
+INFORMANTE / ACOMPANHANTE:
+  Nome: ${s(ad.acompanhante || ad.informante || ad.responsavel)}${ad.parentesco_acompanhante ? ' (' + ad.parentesco_acompanhante + ')' : ''}
+
+OBSERVAÇÕES COMPORTAMENTAIS:
+  ${s(ad.observacoes_comportamentais || ad.comportamento || 'Não registradas')}
+  Humor aparente: ${s(ad.humor)}
+  Cooperação: ${s(ad.cooperacao)}
+  Nível de alerta: ${s(ad.nivel_alerta)}
 ` : 'Sem dados de anamnese.'
 
+      // NEUPSILIN: compute z-scores from flat fields (new format) or use legacy zScores
+      const np = td?.NEUPSILIN
+      let npZscores = {}
+      if (np) {
+        if (np.zScores) {
+          npZscores = np.zScores
+        } else {
+          const nAge = npAgeGroup(np.age || age)
+          const nEdu = npEduGroup(np.education_years || patient?.education)
+          const orientT = (Number(np.orientation_time)||0) + (Number(np.orientation_space)||0)
+          const attT    = (Number(np.attention_reverse_count)||0) + (Number(np.attention_digit_sequence)||0)
+          const percT   = (Number(np.perception_line_equality)||0) + (Number(np.perception_visual_hemineglect)||0) + (Number(np.perception_face_perception)||0) + (Number(np.perception_face_recognition)||0)
+          const episT   = (Number(np.memory_episodic_immediate)||0) + (Number(np.memory_episodic_delayed)||0) + (Number(np.memory_episodic_recognition)||0)
+          const memT    = (Number(np.memory_working)||0) + (Number(np.memory_span_auditory)||0) + episT + (Number(np.memory_semantic_long)||0) + (Number(np.memory_visual_short)||0) + (Number(np.memory_prospective)||0)
+          const langO   = (Number(np.lang_nomeacao)||0) + (Number(np.lang_repeticao)||0) + (Number(np.lang_automatica)||0) + (Number(np.lang_compreensao_oral)||0) + (Number(np.lang_inferencias)||0)
+          const langE   = (Number(np.lang_leitura)||0) + (Number(np.lang_compreensao_escrita)||0) + (Number(np.lang_escrita_espontanea)||0) + (Number(np.lang_escrita_copiada)||0) + (Number(np.lang_ditada)||0)
+          const praxT   = (Number(np.praxis_ideomotor)||0) + (Number(np.praxis_constructive)||0) + (Number(np.praxis_reflexive)||0)
+          const execT   = (Number(np.executive_problem_solving)||0) + (Number(np.executive_verbal_fluency)||0)
+          npZscores = {
+            orientation: npCalcZ(orientT, 'orientation', nAge, nEdu),
+            attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
+            perception:  npCalcZ(percT,   'perception',  nAge, nEdu),
+            memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
+            arithmetic:  npCalcZ(np.arithmetic, 'arithmetic', nAge, nEdu),
+            language:    npCalcZ(langO + langE, 'language',   nAge, nEdu),
+            praxis:      npCalcZ(praxT,   'praxis',      nAge, nEdu),
+            executive:   npCalcZ(execT,   'executive',   nAge, nEdu),
+          }
+        }
+      }
+      const npLbl = (k) => lbl(npZscores[k])
+      const npZ2  = (k) => npZscores[k] != null ? parseFloat(npZscores[k]).toFixed(2) : 'N/A'
+
+      const ravltTotal = td?.RAVLT
+        ? [td.RAVLT.a1, td.RAVLT.a2, td.RAVLT.a3, td.RAVLT.a4, td.RAVLT.a5]
+            .reduce((acc, v) => acc + (v != null && v !== '' ? Number(v) : 0), 0)
+        : null
+
       const resultsSummary = `
-WASI/WASI-III: ${td?.WASI ? `QI=${td.WASI.qit_2 ?? td.WASI.qit ?? '-'}, Percentil=${td.WASI.qit_percentile ?? '-'}, Classif.=${td.WASI.classification ?? '-'}` : (td?.['WASI-III'] ? `QI=${td['WASI-III'].qit_2 ?? '-'}, Percentil=${td['WASI-III'].qit_percentile ?? '-'}` : 'Não aplicado')}
+NEUPSILIN — Avaliação Neuropsicológica Breve:
+  Orientação: z=${npZ2('orientation')} — ${npLbl('orientation')}
+  Atenção: z=${npZ2('attention')} — ${npLbl('attention')}
+  Percepção: z=${npZ2('perception')} — ${npLbl('perception')}
+  Memória: z=${npZ2('memory')} — ${npLbl('memory')}
+  Habilidades Aritméticas: z=${npZ2('arithmetic')} — ${npLbl('arithmetic')}
+  Linguagem: z=${npZ2('language')} — ${npLbl('language')}
+  Praxias: z=${npZ2('praxis')} — ${npLbl('praxis')}
+  Funções Executivas: z=${npZ2('executive')} — ${npLbl('executive')}
 
-NEUPSILIN (z-scores):
-  Orientação: ${lbl(td?.NEUPSILIN?.zScores?.orientation)} | Atenção: ${lbl(td?.NEUPSILIN?.zScores?.attention)}
-  Percepção: ${lbl(td?.NEUPSILIN?.zScores?.perception)} | Memória: ${lbl(td?.NEUPSILIN?.zScores?.memory)}
-  Aritmética: ${lbl(td?.NEUPSILIN?.zScores?.arithmetic)} | Linguagem: ${lbl(td?.NEUPSILIN?.zScores?.language)}
-  Praxia: ${lbl(td?.NEUPSILIN?.zScores?.praxis)} | Funções Executivas: ${lbl(td?.NEUPSILIN?.zScores?.executive)}
+WASI/WASI-III: ${td?.WASI
+  ? `QI Total=${td.WASI.qit_2 ?? td.WASI.qit ?? '—'}, Percentil=${td.WASI.qit_percentile ?? '—'}, Classif.=${td.WASI.classification ?? '—'}, Vocab.QI=${td.WASI.vocab_qi ?? '—'}, Matrix.QI=${td.WASI.matrix_qi ?? '—'}`
+  : td?.['WASI-III']
+    ? `QI Total=${td['WASI-III'].qit_2 ?? '—'}, Percentil=${td['WASI-III'].qit_percentile ?? '—'}, Vocab.QI=${td['WASI-III'].vocab_qi ?? '—'}, Simil.QI=${td['WASI-III'].similarities_qi ?? '—'}`
+    : 'Não aplicado'}
 
-BAMS: ${td?.BAMS ? `Global=${td.BAMS.global_score}, Percentil=${td.BAMS.percentile}, Classif.=${td.BAMS.interpretation}` : 'Não aplicado'}
-RAVLT: ${td?.RAVLT ? `A1=${td.RAVLT.a1 ?? '-'}, A2=${td.RAVLT.a2 ?? '-'}, A3=${td.RAVLT.a3 ?? '-'}, A4=${td.RAVLT.a4 ?? '-'}, A5=${td.RAVLT.a5 ?? '-'}, A6=${td.RAVLT.a6 ?? '-'}, A7=${td.RAVLT.a7 ?? '-'}, Recog.=${td.RAVLT.recognition ?? '-'}` : 'Não aplicado'}
-WCST-N: ${td?.['WCST-N'] ? `Categorias=${td['WCST-N'].categories_completed}, Erros Persev.=${td['WCST-N'].perseverative_errors}` : 'Não aplicado'}
+RAVLT: ${td?.RAVLT
+  ? `A1=${td.RAVLT.a1 ?? '—'}, A2=${td.RAVLT.a2 ?? '—'}, A3=${td.RAVLT.a3 ?? '—'}, A4=${td.RAVLT.a4 ?? '—'}, A5=${td.RAVLT.a5 ?? '—'} (total A1-A5=${ravltTotal}), A6 interferência=${td.RAVLT.a6 ?? '—'}, A7 tardia=${td.RAVLT.a7 ?? '—'}, Reconhecimento=${td.RAVLT.recognition ?? '—'}`
+  : 'Não aplicado'}
+
+BAMS: ${td?.BAMS
+  ? `Escore Global=${td.BAMS.global_score}, Percentil=${td.BAMS.percentile}, Classif.=${td.BAMS.interpretation || td.BAMS.classification}`
+  : 'Não aplicado'}
+
+WCST-N: ${td?.['WCST-N']
+  ? `Categorias=${td['WCST-N'].categories_completed}, Tentativas=${td['WCST-N'].trials_administered ?? td['WCST-N'].total_trials ?? '—'}, Erros Persev.=${td['WCST-N'].perseverative_errors}, Não-Persev.=${td['WCST-N'].non_perseverative_errors ?? '—'}, Total Erros=${td['WCST-N'].total_errors}`
+  : 'Não aplicado'}
+
+Token Test: ${td?.TOKEN
+  ? `Pontuação Total=${td.TOKEN.total_score}/36, Classif.=${td.TOKEN.classification || td.TOKEN.interpretation}`
+  : 'Não aplicado'}
+
+DEX: ${td?.DEX
+  ? `Paciente=${td.DEX.totals?.patient_total ?? td.DEX.patient_total ?? '—'} (${td.DEX.totals?.patient_mean_class ?? td.DEX.patient_classification ?? '—'}), Familiar=${td.DEX.totals?.family_total ?? td.DEX.family_total ?? '—'} (${td.DEX.totals?.family_mean_class ?? td.DEX.family_classification ?? '—'})`
+  : 'Não aplicado'}
+
 FAB: ${td?.FAB ? `Escore=${td.FAB.total_score}, Classif.=${td.FAB.classification}` : 'Não aplicado'}
 MoCA: ${td?.MoCA ? `${td.MoCA.total_score}/30 — ${td.MoCA.classification}` : 'Não aplicado'}
-GDS-15: ${td?.['GDS-15'] ? `${td['GDS-15'].total_score} pts — ${td['GDS-15'].classification}` : 'Não aplicado'}
-GAI: ${td?.GAI ? `${td.GAI.total_score} pts — ${td.GAI.classification}` : 'Não aplicado'}
-BDI-II: ${td?.['BDI-II'] ? `${td['BDI-II'].total_score} pts — ${td['BDI-II'].classification}` : 'Não aplicado'}
-HAD: ${td?.HAD ? `Ansiedade=${td.HAD.anxiety_score}(${td.HAD.anxiety_classification}), Depressão=${td.HAD.depression_score}(${td.HAD.depression_classification})` : 'Não aplicado'}
-IQCODE: ${td?.IQCODE ? `${td.IQCODE.total_score} — ${td.IQCODE.classification}` : 'Não aplicado'}
-B-ADL: ${td?.['B-ADL'] ? `${td['B-ADL'].total_score} — ${td['B-ADL'].classification}` : 'Não aplicado'}
-Pfeffer: ${td?.Pfeffer ? `${td.Pfeffer.total_score} — ${td.Pfeffer.classification}` : 'Não aplicado'}
-Lawton: ${td?.Lawton ? `${td.Lawton.total_score} — ${td.Lawton.classification}` : 'Não aplicado'}
+TRIACOG: ${td?.TRIACOG ? `aplicado (status: ${td.TRIACOG.status || 'concluído'})` : 'Não aplicado'}
+
+Escalas de Humor e Ansiedade:
+  GDS-15: ${td?.['GDS-15'] ? `${td['GDS-15'].total_score} pts — ${td['GDS-15'].classification}` : 'Não aplicado'}
+  GAI: ${td?.GAI ? `${td.GAI.total_score} pts — ${td.GAI.classification}` : 'Não aplicado'}
+  BDI-II: ${td?.['BDI-II'] ? `${td['BDI-II'].total_score} pts — ${td['BDI-II'].classification}` : 'Não aplicado'}
+  HAD: ${td?.HAD ? `Ansiedade=${td.HAD.anxiety_score} (${td.HAD.anxiety_classification}), Depressão=${td.HAD.depression_score} (${td.HAD.depression_classification})` : 'Não aplicado'}
+  IDATE-E: ${td?.['IDATE-E'] ? `${td['IDATE-E'].total_score} — ${td['IDATE-E'].classification}` : 'Não aplicado'}
+  IDATE-T: ${td?.['IDATE-T'] ? `${td['IDATE-T'].total_score} — ${td['IDATE-T'].classification}` : 'Não aplicado'}
+
+Escalas Funcionais e AVD:
+  IQCODE: ${td?.IQCODE ? `${td.IQCODE.total_score} — ${td.IQCODE.classification}` : 'Não aplicado'}
+  B-ADL: ${td?.['B-ADL'] ? `${td['B-ADL'].total_score} — ${td['B-ADL'].classification}` : 'Não aplicado'}
+  Pfeffer: ${td?.Pfeffer ? `${td.Pfeffer.total_score} — ${td.Pfeffer.classification}` : 'Não aplicado'}
+  Lawton: ${td?.Lawton ? `${td.Lawton.total_score} — ${td.Lawton.classification}` : 'Não aplicado'}
+  BADL: ${td?.BADL ? `${td.BADL.total_score} — ${td.BADL.classification}` : 'Não aplicado'}
 `
 
       const initials = patient?.full_name
@@ -979,7 +1087,7 @@ Lawton: ${td?.Lawton ? `${td.Lawton.total_score} — ${td.Lawton.classification}
 
       const prompt = `Você é um neuropsicólogo clínico especialista em laudos neuropsicológicos. As tabelas de identificação do paciente e de resultados dos testes já foram incluídas no laudo pelo sistema — NÃO as repita.
 
-Sua tarefa é elaborar APENAS as seguintes três seções interpretativas, em português brasileiro técnico e empático, formatadas em HTML.
+Sua tarefa é elaborar as seções interpretativas do laudo neuropsicológico em português brasileiro técnico e empático, formatadas em HTML.
 
 DADOS DO CASO:
 Paciente (iniciais): ${initials} | ${age != null ? age + ' anos' : 'N/D'} | ${patient?.sex || 'N/D'}
@@ -987,41 +1095,68 @@ Escolaridade: ${patient?.education || ad?.escolaridade || 'N/D'}
 Testes aplicados: ${selectedTests.join(', ')}
 Aplicado por: ${professional} | Supervisão: ${SUPERVISOR.name} — ${SUPERVISOR.crp}
 
-ANAMNESE:
+ANAMNESE CLÍNICA:
 ${anamSummary}
 
-RESULTADOS DOS TESTES (use para interpretar, NÃO para repetir):
+RESULTADOS DOS TESTES (interprete — NÃO repita valores brutos):
 ${resultsSummary}
 
-Gere EXATAMENTE estas três seções em HTML:
+Gere EXATAMENTE estas seções em HTML:
 
 <div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE NEUROPSICOLÓGICA</div>
-[análise técnica detalhada de cada domínio avaliado, correlacionando resultados com as queixas e histórico clínico. Mencione especificamente os domínios preservados e alterados. Use as iniciais ${initials} ao referenciar o paciente. Seja clínico e individualizado.]
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO</div>
+[Contextualização clínica: apresente o quadro geral do(a) paciente ${initials} integrando as queixas relatadas, o histórico clínico, o desenvolvimento dos sintomas e o perfil biográfico relevante. 2 parágrafos. NÃO repita dados da tabela — interprete-os clinicamente.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">OBSERVAÇÕES COMPORTAMENTAIS</div>
+[Descreva o comportamento do(a) paciente durante a avaliação: nível de alerta, atenção sustentada, cooperação, velocidade de resposta, contato, adaptação às tarefas, sinais de ansiedade, fadiga, etc. Integre com as observações da anamnese. 1 a 2 parágrafos.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE NEUROPSICOLÓGICA — DOMÍNIOS COGNITIVOS</div>
+[Análise técnica e detalhada de cada domínio cognitivo avaliado, organizada com subtítulos em negrito para cada domínio (ex: <span style="font-weight:bold;color:${H};">Atenção e Processamento:</span>). Para cada domínio: mencione o instrumento, o resultado (preservado/limítrofe/comprometido), a magnitude do achado e sua relevância clínica para o caso. Relacione com as queixas e o histórico. Domínios a cobrir (apenas os testados): Orientação Temporal e Espacial, Atenção e Processamento, Percepção Visual, Memória (episódica/imediata, evocação tardia, reconhecimento, de trabalho, semântica, prospectiva), Linguagem Oral e Escrita, Praxias, Funções Executivas e Controle Inibitório, Funcionamento Intelectual. Use ${initials}.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">AVALIAÇÃO DO HUMOR E ASPECTOS EMOCIONAIS</div>
+[Analise os resultados das escalas de rastreio de humor (GDS-15, BDI-II, HAD) e ansiedade (GAI, IDATE). Se nenhuma escala de humor foi aplicada, comente sobre as observações clínicas disponíveis e sua relevância para o perfil cognitivo. Discuta a interação entre humor, cognição e qualidade de vida de ${initials}.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">FUNCIONAMENTO ADAPTATIVO E QUALIDADE DE VIDA</div>
+[Analise as escalas funcionais aplicadas (IQCODE, B-ADL, Pfeffer, Lawton, BADL) e/ou os relatos de funcionalidade na anamnese. Descreva o impacto do perfil cognitivo encontrado nas AVDs, na autonomia, no trabalho e na qualidade de vida de ${initials}. Se não há escalas funcionais, baseie-se no relato da anamnese.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">SÍNTESE DIAGNÓSTICA</div>
+[Integração de todos os achados. Descreva o padrão neuropsicológico identificado (ex: perfil frontosubcortical, padrão hipocampal de CCL amnésico, perfil de TDAH, etc.). Identifique domínios preservados e deficitários. Discuta diagnóstico diferencial segundo DSM-5/CID-11. Considere fatores de risco e proteção. 2 a 3 parágrafos fundamentados.]
 </div>
 
 <div style="margin-bottom:20px;">
 <div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONCLUSÃO</div>
-[OBRIGATÓRIO: inicie este parágrafo com "Enfim, os achados neuropsicológicos desta avaliação e da observação clínica do(a) paciente ${initials} indicam..." e então apresente o perfil neuropsicológico integrado e a hipótese diagnóstica fundamentada. Use sempre as iniciais ${initials} e nunca o nome completo.]
+[OBRIGATÓRIO: inicie com "Enfim, os achados neuropsicológicos desta avaliação e da observação clínica do(a) paciente ${initials} indicam..." e então apresente: o perfil neuropsicológico integrado, a hipótese diagnóstica fundamentada (DSM-5/CID-11), o nível de comprometimento funcional e os fatores de risco e proteção identificados. Use sempre ${initials} — nunca o nome completo.]
 </div>
 
 <div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENCAMINHAMENTOS</div>
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENCAMINHAMENTOS E RECOMENDAÇÕES</div>
 <p style="font-size:11pt;margin:8px 0;">Com base nos resultados, sugere-se:</p>
 <ul style="margin:8px 0 12px 24px;font-size:11pt;">
-[liste de 5 a 7 encaminhamentos individualizados com base nos achados específicos deste caso]
-<li style="margin-bottom:4px;font-style:italic;">Reavaliação neuropsicológica em 12 meses para fins comparativos, a critério do profissional que acompanha o caso.</li>
+[liste de 6 a 8 encaminhamentos individualizados e específicos para este caso: avaliações complementares (neurologia, psiquiatria, fonoaudiologia, fisioterapia, etc.), intervenções (reabilitação cognitiva, psicoterapia, estimulação cognitiva, etc.), orientações ao familiar/cuidador, adaptações de rotina, estratégias compensatórias. Encerre sempre com reavaliação neuropsicológica.]
 </ul>
 </div>
 
 Regras:
 - Parágrafos: <p style="font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;">
 - Listas: <ul style="margin:8px 0 12px 24px;font-size:11pt;"><li style="margin-bottom:4px;">
+- Subtítulos dentro de seções: <p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Subtítulo:</span>
 - NÃO inclua html/body/head/style
 - NÃO mencione "inteligência artificial" ou "IA"
-- NÃO repita as tabelas de dados já incluídas
-- SEMPRE use iniciais ${initials} ao referenciar o paciente, nunca o nome completo
-- Tom: técnico, rigoroso, individualizado, empático, seguindo as boas práticas do CFP e critérios DSM-5/CID-10`
+- NÃO repita as tabelas de dados já incluídas no documento
+- SEMPRE use iniciais ${initials} ao referenciar o paciente
+- Tom: técnico, rigoroso, clínico, individualizado, empático
+- Critérios: DSM-5 / CID-11 / CFP Resolução nº 31/2022
+- Laudo interpretativo mínimo de 1.500 palavras`
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
