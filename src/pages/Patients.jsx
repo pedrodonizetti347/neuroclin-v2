@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
-import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2 } from 'lucide-react'
+import { searchPatients } from '@/services/prodoctorApi'
+import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2 } from 'lucide-react'
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
-  education: '', phone: '', email: '', notes: ''
+  education: '', phone: '', email: '', notes: '', prodoctor_id: ''
 }
 
 function Modal({ open, onClose, title, children }) {
@@ -22,7 +23,8 @@ function Modal({ open, onClose, title, children }) {
       }}>
         <div style={{
           padding: '18px 24px', borderBottom: '1px solid #F0F2F5',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 1
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, background: '#fff', zIndex: 1
         }}>
           <span style={{ fontSize: 16, fontWeight: 600, color: '#042C53' }}>{title}</span>
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#aaa' }}>
@@ -52,24 +54,171 @@ const inputStyle = {
   outline: 'none', boxSizing: 'border-box'
 }
 
+// Busca ProDoctor com debounce — exibe dropdown de sugestões
+function ProDoctorSearch({ value, onChange, onSelect }) {
+  const [results,    setResults]    = useState([])
+  const [searching,  setSearching]  = useState(false)
+  const [showList,   setShowList]   = useState(false)
+  const [pdError,    setPdError]    = useState('')
+  const debounce     = useRef(null)
+  const wrapRef      = useRef(null)
+
+  useEffect(() => {
+    const hide = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowList(false) }
+    document.addEventListener('mousedown', hide)
+    return () => document.removeEventListener('mousedown', hide)
+  }, [])
+
+  const handleChange = (v) => {
+    onChange(v)
+    setPdError('')
+    clearTimeout(debounce.current)
+    if (v.length < 3) { setResults([]); setShowList(false); return }
+    debounce.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const list = await searchPatients(v)
+        setResults(list)
+        setShowList(true)
+        if (list.length === 0) setPdError('Nenhum paciente encontrado no ProDoctor.')
+      } catch (e) {
+        setPdError('ProDoctor indisponível — preencha manualmente.')
+        setShowList(false)
+      } finally {
+        setSearching(false)
+      }
+    }, 500)
+  }
+
+  const pick = (p) => {
+    onSelect(p)
+    setResults([])
+    setShowList(false)
+    setPdError('')
+  }
+
+  const eduMap = {
+    'analfabeto': 'Analfabeto',
+    'fundamental_incompleto': 'Fund. incompleto',
+    'fundamental_completo': 'Fund. completo',
+    'medio_incompleto': 'Médio incompleto',
+    'medio_completo': 'Médio completo',
+    'superior_incompleto': 'Superior incompleto',
+    'superior_completo': 'Superior completo',
+    'pos_graduacao': 'Pós-graduação',
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          style={{ ...inputStyle, paddingRight: 36 }}
+          value={value}
+          onChange={e => handleChange(e.target.value)}
+          placeholder="Digite o nome para buscar no ProDoctor..."
+          autoComplete="off"
+        />
+        {searching && (
+          <Loader2 size={15} style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            animation: 'spin 0.8s linear infinite', color: '#185FA5'
+          }} />
+        )}
+        {!searching && value.length >= 3 && (
+          <CloudDownload size={15} style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            color: '#185FA5', opacity: 0.5
+          }} />
+        )}
+      </div>
+
+      {pdError && (
+        <div style={{ fontSize: 11, color: '#E53E3E', marginTop: 4, paddingLeft: 2 }}>
+          {pdError}
+        </div>
+      )}
+
+      {showList && results.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+          background: '#fff', borderRadius: 10, border: '1.5px solid #E8ECF0',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 260, overflow: 'auto',
+          marginTop: 4,
+        }}>
+          {results.map((p, i) => (
+            <div
+              key={p.prodoctor_id || i}
+              onClick={() => pick(p)}
+              style={{
+                padding: '10px 14px', cursor: 'pointer',
+                borderBottom: i < results.length - 1 ? '1px solid #F5F6F8' : 'none',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#F0F7FF'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                background: '#E6F1FB', color: '#185FA5',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 700
+              }}>
+                {p.full_name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?'}
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#042C53' }}>{p.full_name}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 1, display: 'flex', gap: 8 }}>
+                  {p.birth_date && <span>{new Date(p.birth_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
+                  {p.sex && <span>{p.sex}</span>}
+                  {p.cpf && <span>CPF: {p.cpf}</span>}
+                </div>
+              </div>
+              <div style={{ marginLeft: 'auto', fontSize: 10, color: '#185FA5', fontWeight: 600, background: '#E6F1FB', padding: '2px 8px', borderRadius: 20 }}>
+                ProDoctor
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Patients() {
   const { patients, loading, create, update, remove } = usePatients()
-  const [search,  setSearch]  = useState('')
-  const [dialog,  setDialog]  = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form,    setForm]    = useState(EMPTY)
-  const [saving,  setSaving]  = useState(false)
+  const [search,       setSearch]       = useState('')
+  const [dialog,       setDialog]       = useState(false)
+  const [editing,      setEditing]      = useState(null)
+  const [form,         setForm]         = useState(EMPTY)
+  const [saving,       setSaving]       = useState(false)
+  const [pdImported,   setPdImported]   = useState(false)
 
   const filtered = patients.filter(p =>
     p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
     p.cpf?.includes(search) || p.email?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const openNew = () => { setEditing(null); setForm(EMPTY); setDialog(true) }
-  const openEdit = (p) => { setEditing(p); setForm(p); setDialog(true) }
-  const closeDialog = () => { setDialog(false); setEditing(null); setForm(EMPTY) }
+  const openNew  = () => { setEditing(null); setForm(EMPTY); setPdImported(false); setDialog(true) }
+  const openEdit = (p) => { setEditing(p); setForm(p); setPdImported(false); setDialog(true) }
+  const closeDialog = () => { setDialog(false); setEditing(null); setForm(EMPTY); setPdImported(false) }
 
   const setField = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
+
+  // Preenche o formulário com dados vindos do ProDoctor
+  const handleProDoctorSelect = (p) => {
+    setForm({
+      full_name:    p.full_name    || '',
+      cpf:          p.cpf         || '',
+      birth_date:   p.birth_date  || '',
+      sex:          p.sex         || '',
+      education:    p.education   || '',
+      phone:        p.phone       || '',
+      email:        p.email       || '',
+      notes:        '',
+      prodoctor_id: p.prodoctor_id || '',
+    })
+    setPdImported(true)
+  }
 
   const handleSave = async () => {
     if (!form.full_name?.trim()) return alert('Nome é obrigatório')
@@ -142,7 +291,6 @@ export default function Patients() {
               display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px',
               borderBottom: i < filtered.length - 1 ? '1px solid #F5F6F8' : 'none',
             }}>
-              {/* Avatar */}
               <div style={{
                 width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
                 background: '#E6F1FB', color: '#0C447C',
@@ -150,9 +298,15 @@ export default function Patients() {
                 fontSize: 13, fontWeight: 600
               }}>{initials(p.full_name)}</div>
 
-              {/* Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a2e' }}>{p.full_name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a2e' }}>{p.full_name}</span>
+                  {p.prodoctor_id && (
+                    <span style={{ fontSize: 10, color: '#185FA5', background: '#E6F1FB', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>
+                      ProDoctor
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: 12, marginTop: 2 }}>
                   {p.birth_date && (
                     <span style={{ fontSize: 12, color: '#888' }}>
@@ -172,7 +326,6 @@ export default function Patients() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <Link to={`/pacientes/${p.id}`} style={{
                   padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500,
@@ -200,12 +353,41 @@ export default function Patients() {
 
       {/* Dialog */}
       <Modal open={dialog} onClose={closeDialog} title={editing ? 'Editar paciente' : 'Novo paciente'}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Nome completo *">
-              <input style={inputStyle} value={form.full_name} onChange={e => setField('full_name', e.target.value)} placeholder="Nome do paciente" />
-            </Field>
+
+        {/* Busca ProDoctor — só no cadastro novo */}
+        {!editing && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#185FA5', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CloudDownload size={14} /> BUSCAR NO PRODOCTOR
+            </div>
+            {pdImported ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#F0FFF4', border: '1.5px solid #9AE6B4', borderRadius: 8, fontSize: 13, color: '#276749' }}>
+                <CheckCircle2 size={15} color="#38A169" />
+                Dados importados do ProDoctor — confira e salve abaixo.
+                <button onClick={() => { setForm(EMPTY); setPdImported(false) }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 11 }}>
+                  Limpar
+                </button>
+              </div>
+            ) : (
+              <ProDoctorSearch
+                value={form.full_name}
+                onChange={v => setField('full_name', v)}
+                onSelect={handleProDoctorSelect}
+              />
+            )}
+            <div style={{ borderBottom: '1px solid #F0F2F5', margin: '20px 0 4px' }} />
           </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+          {/* Nome — só aparece para edição ou após limpar busca */}
+          {(editing || pdImported) && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Nome completo *">
+                <input style={inputStyle} value={form.full_name} onChange={e => setField('full_name', e.target.value)} placeholder="Nome do paciente" />
+              </Field>
+            </div>
+          )}
           <Field label="CPF">
             <input style={inputStyle} value={form.cpf} onChange={e => setField('cpf', e.target.value)} placeholder="000.000.000-00" />
           </Field>
@@ -244,6 +426,7 @@ export default function Patients() {
             </Field>
           </div>
         </div>
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
           <button onClick={closeDialog} style={{
             padding: '10px 20px', borderRadius: 10, border: '1.5px solid #E8ECF0',
