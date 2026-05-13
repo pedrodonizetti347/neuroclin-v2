@@ -172,6 +172,7 @@ function NoteEditor({ patientId }) {
 }
 
 export default function MedicalRecords() {
+  const { user } = useAuth()
   const { id: paramId } = useParams()
   const [searchParams] = useSearchParams()
   const urlId = paramId || searchParams.get('id') || ''
