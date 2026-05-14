@@ -1,8 +1,14 @@
 const { onRequest } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const Anthropic = require('@anthropic-ai/sdk')
+const path = require('path')
+const fs = require('fs')
 
 admin.initializeApp()
+
+const textosLaudo = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'textos_laudo.json'), 'utf8')
+)
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -20,7 +26,7 @@ async function verifyToken(req) {
 }
 
 // ─── prodoctorProxy ───────────────────────────────────────────────────────────
-const PRODOCTOR_BASE = 'https://api.prodoctorcloud.com'
+const PRODOCTOR_BASE = 'https://open-api.prodoctor.net'
 
 exports.prodoctorProxy = onRequest(
   { region: 'us-central1', timeoutSeconds: 30, memory: '256MiB', cors: true },
@@ -30,7 +36,7 @@ exports.prodoctorProxy = onRequest(
     const decoded = await verifyToken(req)
     if (!decoded) { res.set(CORS).status(401).json({ error: 'Não autorizado' }); return }
 
-    const { path, method = 'GET', body = null } = req.body || {}
+    const { path, method = 'GET', body: rawBody = null } = req.body || {}
     if (!path) { res.set(CORS).status(400).json({ error: 'path obrigatório' }); return }
 
     const apiKey  = process.env.PRODOCTOR_APIKEY
@@ -41,6 +47,8 @@ exports.prodoctorProxy = onRequest(
       return
     }
 
+    const body = rawBody
+    console.log('[prodoctorProxy] request:', method, path, JSON.stringify(body))
     try {
       const pdRes = await fetch(`${PRODOCTOR_BASE}${path}`, {
         method,
@@ -55,9 +63,13 @@ exports.prodoctorProxy = onRequest(
       })
 
       const data = await pdRes.json().catch(() => ({}))
+      const lista = data?.payload?.pacientes ?? data?.pacientes ?? data ?? []
+      const total = data?.payload?.totalRegistros ?? data?.payload?.total ?? (Array.isArray(lista) ? lista.length : '?')
+      const primeiro = Array.isArray(lista) ? lista[0] : lista
+      console.log('[prodoctorProxy] status:', pdRes.status, 'total:', total, 'payloadKeys:', Object.keys(data?.payload ?? {}), 'primeiro:', JSON.stringify(primeiro))
       res.set(CORS).status(pdRes.status).json(data)
     } catch (e) {
-      console.error('[prodoctorProxy]', e)
+      console.error('[prodoctorProxy] error:', e.message)
       res.set(CORS).status(500).json({ error: e.message })
     }
   }
@@ -77,6 +89,9 @@ exports.generateReport = onRequest(
       testsData: td, neupsilinZScores, dexScores,
       appliedBy, supervisor, dataFormatada
     } = req.body
+
+    const getTexto = (dominio, classificacao) =>
+      textosLaudo?.[dominio]?.[classificacao] || null
 
     const s   = v => v || 'N/D'
     const arr = v => Array.isArray(v) ? v.join(', ') : (v || 'N/D')
@@ -166,13 +181,40 @@ Elabore o laudo completo em HTML com as seguintes seções:
 [recomendações clínicas e terapêuticas individualizadas]
 </div>
 
+TEXTOS CLÍNICOS VALIDADOS
+Os textos abaixo foram extraídos do protocolo clínico validado. Utilize-os OBRIGATORIAMENTE na seção CONCLUSÃO, sem alterar o conteúdo clínico. Conecte os parágrafos com fluidez, mas preserve o texto de cada domínio integralmente:
+
+${[
+  getTexto('orientacao', neupsilinZScores?.orientation >= -1.0 ? 'PRESERVADA' : 'COMPROMETIDA'),
+  getTexto('atencao', (() => {
+    const z = neupsilinZScores?.attention
+    if (z == null) return null
+    return z >= -1.0 ? 'PRESERVADA' : z >= -1.5 ? 'INFERIOR' : 'MUITO_INFERIOR'
+  })()),
+  getTexto('memoria_operacional', neupsilinZScores?.memory >= -1.0 ? 'PRESERVADA' : 'COMPROMETIDA'),
+  getTexto('memoria_longo_prazo', (() => {
+    if (!td?.RAVLT) return null
+    const a7 = parseFloat(td.RAVLT.a7)
+    if (isNaN(a7)) return null
+    return a7 >= 1.0 ? 'SUPERIOR' : a7 >= 0.5 ? 'MEDIA_SUPERIOR' : a7 >= -0.5 ? 'MEDIA' : a7 >= -1.5 ? 'MEDIA_INFERIOR' : 'COMPROMETIDA'
+  })()),
+  getTexto('funcoes_executivas', (() => {
+    const z = neupsilinZScores?.executive
+    if (z == null) return null
+    return z >= -1.0 ? 'PRESERVADA' : z >= -1.5 ? 'LIMITROFE' : 'COMPROMETIDA'
+  })()),
+  getTexto('linguagem', neupsilinZScores?.language >= -1.0 ? 'PRESERVADA' : 'COMPROMETIDA'),
+  getTexto('praxias', neupsilinZScores?.praxis >= -1.0 ? 'PRESERVADA' : 'COMPROMETIDA'),
+].filter(Boolean).map((t, i) => `${i + 1}. ${t}`).join('\n\n')}
+
 Regras:
 - Parágrafos: <p style="font-size:13px;margin-bottom:8px;line-height:1.7">
 - Listas: <ul style="margin-left:20px;margin-bottom:8px"><li style="font-size:13px;margin-bottom:4px">
 - Destaques: <span style="font-weight:bold">
 - NÃO inclua html/body/head
 - NÃO mencione "inteligência artificial" ou "IA" em nenhum momento
-- Laudo rigoroso, técnico e completamente individualizado para este paciente`
+- Laudo rigoroso, técnico e completamente individualizado para este paciente
+- Na seção CONCLUSÃO, use OBRIGATORIAMENTE os textos clínicos validados acima, preservando cada parágrafo integralmente e apenas conectando-os com fluidez`
 
     try {
       const msg = await anthropic.messages.create({

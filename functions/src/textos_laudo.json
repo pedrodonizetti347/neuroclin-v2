@@ -1,0 +1,82 @@
+{
+  "discurso": {
+    "ORGANIZADO": "Durante a avaliação, o paciente demonstrou ser comunicativo, colaborativo e disposto a realizar as atividades propostas. Seu discurso é organizado e coerente com as atividades abordadas durante a avaliação.",
+    "DESORGANIZADO": "Durante a avaliação, o paciente apresentou discurso com dificuldades de organização e coerência nas atividades abordadas."
+  },
+  "orientacao": {
+    "PRESERVADA": "Na ORIENTAÇÃO TÊMPORO-ESPACIAL, é avaliada a capacidade de se orientar nos aspectos de noção de data e/ou espaço. No teste em que foram avaliadas estas áreas, o paciente obteve desempenho PRESERVADO em ambas as funções.",
+    "COMPROMETIDA": "Na ORIENTAÇÃO TÊMPORO-ESPACIAL, o paciente apresentou comprometimento nas funções de orientação temporal e/ou espacial."
+  },
+  "atencao": {
+    "PRESERVADA": "Em tarefas curtas onde precisou manter o foco durante a realização do teste, o paciente apresentou desempenho PRESERVADO, demonstrando CAPACIDADE na atenção concentrada para realização de algumas tarefas.",
+    "INFERIOR": "Em tarefas que avaliaram os processos atencionais, o paciente apresentou desempenho INFERIOR, demonstrando capacidade abaixo do esperado da amostra normativa.",
+    "MUITO_INFERIOR": "Em tarefas que avaliaram os processos atencionais, o paciente apresentou desempenho MUITO INFERIOR, demonstrando habilidade abaixo do esperado em focar sua atenção durante a execução de tarefas."
+  },
+  "memoria_curto_prazo": {
+    "PRESERVADA": "Em relação à Memória de Curto Prazo, o paciente obteve desempenho PRESERVADO, demonstrando CAPACIDADE nesse construto. Em relação à Memória Visual de Curto Prazo, o paciente apresentou desempenho PRESERVADO.",
+    "MEDIA": "O desempenho do paciente em Memória de Curto Prazo oscilou entre MÉDIA e MÉDIA SUPERIOR, demonstrando CAPACIDADE no presente momento nesse constructo. Em relação à Memória Visual de Curto Prazo, o paciente apresentou desempenho PRESERVADO.",
+    "COMPROMETIDA": "Em relação à Memória de Curto Prazo, o paciente apresentou desempenho abaixo do esperado para sua faixa etária e escolaridade."
+  },
+  "memoria_operacional": {
+    "PRESERVADA": "A Memória Operacional pode ser definida como um conjunto de processos que nos permite armazenar e manipular informações temporárias e realizar tarefas cognitivas complexas. Em tarefa onde se pode avaliar a memória operacional, com comandos dados de forma verbal, o paciente obteve desempenho PRESERVADO.",
+    "COMPROMETIDA": "Em tarefa onde se pode avaliar a memória operacional, o paciente apresentou desempenho abaixo do esperado para sua faixa etária e escolaridade."
+  },
+  "memoria_longo_prazo": {
+    "SUPERIOR": "O paciente apresentou CAPACIDADE em RETER o que aprende, demonstrando desempenho SUPERIOR, e CAPACIDADE em RECUPERAR o conteúdo compreendido, apresentando desempenho MÉDIA na memória de longo prazo.",
+    "MEDIA_SUPERIOR": "O paciente apresentou CAPACIDADE em RETER e RECUPERAR o conteúdo compreendido, apresentando desempenho MÉDIA SUPERIOR, reforçando a capacidade na memória de longo prazo.",
+    "MEDIA": "O paciente apresentou CAPACIDADE em RETER e RECUPERAR o conteúdo compreendido. A recordação após a passagem do tempo manteve desempenho dentro da MÉDIA ao esperado para a idade.",
+    "MEDIA_INFERIOR": "O paciente apresentou desempenho MÉDIA INFERIOR em relação à capacidade de reter e recuperar conteúdos na memória de longo prazo.",
+    "COMPROMETIDA": "O paciente apresentou dificuldades no processo de RETER e RECUPERAR o conteúdo compreendido, apresentando desempenho abaixo do esperado na memória de longo prazo."
+  },
+  "memoria_prospectiva": {
+    "PRESERVADA": "A Memória Prospectiva é definida como a capacidade de recordar uma ação que se pretende realizar no futuro. Segundo a percepção do informante e do paciente, encontra-se PRESERVADA. Em teste apresentou resultado PRESERVADO nesse constructo.",
+    "COMPROMETIDA": "A Memória Prospectiva é definida como a capacidade de recordar uma ação que se pretende realizar no futuro. Em teste que avalia este construto, o paciente apresentou desempenho COMPROMETIDO."
+  },
+  "memoria_retrospectiva": {
+    "PRESERVADA": "A Memória Retrospectiva é a memória de longo prazo de pessoas, palavras e eventos que aconteceram no passado. Segundo a percepção do informante e do paciente, encontra-se PRESERVADA.",
+    "COMPROMETIDA": "A Memória Retrospectiva apresentou dificuldades, com comprometimento no armazenamento e recuperação de eventos passados."
+  },
+  "memoria_semantica": {
+    "DENTRO_ESPERADO": "A Memória Semântica é responsável pelo nosso conhecimento genérico do mundo. O paciente apresentou capacidade em relação à categorização, conceituação, léxico e conhecimentos gerais, obtendo desempenho dentro da MÉDIA para sua idade, apresentando DENTRO DO ESPERADO em sua memória semântica.",
+    "COMPROMETIDA": "A Memória Semântica apresentou desempenho abaixo do esperado em relação à categorização, conceituação, léxico e conhecimentos gerais."
+  },
+  "funcoes_executivas": {
+    "SUPERIOR": "Em tarefas onde se pode avaliar as funções executivas, o paciente apresentou desempenho SUPERIOR de planejamento, abstração e insight para retomar, aprender e alterar suas estratégias quando na realização de alguma tarefa.",
+    "PRESERVADA": "Em tarefas onde se pode avaliar as funções executivas, o paciente apresentou desempenho dentro do esperado para sua faixa etária e escolaridade.",
+    "LIMITROFE": "Nas tarefas onde se pode avaliar a flexibilidade cognitiva, o paciente apresentou desempenho LIMÍTROFE ao esperado, demonstrando DIFICULDADE em adaptar sua conduta e opiniões a acontecimentos novos, variáveis e inesperados, além de NÃO SE BENEFICIAR do feedback externo.",
+    "COMPROMETIDA": "Em tarefas onde se pode avaliar as funções executivas, o paciente apresentou desempenho COMPROMETIDO, com dificuldades significativas de planejamento, controle inibitório e flexibilidade cognitiva."
+  },
+  "controle_inibitorio": {
+    "FACILIDADE": "Quanto ao Controle Inibitório, o paciente demonstrou FACILIDADE no controle da impulsividade frente às respostas cognitivas, apresentando desempenho MÉDIA SUPERIOR.",
+    "PRESERVADO": "Quanto ao Controle Inibitório, o paciente demonstrou desempenho dentro do esperado no controle da impulsividade frente às respostas cognitivas.",
+    "DIFICULDADE": "Quanto ao Controle Inibitório, o paciente demonstrou DIFICULDADE no controle da impulsividade frente às respostas cognitivas, apresentando desempenho abaixo do esperado."
+  },
+  "linguagem": {
+    "PRESERVADA": "O paciente apresentou desempenho PRESERVADO em tarefas que envolviam linguagem oral, nomeação, repetição e compreensão verbal, dentro do esperado para sua faixa etária e escolaridade.",
+    "MEDIA": "O paciente apresentou desempenho dentro da MÉDIA em tarefas que envolviam conceituação, categorização e definição de palavras.",
+    "MEDIA_INFERIOR": "O paciente apresentou desempenho MÉDIA INFERIOR em tarefas que envolviam conceituação de palavras, desempenho MÉDIA em categorização de palavras e MÉDIA INFERIOR em definição de vocábulos.",
+    "COMPROMETIDA": "O paciente apresentou desempenho abaixo do esperado em tarefas que envolviam linguagem, com dificuldades em fluência verbal e compreensão."
+  },
+  "percepcao": {
+    "PRESERVADA": "Em relação ao domínio de PERCEPÇÃO, o paciente apresentou desempenho avaliado e classificado como PRESERVADO, o que indica CAPACIDADE neste constructo.",
+    "COMPROMETIDA": "Em relação ao domínio de PERCEPÇÃO, o paciente apresentou desempenho abaixo do esperado nas tarefas de percepção visual."
+  },
+  "praxias": {
+    "PRESERVADA": "As áreas de Praxias Ideomotoras, Construtiva e Reflexivas encontram-se PRESERVADAS.",
+    "COMPROMETIDA": "O paciente apresentou dificuldades nas tarefas de praxias, com desempenho abaixo do esperado para sua faixa etária."
+  },
+  "volitivos": {
+    "PRESERVADOS": "Os aspectos volitivos (motivação, interesse por hobbies e planos de vida) parecem não comprometidos no momento.",
+    "COMPROMETIDOS": "Os aspectos volitivos (motivação, interesse por hobbies e planos de vida) parecem estar comprometidos no momento."
+  },
+  "humor": {
+    "SEM_SINTOMAS": "Em escalas onde se mediram o nível de depressão e ansiedade, o paciente NÃO APRESENTA SINTOMATOLOGIA DE DEPRESSÃO e NÃO APRESENTA SINTOMATOLOGIA DE ANSIEDADE.",
+    "COM_DEPRESSAO": "Em escalas onde se mediram o nível de depressão e ansiedade, o paciente APRESENTA SINTOMATOLOGIA DE DEPRESSÃO.",
+    "COM_ANSIEDADE": "Em escalas onde se mediram o nível de depressão e ansiedade, o paciente APRESENTA SINTOMATOLOGIA DE ANSIEDADE.",
+    "COM_AMBOS": "Em escalas onde se mediram o nível de depressão e ansiedade, o paciente APRESENTA SINTOMATOLOGIA DE DEPRESSÃO e ANSIEDADE."
+  },
+  "declinio_cognitivo": {
+    "AUSENTE": "Segundo as respostas dadas pelo informante, observa-se que o paciente NÃO APRESENTA DECLÍNIO COGNITIVO nos últimos dez anos. No que concerne às ATIVIDADES DIÁRIAS BÁSICAS DA VIDA DIÁRIA, atualmente NÃO APRESENTA COMPROMETIMENTO. Com relação às ATIVIDADES INSTRUMENTAIS DA VIDA DIÁRIA, o paciente NÃO APRESENTA COMPROMETIMENTO para a realização delas.",
+    "PRESENTE": "Segundo as respostas dadas pelo informante, observa-se DECLÍNIO COGNITIVO do paciente nos últimos dez anos."
+  }
+}
