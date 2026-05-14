@@ -7,118 +7,15 @@ import { Brain, Eye, EyeOff } from 'lucide-react'
 const AuthContext = createContext(null)
 const ADMIN_UIDS  = ['i5nwg569WabTUk69wzCWV5PRw9E3']
 
-export function AuthProvider({ children }) {
-  const [user,         setUser]         = useState(null)
-  const [loading,      setLoading]      = useState(true)
-  const [loginErr,     setLoginErr]     = useState(null)
-  const [email,        setEmail]        = useState('')
-  const [password,     setPassword]     = useState('')
-  const [showPass,     setShowPass]     = useState(false)
-  const [emailLoading, setEmailLoading] = useState(false)
-  const [resetMsg,     setResetMsg]     = useState('')
-  const [resetLoading, setResetLoading] = useState(false)
+const inputStyle = {
+  width: '100%', padding: '11px 14px', borderRadius: 8, fontSize: 13,
+  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+  color: '#fff', outline: 'none', boxSizing: 'border-box',
+}
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (fu) => {
-      if (fu) {
-        try {
-          const ref  = doc(db, 'users', fu.uid)
-          const snap = await getDoc(ref)
-
-          if (snap.exists()) {
-            const data = snap.data()
-            if (data.active === false) {
-              await firebaseSignOut(auth)
-              setLoginErr('Seu acesso está desativado. Entre em contato com o administrador.')
-              setUser(null)
-              setLoading(false)
-              return
-            }
-            const role = ADMIN_UIDS.includes(fu.uid) ? 'admin' : (data.role || 'professional')
-            if (ADMIN_UIDS.includes(fu.uid) && data.role !== 'admin') {
-              await setDoc(ref, { role: 'admin', last_login: serverTimestamp() }, { merge: true })
-            } else {
-              await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
-            }
-            setUser({ id: fu.uid, ...data, role })
-          } else {
-            const isAdmin = ADMIN_UIDS.includes(fu.uid)
-            const profile = {
-              email:      fu.email,
-              full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
-              photo_url:  fu.photoURL || '',
-              role:       isAdmin ? 'admin' : 'professional',
-              active:     true,
-              created_at: serverTimestamp(),
-              last_login: serverTimestamp(),
-            }
-            await setDoc(ref, profile)
-            setUser({ id: fu.uid, ...profile })
-          }
-        } catch (err) {
-          console.error('[AuthContext] erro ao carregar perfil:', err)
-          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional' })
-        }
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
-    })
-    return unsub
-  }, [])
-
-  const loginWithGoogle = async () => {
-    try {
-      setLoginErr(null)
-      await signInWithPopup(auth, googleProvider)
-    } catch {
-      setLoginErr('Não foi possível fazer login com Google. Tente novamente.')
-    }
-  }
-
-  const loginWithEmail = async (e) => {
-    e.preventDefault()
-    if (!email || !password) return setLoginErr('Preencha e-mail e senha.')
-    try {
-      setLoginErr(null)
-      setEmailLoading(true)
-      await signInWithEmailAndPassword(auth, email, password)
-    } catch (err) {
-      const msg = {
-        'auth/user-not-found':     'E-mail não encontrado.',
-        'auth/wrong-password':     'Senha incorreta.',
-        'auth/invalid-email':      'E-mail inválido.',
-        'auth/invalid-credential': 'E-mail ou senha incorretos.',
-        'auth/too-many-requests':  'Muitas tentativas. Aguarde alguns minutos.',
-      }
-      setLoginErr(msg[err.code] || 'Erro ao fazer login. Verifique os dados.')
-    } finally {
-      setEmailLoading(false)
-    }
-  }
-
-  const handleReset = async () => {
-    if (!email) { setResetMsg('Digite seu e-mail acima primeiro.'); return }
-    setResetLoading(true)
-    try {
-      await sendPasswordResetEmail(auth, email)
-      setResetMsg('E-mail de redefinição enviado! Verifique sua caixa de entrada.')
-    } catch {
-      setResetMsg('Erro ao enviar e-mail. Verifique se o endereço está correto.')
-    } finally {
-      setResetLoading(false)
-    }
-  }
-
-  const logout = () => firebaseSignOut(auth)
-
-  const inputStyle = {
-    width: '100%', padding: '11px 14px', borderRadius: 8, fontSize: 13,
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-    color: '#fff', outline: 'none', boxSizing: 'border-box',
-  }
-
-  const LoginScreen = () => (
+function LoginScreen({ loginErr, email, setEmail, password, setPassword, showPass, setShowPass,
+  emailLoading, loginWithEmail, handleReset, resetLoading, resetMsg, loginWithGoogle }) {
+  return (
     <div style={{
       minHeight: '100vh', background: '#0D1117',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -245,6 +142,112 @@ export function AuthProvider({ children }) {
       `}</style>
     </div>
   )
+}
+
+export function AuthProvider({ children }) {
+  const [user,         setUser]         = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [loginErr,     setLoginErr]     = useState(null)
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
+  const [showPass,     setShowPass]     = useState(false)
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [resetMsg,     setResetMsg]     = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fu) => {
+      if (fu) {
+        try {
+          const ref  = doc(db, 'users', fu.uid)
+          const snap = await getDoc(ref)
+
+          if (snap.exists()) {
+            const data = snap.data()
+            if (data.active === false) {
+              await firebaseSignOut(auth)
+              setLoginErr('Seu acesso está desativado. Entre em contato com o administrador.')
+              setUser(null)
+              setLoading(false)
+              return
+            }
+            const role = ADMIN_UIDS.includes(fu.uid) ? 'admin' : (data.role || 'professional')
+            if (ADMIN_UIDS.includes(fu.uid) && data.role !== 'admin') {
+              await setDoc(ref, { role: 'admin', last_login: serverTimestamp() }, { merge: true })
+            } else {
+              await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+            }
+            setUser({ id: fu.uid, ...data, role })
+          } else {
+            const isAdmin = ADMIN_UIDS.includes(fu.uid)
+            const profile = {
+              email:      fu.email,
+              full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
+              photo_url:  fu.photoURL || '',
+              role:       isAdmin ? 'admin' : 'professional',
+              active:     true,
+              created_at: serverTimestamp(),
+              last_login: serverTimestamp(),
+            }
+            await setDoc(ref, profile)
+            setUser({ id: fu.uid, ...profile })
+          }
+        } catch (err) {
+          console.error('[AuthContext] erro ao carregar perfil:', err)
+          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional' })
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+    return unsub
+  }, [])
+
+  const loginWithGoogle = async () => {
+    try {
+      setLoginErr(null)
+      await signInWithPopup(auth, googleProvider)
+    } catch {
+      setLoginErr('Não foi possível fazer login com Google. Tente novamente.')
+    }
+  }
+
+  const loginWithEmail = async (e) => {
+    e.preventDefault()
+    if (!email || !password) return setLoginErr('Preencha e-mail e senha.')
+    try {
+      setLoginErr(null)
+      setEmailLoading(true)
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err) {
+      const msg = {
+        'auth/user-not-found':     'E-mail não encontrado.',
+        'auth/wrong-password':     'Senha incorreta.',
+        'auth/invalid-email':      'E-mail inválido.',
+        'auth/invalid-credential': 'E-mail ou senha incorretos.',
+        'auth/too-many-requests':  'Muitas tentativas. Aguarde alguns minutos.',
+      }
+      setLoginErr(msg[err.code] || 'Erro ao fazer login. Verifique os dados.')
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!email) { setResetMsg('Digite seu e-mail acima primeiro.'); return }
+    setResetLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, email)
+      setResetMsg('E-mail de redefinição enviado! Verifique sua caixa de entrada.')
+    } catch {
+      setResetMsg('Erro ao enviar e-mail. Verifique se o endereço está correto.')
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const logout = () => firebaseSignOut(auth)
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0D1117' }}>
@@ -258,7 +261,20 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, logout }}>
-      {!user ? <LoginScreen /> : children}
+      {!user ? (
+        <LoginScreen
+          loginErr={loginErr}
+          email={email} setEmail={setEmail}
+          password={password} setPassword={setPassword}
+          showPass={showPass} setShowPass={setShowPass}
+          emailLoading={emailLoading}
+          loginWithEmail={loginWithEmail}
+          handleReset={handleReset}
+          resetLoading={resetLoading}
+          resetMsg={resetMsg}
+          loginWithGoogle={loginWithGoogle}
+        />
+      ) : children}
     </AuthContext.Provider>
   )
 }
