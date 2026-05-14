@@ -404,8 +404,9 @@ function RAVLTForm({ data, onChange }) {
             <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
             <div>
               <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
-              <input value={d.classification||''} onChange={e => update({ classification: e.target.value })}
+              <input value={a7c ? a7c.label : (d.classification||'')} onChange={e => update({ classification: e.target.value })}
                 style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Abaixo da média" />
+              {a7c && <div style={{ marginTop: 4 }}><Badge {...a7c} /></div>}
             </div>
           </div>
           <div style={{ marginBottom: 8 }}>
@@ -2623,7 +2624,7 @@ function BAMSForm({ data, onChange }) {
             </div>
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
-              <select value={d.interpretation||''} onChange={e=>update({interpretation:e.target.value})}
+              <select value={cp ? cp.interpretation : (d.interpretation||'')} onChange={e=>update({interpretation:e.target.value, percentile: d.percentile})}
                 style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
                 <option value="">— selecionar —</option>
                 <option>Normal</option><option>Limítrofe</option>
