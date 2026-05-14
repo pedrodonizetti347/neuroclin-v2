@@ -400,24 +400,64 @@ function RAVLTForm({ data, onChange }) {
 
       {tab === 'resultado' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-            <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
+          {/* ── Resumo automático dos índices ── */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:8 }}>CLASSIFICAÇÕES AUTOMÁTICAS</div>
+            {[
+              { label:'A7 — Evocação Tardia',    val:a7s,                        suffix:'/15', c: classify.ravlt_a7(a7s) },
+              { label:'A6 — Evocação Imediata',  val:a6s,                        suffix:'/15', c: classify.ravlt_a7(a6s) },
+              { label:'Total A1–A5',             val:totalScore,                 suffix:'/75', c: totalScore!=null ? classify.zscore(d.total_zscore) : null },
+              { label:'Reconhecimento',          val:d.recognition_score != null ? d.recognition_score : null, suffix:'', c: d.recognition_score!=null ? (Number(d.recognition_score)>=13?{label:'PRESERVADO',type:'preserved'}:Number(d.recognition_score)>=10?{label:'LIMÍTROFE',type:'borderline'}:{label:'COMPROMETIDO',type:'impaired'}) : null },
+            ].map(({ label, val, suffix, c }) => (
+              <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 0', borderBottom:`1px solid ${S.border}` }}>
+                <span style={{ fontSize:12, color:S.muted }}>{label}</span>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:'#fff' }}>{val != null ? `${val}${suffix}` : '—'}</span>
+                  {c && <Badge {...c} />}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Z-scores → classificação normativa ── */}
+          <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:6 }}>Z-SCORES (tabela normativa)</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+            {[
+              { label:'Z-score A7',            key:'a7_zscore' },
+              { label:'Z-score A6',            key:'a6_zscore' },
+              { label:'Z-score Total A1-A5',   key:'total_zscore' },
+              { label:'Z-score Reconhecimento',key:'recognition_zscore' },
+            ].map(({ label, key }) => {
+              const c = classify.zscore(d[key])
+              return (
+                <div key={key}>
+                  <NumField label={label} value={d[key]} onChange={v => update({ [key]: v })} min={-5} max={3} step={0.01} hint="-5 a 3" />
+                  {c && <div style={{ marginTop:2 }}><Badge {...c} /></div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Percentil e Classificação geral ── */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
+            <NumField label="Percentil (A7)" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
             <div>
-              <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Classificação Geral</div>
               <input value={a7c ? a7c.label : (d.classification||'')} onChange={e => update({ classification: e.target.value })}
-                style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Abaixo da média" />
-              {a7c && <div style={{ marginTop: 4 }}><Badge {...a7c} /></div>}
+                style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }} placeholder="Ex: Abaixo da média" />
+              {a7c && <div style={{ marginTop:4 }}><Badge {...a7c} /></div>}
             </div>
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+
+          <div style={{ marginBottom:8 }}>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
             <textarea rows={3} value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
-              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+              style={{ ...inputStyle, textAlign:'left', resize:'vertical', padding:'8px 10px', lineHeight:1.5 }} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Observações</div>
             <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
-              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+              style={{ ...inputStyle, textAlign:'left', resize:'vertical', padding:'8px 10px', lineHeight:1.5 }} />
           </div>
         </div>
       )}
@@ -2624,13 +2664,20 @@ function BAMSForm({ data, onChange }) {
             </div>
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
-              <select value={cp ? cp.interpretation : (d.interpretation||'')} onChange={e=>update({interpretation:e.target.value, percentile: d.percentile})}
-                style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
-                <option value="">— selecionar —</option>
-                <option>Normal</option><option>Limítrofe</option>
-                <option>Comprometimento leve</option><option>Comprometimento moderado</option>
-                <option>Comprometimento grave</option>
-              </select>
+              {cp ? (
+                <div style={{ background:'rgba(255,255,255,0.05)', border:`1px solid ${S.border}`, borderRadius:6, padding:'8px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:'#fff', fontWeight:600 }}>{cp.interpretation}</span>
+                  <Badge {...cp} />
+                </div>
+              ) : (
+                <select value={d.interpretation||''} onChange={e=>update({interpretation:e.target.value})}
+                  style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
+                  <option value="">— selecionar —</option>
+                  <option>Normal</option><option>Limítrofe</option>
+                  <option>Comprometimento leve</option><option>Comprometimento moderado</option>
+                  <option>Comprometimento grave</option>
+                </select>
+              )}
             </div>
           </div>
           <div style={{ marginTop:12 }}>
