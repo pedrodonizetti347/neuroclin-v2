@@ -237,6 +237,63 @@ function NumField({ label, value, onChange, min, max, step = 1, hint }) {
   )
 }
 
+// ─── RAVLT — lista padrão de reconhecimento (50 palavras) ────────────────────
+const DEFAULT_RAVLT_RECOGNITION = [
+  // Lista A — alvos (15)
+  { word: 'tambor',  origin: 'A',   marked: false },
+  { word: 'cortina', origin: 'A',   marked: false },
+  { word: 'sino',    origin: 'A',   marked: false },
+  { word: 'café',    origin: 'A',   marked: false },
+  { word: 'escola',  origin: 'A',   marked: false },
+  { word: 'pais',    origin: 'A',   marked: false },
+  { word: 'lua',     origin: 'A',   marked: false },
+  { word: 'jardim',  origin: 'A',   marked: false },
+  { word: 'chapéu',  origin: 'A',   marked: false },
+  { word: 'fazenda', origin: 'A',   marked: false },
+  { word: 'nariz',   origin: 'A',   marked: false },
+  { word: 'peru',    origin: 'A',   marked: false },
+  { word: 'cor',     origin: 'A',   marked: false },
+  { word: 'céu',     origin: 'A',   marked: false },
+  { word: 'bota',    origin: 'A',   marked: false },
+  // Lista B — distratores (15)
+  { word: 'mesa',    origin: 'B',   marked: false },
+  { word: 'nuvem',   origin: 'B',   marked: false },
+  { word: 'barco',   origin: 'B',   marked: false },
+  { word: 'banana',  origin: 'B',   marked: false },
+  { word: 'milho',   origin: 'B',   marked: false },
+  { word: 'costura', origin: 'B',   marked: false },
+  { word: 'colher',  origin: 'B',   marked: false },
+  { word: 'fogo',    origin: 'B',   marked: false },
+  { word: 'fio',     origin: 'B',   marked: false },
+  { word: 'abóbora', origin: 'B',   marked: false },
+  { word: 'dedo',    origin: 'B',   marked: false },
+  { word: 'galinha', origin: 'B',   marked: false },
+  { word: 'lixa',    origin: 'B',   marked: false },
+  { word: 'inverno', origin: 'B',   marked: false },
+  { word: 'prado',   origin: 'B',   marked: false },
+  // Novos distratores (20)
+  { word: 'casa',    origin: 'new', marked: false },
+  { word: 'rua',     origin: 'new', marked: false },
+  { word: 'carta',   origin: 'new', marked: false },
+  { word: 'anel',    origin: 'new', marked: false },
+  { word: 'peixe',   origin: 'new', marked: false },
+  { word: 'pedra',   origin: 'new', marked: false },
+  { word: 'livro',   origin: 'new', marked: false },
+  { word: 'carro',   origin: 'new', marked: false },
+  { word: 'noite',   origin: 'new', marked: false },
+  { word: 'flor',    origin: 'new', marked: false },
+  { word: 'pato',    origin: 'new', marked: false },
+  { word: 'árvore',  origin: 'new', marked: false },
+  { word: 'ferro',   origin: 'new', marked: false },
+  { word: 'lago',    origin: 'new', marked: false },
+  { word: 'vela',    origin: 'new', marked: false },
+  { word: 'cobra',   origin: 'new', marked: false },
+  { word: 'ovo',     origin: 'new', marked: false },
+  { word: 'branco',  origin: 'new', marked: false },
+  { word: 'tempo',   origin: 'new', marked: false },
+  { word: 'letra',   origin: 'new', marked: false },
+]
+
 // ─── RAVLT (Base44-compliant) ─────────────────────────────────────────────────
 function RAVLTForm({ data, onChange }) {
   const d = data || {}
@@ -247,17 +304,22 @@ function RAVLTForm({ data, onChange }) {
     const a = (k) => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
     const a1 = a('a1_score'), a2 = a('a2_score'), a3 = a('a3_score'), a4 = a('a4_score'), a5 = a('a5_score')
     const a6 = a('a6_score'), a7 = a('a7_score')
-    const hits = a('recognition_hits'), fp = a('recognition_false')
+    const updRL = n.recognition_list || []
+    const hasUpdRL = updRL.length > 0
+    const rHits = hasUpdRL ? updRL.filter(w => w.origin === 'A' && w.marked).length : a('recognition_hits')
+    const rFP   = hasUpdRL ? updRL.filter(w => w.origin !== 'A' && w.marked).length : a('recognition_false')
 
     const total_score                = (a1!=null&&a2!=null&&a3!=null&&a4!=null&&a5!=null) ? a1+a2+a3+a4+a5 : null
     const alt_score                  = (a1!=null&&a5!=null) ? a5-a1 : null
     const forgetting_speed           = (a6!=null&&a6>0&&a7!=null) ? Math.round((a7/a6)*100)/100 : null
     const proactive_interference     = (a('b1_score')!=null&&a1!=null&&a1>0) ? Math.round((a('b1_score')/a1)*100)/100 : null
     const retroactive_interference   = (a6!=null&&a5!=null&&a5>0) ? Math.round((a6/a5)*100)/100 : null
-    const recognition_score          = (hits!=null&&fp!=null) ? hits-fp : null
+    const recognition_hits           = rHits ?? a('recognition_hits')
+    const recognition_false          = rFP   ?? a('recognition_false')
+    const recognition_score          = (recognition_hits!=null&&recognition_false!=null) ? recognition_hits-recognition_false : null
     const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : (n.classification || '')
 
-    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_score, classification })
+    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_hits, recognition_false, recognition_score, classification })
   }
 
   const gn = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
@@ -265,6 +327,18 @@ function RAVLTForm({ data, onChange }) {
   const totalScore = [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].every(v=>v!=null)
     ? [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].reduce((s,v)=>s+v,0) : null
   const a7c = classify.ravlt_a7(a7s)
+
+  const rl     = d.recognition_list || []
+  const hasRL  = rl.length > 0
+  const rlHits = hasRL ? rl.filter(w => w.origin === 'A' && w.marked).length : null
+  const rlFP   = hasRL ? rl.filter(w => w.origin !== 'A' && w.marked).length : null
+  const rlScore = rlHits !== null ? rlHits - rlFP : null
+  const toggleWord = (idx) => {
+    const newRL = rl.map((w, i) => i === idx ? { ...w, marked: !w.marked } : w)
+    update({ recognition_list: newRL })
+  }
+  const initList = () => update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
+  const clearMarks = () => update({ recognition_list: rl.map(w => ({ ...w, marked: false })) })
 
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
@@ -416,16 +490,75 @@ function RAVLTForm({ data, onChange }) {
 
       {tab === 'reconhecimento' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <NumField label="Acertos (hits)" value={d.recognition_hits} onChange={v => update({ recognition_hits: v })} min={0} max={15} hint="0-15" />
-            <NumField label="Falsos Positivos" value={d.recognition_false} onChange={v => update({ recognition_false: v })} min={0} max={30} hint="0-30" />
+          {/* Totalizadores */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+            <div style={{ padding: '8px 10px', background: 'rgba(46,125,50,0.12)', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, fontWeight: 700 }}>ACERTOS (HITS)</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: S.greenL }}>{hasRL ? rlHits : (d.recognition_hits ?? '—')}</div>
+            </div>
+            <div style={{ padding: '8px 10px', background: 'rgba(239,68,68,0.12)', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, fontWeight: 700 }}>FALSOS POSITIVOS</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: S.red }}>{hasRL ? rlFP : (d.recognition_false ?? '—')}</div>
+            </div>
+            <div style={{ padding: '8px 10px', background: 'rgba(59,130,246,0.12)', borderRadius: 8, textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, fontWeight: 700 }}>ESCORE (H−FP)</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: S.blue }}>{hasRL ? rlScore : (d.recognition_score ?? '—')}</div>
+            </div>
           </div>
-          {d.recognition_score != null && (
-            <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
-              <span style={{ fontSize: 13, color: S.muted }}>Reconhecimento (hits − FP): </span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: Number(d.recognition_score) >= 13 ? S.greenL : S.amber }}>
-                {d.recognition_score}
-              </span>
+
+          {!hasRL ? (
+            <div>
+              <div style={{ textAlign: 'center', padding: '16px 0 10px' }}>
+                <p style={{ fontSize: 12, color: S.muted, marginBottom: 10 }}>Lista de reconhecimento não iniciada</p>
+                <button onClick={initList} style={{ padding: '8px 20px', borderRadius: 8, border: `1px solid ${S.green}`, background: 'rgba(46,125,50,0.15)', color: S.greenL, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  Inicializar Lista Padrão (50 palavras)
+                </button>
+              </div>
+              <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 10, marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontStyle: 'italic' }}>Ou registrar manualmente:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <NumField label="Acertos (hits)" value={d.recognition_hits} onChange={v => update({ recognition_hits: v })} min={0} max={15} hint="0-15" />
+                  <NumField label="Falsos Positivos" value={d.recognition_false} onChange={v => update({ recognition_false: v })} min={0} max={30} hint="0-30" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  Marque as palavras que o paciente reconheceu como sendo da Lista A
+                  <span style={{ marginLeft: 8, color: S.greenL }}>■ A=alvo</span>
+                  <span style={{ marginLeft: 6, color: '#FCD34D' }}>■ B=distr.B</span>
+                  <span style={{ marginLeft: 6, color: '#888' }}>■ N=novo</span>
+                </span>
+                <button onClick={clearMarks} style={{ padding: '3px 10px', borderRadius: 5, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 10, cursor: 'pointer' }}>
+                  Limpar
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
+                {rl.map((item, idx) => {
+                  const isHit = item.origin === 'A' && item.marked
+                  const isFP  = item.origin !== 'A' && item.marked
+                  const originColor = item.origin === 'A' ? S.greenL : item.origin === 'B' ? '#FCD34D' : '#888'
+                  return (
+                    <button key={idx} onClick={() => toggleWord(idx)} style={{
+                      padding: '6px 4px',
+                      borderRadius: 6,
+                      border: `1px solid ${item.marked ? (isHit ? '#4CAF50' : S.red) : 'rgba(255,255,255,0.1)'}`,
+                      background: item.marked ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(255,255,255,0.04)',
+                      color: item.marked ? (isHit ? '#4CAF50' : S.red) : originColor,
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: item.marked ? 700 : 400,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                      transition: 'all 0.1s',
+                    }}>
+                      <span>{item.word}</span>
+                      <span style={{ fontSize: 8, opacity: 0.6 }}>{item.origin === 'new' ? 'N' : item.origin}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
