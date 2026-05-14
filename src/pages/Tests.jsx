@@ -26,7 +26,7 @@ const inputStyle = {
   textAlign: 'center',
 }
 
-// ─── Badge de classificação ───────────────────────────────────────────────────
+// ─── Badge ────────────────────────────────────────────────────────────────────
 function Badge({ label, type }) {
   if (!label) return null
   const colors = {
@@ -45,10 +45,10 @@ function Badge({ label, type }) {
   )
 }
 
-// ─── Funções de classificação ─────────────────────────────────────────────────
+// ─── Classify ─────────────────────────────────────────────────────────────────
 const classify = {
   fab: (n) => {
-    if (n === '' || n === null || n === undefined) return null
+    if (n === '' || n == null) return null
     const v = Number(n)
     if (v >= 15) return { label: 'PRESERVADO', type: 'preserved' }
     if (v >= 13) return { label: 'LIMÍTROFE', type: 'borderline' }
@@ -115,9 +115,9 @@ const classify = {
   lawton: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v === 8) return { label: 'INDEPENDENTE', type: 'preserved' }
-    if (v >= 5)  return { label: 'DEPENDÊNCIA LEVE', type: 'borderline' }
-    if (v >= 1)  return { label: 'DEPENDÊNCIA MODERADA', type: 'impaired' }
+    if (v === 27) return { label: 'INDEPENDENTE', type: 'preserved' }
+    if (v >= 18)  return { label: 'DEPENDÊNCIA LEVE', type: 'borderline' }
+    if (v >= 9)   return { label: 'DEPENDÊNCIA MODERADA/GRAVE', type: 'impaired' }
     return { label: 'DEPENDÊNCIA GRAVE', type: 'impaired' }
   },
   wasi: (n) => {
@@ -141,8 +141,8 @@ const classify = {
   zscore: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v >= -1.0)  return { label: 'PRESERVADO', type: 'preserved' }
-    if (v >= -1.5)  return { label: 'LIMÍTROFE', type: 'borderline' }
+    if (v >= -1.0) return { label: 'PRESERVADO', type: 'preserved' }
+    if (v >= -1.5) return { label: 'LIMÍTROFE', type: 'borderline' }
     return { label: 'COMPROMETIDO', type: 'impaired' }
   },
   moca: (n) => {
@@ -159,9 +159,60 @@ const classify = {
     if (v >= 3) return { label: 'LIMÍTROFE', type: 'borderline' }
     return { label: 'COMPROMETIDO', type: 'impaired' }
   },
+  wcst_pe: (n) => {
+    if (n === '' || n == null) return null
+    const v = Number(n)
+    if (v <= 10) return { label: 'PRESERVADO', type: 'preserved' }
+    if (v <= 16) return { label: 'LIMÍTROFE', type: 'borderline' }
+    return { label: 'COMPROMETIDO', type: 'impaired' }
+  },
+  wcst_break: (n) => {
+    if (n === '' || n == null) return null
+    const v = Number(n)
+    if (v === 0) return { label: 'PRESERVADO', type: 'preserved' }
+    if (v <= 2)  return { label: 'LIMÍTROFE', type: 'borderline' }
+    return { label: 'COMPROMETIDO', type: 'impaired' }
+  },
+  dex: (n) => {
+    if (n === '' || n == null) return null
+    const mean = Number(n) / 20
+    if (mean <= 1.5) return { label: 'SEM ALTERAÇÃO', type: 'preserved' }
+    if (mean <= 2.5) return { label: 'COMPROMETIMENTO LEVE', type: 'borderline' }
+    return { label: 'COMPROMETIMENTO SIGNIFICATIVO', type: 'impaired' }
+  },
+  token: (n) => {
+    if (n === '' || n == null) return null
+    const v = Number(n)
+    if (v >= 29) return { label: 'NORMAL', type: 'preserved' }
+    if (v >= 25) return { label: 'LEVE', type: 'borderline' }
+    if (v >= 20) return { label: 'MODERADO', type: 'impaired' }
+    return { label: 'GRAVE', type: 'impaired' }
+  },
+  triacog: (n) => {
+    if (n === '' || n == null) return null
+    const v = Number(n)
+    if (v >= 24) return { label: 'NORMAL', type: 'preserved' }
+    return { label: 'SUGESTIVO DE COMPROMETIMENTO', type: 'impaired' }
+  },
 }
 
-// ─── Componente de campo numérico ─────────────────────────────────────────────
+// ─── ScoreButtons — seletor min–max por item ─────────────────────────────────
+function ScoreButtons({ value, onChange, max = 3, min = 0 }) {
+  return (
+    <div style={{ display: 'flex', gap: 3 }}>
+      {Array.from({ length: max - min + 1 }, (_, i) => i + min).map(v => (
+        <button key={v} type="button" onClick={() => onChange(v)} style={{
+          width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
+          fontSize: 12, fontWeight: 700,
+          background: (value != null && Number(value) === v) ? S.green : 'rgba(255,255,255,0.08)',
+          color:      (value != null && Number(value) === v) ? '#fff'  : S.muted,
+        }}>{v}</button>
+      ))}
+    </div>
+  )
+}
+
+// ─── NumField ─────────────────────────────────────────────────────────────────
 function NumField({ label, value, onChange, min, max, step = 1, hint }) {
   return (
     <div style={{ marginBottom: 8 }}>
@@ -177,48 +228,218 @@ function NumField({ label, value, onChange, min, max, step = 1, hint }) {
   )
 }
 
-// ─── RAVLT ────────────────────────────────────────────────────────────────────
+// ─── RAVLT (Base44-compliant) ─────────────────────────────────────────────────
 function RAVLTForm({ data, onChange }) {
   const d = data || {}
-  const set = (k, v) => onChange({ ...d, [k]: v })
-  const a7c = classify.ravlt_a7(d.a7)
-  const recog = d.recognition != null ? (Number(d.recognition) >= 13 ? { label: 'PRESERVADO', type: 'preserved' } : { label: 'COMPROMETIDO', type: 'impaired' }) : null
+  const [tab, setTab] = React.useState('tentativas')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const a = (k) => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
+    const a1 = a('a1_score'), a2 = a('a2_score'), a3 = a('a3_score'), a4 = a('a4_score'), a5 = a('a5_score')
+    const a6 = a('a6_score'), a7 = a('a7_score')
+    const hits = a('recognition_hits'), fp = a('recognition_false')
+
+    const total_score                = (a1!=null&&a2!=null&&a3!=null&&a4!=null&&a5!=null) ? a1+a2+a3+a4+a5 : null
+    const alt_score                  = (a1!=null&&a5!=null) ? a5-a1 : null
+    const forgetting_speed           = (a6!=null&&a6>0&&a7!=null) ? Math.round((a7/a6)*100)/100 : null
+    const proactive_interference     = (a('b1_score')!=null&&a1!=null&&a1>0) ? Math.round((a('b1_score')/a1)*100)/100 : null
+    const retroactive_interference   = (a6!=null&&a5!=null&&a5>0) ? Math.round((a6/a5)*100)/100 : null
+    const recognition_score          = (hits!=null&&fp!=null) ? hits-fp : null
+
+    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_score })
+  }
+
+  const gn = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
+  const a1s = gn('a1_score'), a5s = gn('a5_score'), a6s = gn('a6_score'), a7s = gn('a7_score')
+  const totalScore = [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].every(v=>v!=null)
+    ? [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].reduce((s,v)=>s+v,0) : null
+  const a7c = classify.ravlt_a7(a7s)
+
+  const tabStyle = (t) => ({
+    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
+    fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8, marginBottom: 12 }}>
-        {['a1','a2','a3','a4','a5'].map((k,i) => (
-          <NumField key={k} label={`A${i+1}`} value={d[k]} onChange={v => set(k,v)} min={0} max={15} hint="0-15" />
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-        <NumField label="A6 — Interferência" value={d.a6} onChange={v => set('a6',v)} min={0} max={15} hint="0-15" />
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
         <div>
-          <NumField label="A7 — Evocação Tardia" value={d.a7} onChange={v => set('a7',v)} min={0} max={15} hint="0-15" />
-          {a7c && <div style={{ marginTop: 4 }}><Badge {...a7c} /></div>}
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
         </div>
         <div>
-          <NumField label="Reconhecimento" value={d.recognition} onChange={v => set('recognition',v)} min={0} max={15} hint="0-15" />
-          {recog && <div style={{ marginTop: 4 }}><Badge {...recog} /></div>}
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <input value={d.education||''} onChange={e => update({ education: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Local de Nascimento</div>
+          <input value={d.birth_place||''} onChange={e => update({ birth_place: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
         </div>
       </div>
-      {d.a1 && d.a5 && (
-        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, fontSize: 12, color: S.muted }}>
-          Curva de aprendizagem: A1={d.a1} → A5={d.a5}
-          {' '}(ganho: <span style={{ color: S.greenL, fontWeight: 700 }}>{Number(d.a5)-Number(d.a1) >= 0 ? '+' : ''}{Number(d.a5)-Number(d.a1)}</span>)
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
+        <button style={tabStyle('tentativas')} onClick={() => setTab('tentativas')}>Tentativas</button>
+        <button style={tabStyle('reconhecimento')} onClick={() => setTab('reconhecimento')}>Reconhecimento</button>
+        <button style={tabStyle('indices')} onClick={() => setTab('indices')}>Índices</button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+      </div>
+
+      {tab === 'tentativas' && (
+        <div>
+          {/* Curva A1-A5 */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lista A — Aprendizagem</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+              {[1,2,3,4,5].map(i => (
+                <div key={i}>
+                  <NumField label={`A${i}`} value={d[`a${i}_score`]} onChange={v => update({ [`a${i}_score`]: v })} min={0} max={15} hint="0-15" />
+                </div>
+              ))}
+            </div>
+            {a1s != null && a5s != null && (
+              <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>
+                Ganho A1→A5: <span style={{ color: a5s-a1s >= 0 ? S.greenL : S.red, fontWeight: 700 }}>{a5s-a1s >= 0 ? '+' : ''}{a5s-a1s}</span>
+                {' '}| Total A1–A5: <span style={{ color: S.greenL, fontWeight: 700 }}>{totalScore ?? '—'}/75</span>
+              </div>
+            )}
+          </div>
+          {/* B1 */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lista B — Interferência</div>
+            <div style={{ maxWidth: 120 }}>
+              <NumField label="B1" value={d.b1_score} onChange={v => update({ b1_score: v })} min={0} max={15} hint="0-15" />
+            </div>
+          </div>
+          {/* A6 + A7 */}
+          <div>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Evocação Pós-Interferência</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <NumField label="A6 — Imediata após B1" value={d.a6_score} onChange={v => update({ a6_score: v })} min={0} max={15} hint="0-15" />
+              </div>
+              <div>
+                <NumField label="A7 — Evocação Tardia" value={d.a7_score} onChange={v => update({ a7_score: v })} min={0} max={15} hint="0-15" />
+                {a7c && <div style={{ marginTop: 4 }}><Badge {...a7c} /></div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'reconhecimento' && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <NumField label="Acertos (hits)" value={d.recognition_hits} onChange={v => update({ recognition_hits: v })} min={0} max={15} hint="0-15" />
+            <NumField label="Falsos Positivos" value={d.recognition_false} onChange={v => update({ recognition_false: v })} min={0} max={30} hint="0-30" />
+          </div>
+          {d.recognition_score != null && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+              <span style={{ fontSize: 13, color: S.muted }}>Reconhecimento (hits − FP): </span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: Number(d.recognition_score) >= 13 ? S.greenL : S.amber }}>
+                {d.recognition_score}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'indices' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            { label: 'Total A1–A5', value: totalScore, suffix: '/75', hint: 'soma das 5 tentativas' },
+            { label: 'ALT (A5 − A1)', value: d.alt_score, hint: 'aprendizagem ao longo das tentativas' },
+            { label: 'Velocidade de esquecimento (A7/A6)', value: d.forgetting_speed, hint: '≈1 = sem esquecimento' },
+            { label: 'Interferência proativa (B1/A1)', value: d.proactive_interference, hint: 'efeito de B1 sobre A1' },
+            { label: 'Interferência retroativa (A6/A5)', value: d.retroactive_interference, hint: 'quanto B1 afetou A6' },
+            { label: 'Reconhecimento (hits − FP)', value: d.recognition_score, hint: '≥13 = preservado' },
+          ].map(({ label, value, suffix, hint }) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#fff' }}>{label}</div>
+                {hint && <div style={{ fontSize: 10, color: S.muted }}>{hint}</div>}
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: S.greenL }}>
+                {value != null ? `${value}${suffix || ''}` : '—'}
+              </span>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>Índices calculados automaticamente após preenchimento das tentativas</p>
+        </div>
+      )}
+
+      {tab === 'resultado' && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
+            <div>
+              <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
+              <input value={d.classification||''} onChange={e => update({ classification: e.target.value })}
+                style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Abaixo da média" />
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+            <textarea rows={3} value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// ─── NEUPSILIN Completo (sub-domínios + normatização) ────────────────────────
+// ─── NEUPSILIN ────────────────────────────────────────────────────────────────
 function NEUPSILINForm({ data, onChange }) {
   const d = data || {}
-  const set = (k, v) => onChange({ ...d, [k]: v })
   const [tab, setTab] = React.useState('orientacao')
 
-  // Totais calculados automaticamente
-  const orientTotal = (Number(d.orientation_time)||0) + (Number(d.orientation_space)||0)
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const tTimeKeys  = ['orientation_day_week','orientation_day_month','orientation_month','orientation_year']
+    const tSpaceKeys = ['orientation_place','orientation_city','orientation_state','orientation_country']
+    const orientation_time_total  = tTimeKeys.reduce((s, k)  => s + (Number(n[k])||0), 0)
+    const orientation_space_total = tSpaceKeys.reduce((s, k) => s + (Number(n[k])||0), 0)
+    const attention_total     = (Number(n.attention_reverse_count)||0) + (Number(n.attention_digit_sequence)||0)
+    const perception_total    = (Number(n.perception_line_equality)||0) + (Number(n.perception_visual_hemineglect)||0) + (Number(n.perception_face_perception)||0) + (Number(n.perception_face_recognition)||0)
+    const memory_episodic_subtotal = (Number(n.memory_episodic_immediate)||0) + (Number(n.memory_episodic_delayed)||0) + (Number(n.memory_episodic_recognition)||0)
+    const memory_total        = (Number(n.memory_working)||0) + (Number(n.memory_span_auditory)||0) + memory_episodic_subtotal + (Number(n.memory_semantic_long)||0) + (Number(n.memory_visual_short)||0) + (Number(n.memory_prospective)||0)
+    const language_oral_total = (Number(n.lang_nomeacao)||0) + (Number(n.lang_repeticao)||0) + (Number(n.lang_automatica)||0) + (Number(n.lang_compreensao_oral)||0) + (Number(n.lang_inferencias)||0)
+    const language_written_total = (Number(n.lang_leitura)||0) + (Number(n.lang_compreensao_escrita)||0) + (Number(n.lang_escrita_espontanea)||0) + (Number(n.lang_escrita_copiada)||0) + (Number(n.lang_ditada)||0)
+    const language_total      = language_oral_total + language_written_total
+    const praxis_total        = (Number(n.praxis_ideomotor)||0) + (Number(n.praxis_constructive)||0) + (Number(n.praxis_reflexive)||0)
+    const executive_total     = (Number(n.executive_problem_solving)||0) + (Number(n.executive_verbal_fluency)||0)
+    onChange({ ...n, orientation_time_total, orientation_space_total, attention_total, perception_total, memory_total, language_oral_total, language_written_total, language_total, praxis_total, executive_total })
+  }
+
+  const orientTimeTotal  = ['orientation_day_week','orientation_day_month','orientation_month','orientation_year'].reduce((s,k) => s+(Number(d[k])||0), 0)
+  const orientSpaceTotal = ['orientation_place','orientation_city','orientation_state','orientation_country'].reduce((s,k) => s+(Number(d[k])||0), 0)
+  const orientTotal = orientTimeTotal + orientSpaceTotal
   const attTotal    = (Number(d.attention_reverse_count)||0) + (Number(d.attention_digit_sequence)||0)
   const percTotal   = (Number(d.perception_line_equality)||0) + (Number(d.perception_visual_hemineglect)||0) + (Number(d.perception_face_perception)||0) + (Number(d.perception_face_recognition)||0)
   const episTotal   = (Number(d.memory_episodic_immediate)||0) + (Number(d.memory_episodic_delayed)||0) + (Number(d.memory_episodic_recognition)||0)
@@ -249,15 +470,21 @@ function NEUPSILINForm({ data, onChange }) {
       Total: {v}{max ? '/' + max : ''}
     </div>
   )
+  const orientItem = (key, label) => (
+    <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 0' }}>
+      <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>{label}</div>
+      <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} max={1} />
+    </div>
+  )
 
   return (
     <div>
-      {/* Dados normativos — obrigatório para z-escore automático no laudo */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14, padding: '10px 14px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
-        <NumField label="Idade do paciente (anos)" value={d.age} onChange={v => set('age', v)} min={18} max={100} hint="para normatização" />
+      {/* Dados de normatização */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10, padding: '10px 14px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <NumField label="Idade (anos)" value={d.age} onChange={v => update({ age: v })} min={18} max={100} />
         <div>
-          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade (para normatização)</div>
-          <select value={d.education_years||''} onChange={e => set('education_years', e.target.value)}
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <select value={d.education_years||''} onChange={e => update({ education_years: e.target.value })}
             style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
             <option value="">— selecionar —</option>
             <option value="1-4">1–4 anos</option>
@@ -265,9 +492,41 @@ function NEUPSILINForm({ data, onChange }) {
             <option value="9+">9+ anos</option>
           </select>
         </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">— selecionar —</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Lateralidade</div>
+          <select value={d.laterality||''} onChange={e => update({ laterality: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">— selecionar —</option>
+            <option value="destro">Destro</option>
+            <option value="canhoto">Canhoto</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Naturalidade</div>
+          <input value={d.naturality||''} onChange={e => update({ naturality: e.target.value })}
+            placeholder="cidade de nascimento" style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Início</div>
+            <input type="time" value={d.start_time||''} onChange={e => update({ start_time: e.target.value })} style={inputStyle} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Fim</div>
+            <input type="time" value={d.end_time||''} onChange={e => update({ end_time: e.target.value })} style={inputStyle} />
+          </div>
+        </div>
       </div>
 
-      {/* Tabs de domínio */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -281,339 +540,2135 @@ function NEUPSILINForm({ data, onChange }) {
         ))}
       </div>
 
-      {/* 1 – Orientação */}
       {tab === 'orientacao' && <div style={secBox}>
-        <NumField label="Temporal — Dia Semana, Dia Mês, Mês, Ano (/4)" value={d.orientation_time}  onChange={v => set('orientation_time',  v)} min={0} max={4} />
-        <NumField label="Espacial — Local, Cidade, Estado, País (/4)"   value={d.orientation_space} onChange={v => set('orientation_space', v)} min={0} max={4} />
+        {subHead('Orientação Temporal')}
+        {orientItem('orientation_day_week',  'Dia da semana')}
+        {orientItem('orientation_day_month', 'Dia do mês')}
+        {orientItem('orientation_month',     'Mês')}
+        {orientItem('orientation_year',      'Ano')}
+        <div style={{ fontSize: 11, color: S.greenL, fontWeight: 700, marginTop: 6 }}>Temporal: {orientTimeTotal}/4</div>
+        {subHead('Orientação Espacial')}
+        {orientItem('orientation_place',   'Local')}
+        {orientItem('orientation_city',    'Cidade')}
+        {orientItem('orientation_state',   'Estado')}
+        {orientItem('orientation_country', 'País')}
+        <div style={{ fontSize: 11, color: S.greenL, fontWeight: 700, marginTop: 6 }}>Espacial: {orientSpaceTotal}/4</div>
         {totLine(orientTotal, 8)}
       </div>}
 
-      {/* 2 – Atenção */}
       {tab === 'atencao' && <div style={secBox}>
-        <NumField label="Contagem Inversa 50–30 (/20)"  value={d.attention_reverse_count}  onChange={v => set('attention_reverse_count',  v)} min={0} max={20} />
-        <NumField label="Tempo de Execução Contagem (seg) — escore invertido" value={d.attention_execution_time} onChange={v => set('attention_execution_time', v)} min={0} hint="seg" />
-        <NumField label="Sequência de Dígitos (/7)"     value={d.attention_digit_sequence} onChange={v => set('attention_digit_sequence', v)} min={0} max={7}  />
+        <NumField label="Contagem Inversa 50–30 (/20)"  value={d.attention_reverse_count}  onChange={v => update({ attention_reverse_count:  v })} min={0} max={20} />
+        <NumField label="Tempo de Execução Contagem (seg)" value={d.attention_execution_time} onChange={v => update({ attention_execution_time: v })} min={0} hint="seg" />
+        <NumField label="Sequência de Dígitos (/7)"     value={d.attention_digit_sequence} onChange={v => update({ attention_digit_sequence: v })} min={0} max={7}  />
         {totLine(attTotal, 27)}
       </div>}
 
-      {/* 3 – Percepção */}
       {tab === 'percepcao' && <div style={secBox}>
-        <NumField label="Julgamento de Linhas (/6)"      value={d.perception_line_equality}       onChange={v => set('perception_line_equality',       v)} min={0} max={6} />
-        <NumField label="Heminegligência Visual (/1)"    value={d.perception_visual_hemineglect}  onChange={v => set('perception_visual_hemineglect',  v)} min={0} max={1} />
-        <NumField label="Percepção de Faces (/3)"        value={d.perception_face_perception}     onChange={v => set('perception_face_perception',     v)} min={0} max={3} />
-        <NumField label="Reconhecimento de Faces (/2)"   value={d.perception_face_recognition}    onChange={v => set('perception_face_recognition',    v)} min={0} max={2} />
+        <NumField label="Julgamento de Linhas (/6)"      value={d.perception_line_equality}       onChange={v => update({ perception_line_equality:       v })} min={0} max={6} />
+        <NumField label="Heminegligência Visual (/1)"    value={d.perception_visual_hemineglect}  onChange={v => update({ perception_visual_hemineglect:  v })} min={0} max={1} />
+        <NumField label="Percepção de Faces (/3)"        value={d.perception_face_perception}     onChange={v => update({ perception_face_perception:     v })} min={0} max={3} />
+        <NumField label="Reconhecimento de Faces (/2)"   value={d.perception_face_recognition}    onChange={v => update({ perception_face_recognition:    v })} min={0} max={2} />
         {totLine(percTotal, 12)}
       </div>}
 
-      {/* 4 – Memória */}
       {tab === 'memoria' && <div style={secBox}>
         {subHead('Memória de Trabalho')}
-        <NumField label="Ordenamento de Dígitos — total (/20)" value={d.memory_working}       onChange={v => set('memory_working',       v)} min={0} max={20} />
-        <NumField label="Span de Dígitos — máx sequência"      value={d.memory_working_digit} onChange={v => set('memory_working_digit', v)} min={0} max={10} />
+        <NumField label="Ordenamento de Dígitos — total (/20)" value={d.memory_working}       onChange={v => update({ memory_working:       v })} min={0} max={20} />
+        <NumField label="Span de Dígitos — máx sequência"      value={d.memory_working_digit} onChange={v => update({ memory_working_digit: v })} min={0} max={10} />
         {subHead('Span Auditivo')}
-        <NumField label="Span Auditivo — Frases (/28)"   value={d.memory_span_auditory} onChange={v => set('memory_span_auditory', v)} min={0} max={28} />
+        <NumField label="Span Auditivo — Frases (/28)"   value={d.memory_span_auditory} onChange={v => update({ memory_span_auditory: v })} min={0} max={28} />
         {subHead('Memória Episódica')}
-        <NumField label="Evocação Imediata (/9)"          value={d.memory_episodic_immediate}   onChange={v => set('memory_episodic_immediate',   v)} min={0} max={9}  />
-        <NumField label="Evocação Tardia (/9)"            value={d.memory_episodic_delayed}     onChange={v => set('memory_episodic_delayed',     v)} min={0} max={9}  />
-        <NumField label="Reconhecimento (/18)"            value={d.memory_episodic_recognition} onChange={v => set('memory_episodic_recognition', v)} min={0} max={18} />
+        <NumField label="Evocação Imediata (/9)"          value={d.memory_episodic_immediate}   onChange={v => update({ memory_episodic_immediate:   v })} min={0} max={9}  />
+        <NumField label="Evocação Tardia (/9)"            value={d.memory_episodic_delayed}     onChange={v => update({ memory_episodic_delayed:     v })} min={0} max={9}  />
+        <NumField label="Reconhecimento (/18)"            value={d.memory_episodic_recognition} onChange={v => update({ memory_episodic_recognition: v })} min={0} max={18} />
         {subHead('Outras Memórias')}
-        <NumField label="Memória Semântica de Longo Prazo (/5)" value={d.memory_semantic_long}  onChange={v => set('memory_semantic_long',  v)} min={0} max={5} />
-        <NumField label="Memória Visual de Curto Prazo (/3)"    value={d.memory_visual_short}   onChange={v => set('memory_visual_short',   v)} min={0} max={3} />
-        <NumField label="Memória Prospectiva (/2)"              value={d.memory_prospective}    onChange={v => set('memory_prospective',    v)} min={0} max={2} />
+        <NumField label="Memória Semântica de Longo Prazo (/5)" value={d.memory_semantic_long}  onChange={v => update({ memory_semantic_long:  v })} min={0} max={5} />
+        <NumField label="Memória Visual de Curto Prazo (/3)"    value={d.memory_visual_short}   onChange={v => update({ memory_visual_short:   v })} min={0} max={3} />
+        <NumField label="Memória Prospectiva (/2)"              value={d.memory_prospective}    onChange={v => update({ memory_prospective:    v })} min={0} max={2} />
         {totLine(memTotal)}
       </div>}
 
-      {/* 5 – Aritmética */}
       {tab === 'aritmetica' && <div style={secBox}>
-        <NumField label="Habilidades Aritméticas (/8)" value={d.arithmetic} onChange={v => set('arithmetic', v)} min={0} max={8} />
+        <NumField label="Habilidades Aritméticas (/8)" value={d.arithmetic} onChange={v => update({ arithmetic: v })} min={0} max={8} />
         {totLine(Number(d.arithmetic)||0, 8)}
       </div>}
 
-      {/* 6 – Linguagem */}
       {tab === 'linguagem' && <div style={secBox}>
         {subHead('Linguagem Oral')}
-        <NumField label="Nomeação (/4)"             value={d.lang_nomeacao}         onChange={v => set('lang_nomeacao',         v)} min={0} max={4}  />
-        <NumField label="Repetição (/14)"           value={d.lang_repeticao}        onChange={v => set('lang_repeticao',        v)} min={0} max={14} />
-        <NumField label="Linguagem Automática (/2)" value={d.lang_automatica}       onChange={v => set('lang_automatica',       v)} min={0} max={2}  />
-        <NumField label="Compreensão Oral (/3)"     value={d.lang_compreensao_oral} onChange={v => set('lang_compreensao_oral', v)} min={0} max={3}  />
-        <NumField label="Inferências (/3)"          value={d.lang_inferencias}      onChange={v => set('lang_inferencias',      v)} min={0} max={3}  />
+        <NumField label="Nomeação (/4)"             value={d.lang_nomeacao}         onChange={v => update({ lang_nomeacao:         v })} min={0} max={4}  />
+        <NumField label="Repetição (/14)"           value={d.lang_repeticao}        onChange={v => update({ lang_repeticao:        v })} min={0} max={14} />
+        <NumField label="Linguagem Automática (/2)" value={d.lang_automatica}       onChange={v => update({ lang_automatica:       v })} min={0} max={2}  />
+        <NumField label="Compreensão Oral (/3)"     value={d.lang_compreensao_oral} onChange={v => update({ lang_compreensao_oral: v })} min={0} max={3}  />
+        <NumField label="Inferências (/3)"          value={d.lang_inferencias}      onChange={v => update({ lang_inferencias:      v })} min={0} max={3}  />
         {subHead('Linguagem Escrita')}
-        <NumField label="Leitura (/12)"             value={d.lang_leitura}              onChange={v => set('lang_leitura',             v)} min={0} max={12} />
-        <NumField label="Compreensão Escrita (/3)"  value={d.lang_compreensao_escrita}  onChange={v => set('lang_compreensao_escrita', v)} min={0} max={3}  />
-        <NumField label="Escrita Espontânea (/2)"   value={d.lang_escrita_espontanea}   onChange={v => set('lang_escrita_espontanea',  v)} min={0} max={2}  />
-        <NumField label="Escrita Copiada (/2)"      value={d.lang_escrita_copiada}      onChange={v => set('lang_escrita_copiada',     v)} min={0} max={2}  />
-        <NumField label="Escrita Ditada (/12)"      value={d.lang_ditada}               onChange={v => set('lang_ditada',              v)} min={0} max={12} />
+        <NumField label="Leitura (/12)"             value={d.lang_leitura}              onChange={v => update({ lang_leitura:             v })} min={0} max={12} />
+        <NumField label="Compreensão Escrita (/3)"  value={d.lang_compreensao_escrita}  onChange={v => update({ lang_compreensao_escrita: v })} min={0} max={3}  />
+        <NumField label="Escrita Espontânea (/2)"   value={d.lang_escrita_espontanea}   onChange={v => update({ lang_escrita_espontanea:  v })} min={0} max={2}  />
+        <NumField label="Escrita Copiada (/2)"      value={d.lang_escrita_copiada}      onChange={v => update({ lang_escrita_copiada:     v })} min={0} max={2}  />
+        <NumField label="Escrita Ditada (/12)"      value={d.lang_ditada}               onChange={v => update({ lang_ditada:              v })} min={0} max={12} />
         <div style={{ marginTop: 8, fontSize: 11, color: S.muted, borderTop: `1px solid ${S.border}`, paddingTop: 8 }}>
           Oral: {langOral} | Escrita: {langEsc}
         </div>
         {totLine(langTotal)}
       </div>}
 
-      {/* 7 – Praxias */}
       {tab === 'praxias' && <div style={secBox}>
-        <NumField label="Ideomotora (/3)"   value={d.praxis_ideomotor}   onChange={v => set('praxis_ideomotor',   v)} min={0} max={3}  />
-        <NumField label="Construtiva (/14)" value={d.praxis_constructive} onChange={v => set('praxis_constructive', v)} min={0} max={14} />
-        <NumField label="Reflexiva (/3)"    value={d.praxis_reflexive}   onChange={v => set('praxis_reflexive',   v)} min={0} max={3}  />
+        <NumField label="Ideomotora (/3)"   value={d.praxis_ideomotor}    onChange={v => update({ praxis_ideomotor:    v })} min={0} max={3}  />
+        <NumField label="Construtiva (/14)" value={d.praxis_constructive} onChange={v => update({ praxis_constructive: v })} min={0} max={14} />
+        <NumField label="Reflexiva (/3)"    value={d.praxis_reflexive}    onChange={v => update({ praxis_reflexive:    v })} min={0} max={3}  />
         {totLine(praxTotal, 20)}
       </div>}
 
-      {/* 8 – Executivas */}
       {tab === 'executivas' && <div style={secBox}>
-        <NumField label="Resolução de Problemas (/2)"     value={d.executive_problem_solving} onChange={v => set('executive_problem_solving', v)} min={0} max={2} />
-        <NumField label="Fluência Verbal (nº vocábulos)"  value={d.executive_verbal_fluency}  onChange={v => set('executive_verbal_fluency',  v)} min={0} hint="nº palavras" />
+        <NumField label="Resolução de Problemas (/2)"    value={d.executive_problem_solving} onChange={v => update({ executive_problem_solving: v })} min={0} max={2} />
+        <NumField label="Fluência Verbal (nº vocábulos)" value={d.executive_verbal_fluency}  onChange={v => update({ executive_verbal_fluency:  v })} min={0} hint="nº palavras" />
         {totLine(execTotal)}
       </div>}
     </div>
   )
 }
 
-// ─── FAB ─────────────────────────────────────────────────────────────────────
+// ─── FAB (Base44-compliant) ───────────────────────────────────────────────────
+const FAB_FIELDS = [
+  { key: 'conceptualization_score',       label: 'Semelhanças',              hint: 'Banana-Laranja' },
+  { key: 'mental_flexibility_score',      label: 'Fluência Verbal',          hint: 'letra S' },
+  { key: 'motor_programming_score',       label: 'Séries Motoras',           hint: 'Luria' },
+  { key: 'sensitivity_interference_score',label: 'Instruções Conflitantes',  hint: '' },
+  { key: 'inhibitory_control_score',      label: 'Go-No Go',                 hint: '' },
+  { key: 'prehension_behavior_score',     label: 'Comportamento de Preensão',hint: '' },
+]
+
 function FABForm({ data, onChange }) {
   const d = data || {}
-  const set = (k, v) => onChange({ ...d, [k]: v })
-  const total = ['similarities','fluency','motor_series','conflicting','go_nogo','prehension']
-    .reduce((sum, k) => sum + (d[k] !== '' && d[k] != null ? Number(d[k]) : 0), 0)
-  const hasAny = ['similarities','fluency','motor_series','conflicting','go_nogo','prehension'].some(k => d[k] !== '' && d[k] != null)
+
+  const update = (changes) => {
+    const next = { ...d, ...changes }
+    const hasAny = FAB_FIELDS.some(f => next[f.key] != null)
+    const total  = FAB_FIELDS.reduce((sum, f) => sum + (Number(next[f.key]) || 0), 0)
+    onChange({ ...next, total_score: hasAny ? total : null, classification: hasAny ? (classify.fab(total)?.label || '') : '' })
+  }
+
+  const hasAny = FAB_FIELDS.some(f => d[f.key] != null)
+  const total  = FAB_FIELDS.reduce((sum, f) => sum + (Number(d[f.key]) || 0), 0)
   const c = hasAny ? classify.fab(total) : null
-  const fields = [
-    { key: 'similarities',   label: 'Semelhanças' },
-    { key: 'fluency',        label: 'Fluência verbal' },
-    { key: 'motor_series',   label: 'Série motora' },
-    { key: 'conflicting',    label: 'Instruções conflitantes' },
-    { key: 'go_nogo',        label: 'Go/No-go' },
-    { key: 'prehension',     label: 'Comportamento de preensão' },
-  ]
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-        {fields.map(f => (
-          <NumField key={f.key} label={f.label} value={d[f.key]} onChange={v => set(f.key, v)} min={0} max={3} hint="0-3" />
+      {/* 6 subtestes com ScoreButtons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {FAB_FIELDS.map(f => (
+          <div key={f.key} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+            padding: '7px 10px', borderRadius: 6,
+            background: d[f.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize: 12, color: d[f.key] != null ? '#fff' : S.muted }}>
+              {f.label}
+              {f.hint && <span style={{ color: S.muted, fontSize: 10, marginLeft: 6 }}>({f.hint})</span>}
+            </div>
+            <ScoreButtons value={d[f.key]} onChange={v => update({ [f.key]: v })} max={3} />
+          </div>
         ))}
       </div>
+
+      {/* Total */}
       {hasAny && (
         <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/18</span>
           {c && <Badge {...c} />}
         </div>
       )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: ≥15 Preservado · 13-14 Limítrofe · ≤12 Comprometido</p>
+
+      {/* Campos clínicos */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+          <input type="text" value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Texto livre..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Hipótese Diagnóstica</div>
+          <input type="text" value={d.diagnostic_hypothesis || ''} onChange={e => update({ diagnostic_hypothesis: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Hipótese baseada nos resultados..." />
+        </div>
+      </div>
+
+      {/* Metadados */}
+      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} />
+        </div>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex || ''} onChange={e => update({ sex: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <input type="text" value={d.education || ''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Ex: 12 anos" />
+        </div>
+      </div>
+      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+          <textarea rows={2} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
     </div>
   )
 }
 
-// ─── GDS-15 ───────────────────────────────────────────────────────────────────
+// ─── GDS-15 (Base44-compliant — 15 itens Sim/Não com chave de pontuação) ──────
+// "depressivo" = Não para q1,q5,q7,q11,q13 | Sim para os demais
+const GDS15_ITEMS = [
+  { key: 'q1',  label: 'Você está satisfeito com a sua vida?',                                    depKey: 'Não' },
+  { key: 'q2',  label: 'Você tem perdido interesse por muitas de suas atividades?',               depKey: 'Sim' },
+  { key: 'q3',  label: 'Você sente sua vida vazia?',                                              depKey: 'Sim' },
+  { key: 'q4',  label: 'Você se aborrece com facilidade?',                                        depKey: 'Sim' },
+  { key: 'q5',  label: 'Você está de bem com a vida a maior parte do tempo?',                     depKey: 'Não' },
+  { key: 'q6',  label: 'Você tem a sensação de que algo ruim está para acontecer?',               depKey: 'Sim' },
+  { key: 'q7',  label: 'Você se sente alegre a maior parte do tempo?',                            depKey: 'Não' },
+  { key: 'q8',  label: 'Você se sente desamparado com frequência?',                               depKey: 'Sim' },
+  { key: 'q9',  label: 'Você prefere ficar em casa a sair e fazer coisas novas?',                 depKey: 'Sim' },
+  { key: 'q10', label: 'Você acha que tem mais problemas de memória do que a maioria?',           depKey: 'Sim' },
+  { key: 'q11', label: 'Você acha que é bom estar vivo agora?',                                   depKey: 'Não' },
+  { key: 'q12', label: 'Você se sente inútil da maneira que se encontra?',                        depKey: 'Sim' },
+  { key: 'q13', label: 'Você se sente cheio de energia?',                                         depKey: 'Não' },
+  { key: 'q14', label: 'Você se sente sem esperança?',                                            depKey: 'Sim' },
+  { key: 'q15', label: 'Você acha que a maioria das pessoas está em melhor situação que você?',   depKey: 'Sim' },
+]
+
 function GDS15Form({ data, onChange }) {
   const d = data || {}
-  const set = (k, v) => onChange({ ...d, [k]: v, classification: classify.gds15(k === 'total_score' ? v : d.total_score)?.label })
-  const c = classify.gds15(d.total_score)
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const answered = GDS15_ITEMS.filter(it => n[it.key] != null).length
+    const total    = GDS15_ITEMS.filter(it => n[it.key] === it.depKey).length
+    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered > 0 ? (classify.gds15(total)?.label || '') : '' })
+  }
+
+  const answered = GDS15_ITEMS.filter(it => d[it.key] != null).length
+  const total    = GDS15_ITEMS.filter(it => d[it.key] === it.depKey).length
+  const c        = answered > 0 ? classify.gds15(total) : null
+
   return (
     <div>
-      <NumField label="Pontuação Total" value={d.total_score} onChange={v => set('total_score', v)} min={0} max={15} hint="0-15" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: 0-4 Normal · 5-10 Leve/Moderado · 11-15 Grave</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Nº Prontuário</div>
+          <input value={d.medical_record||''} onChange={e => update({ medical_record: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="opcional" />
+        </div>
+      </div>
+
+      {/* 15 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {GDS15_ITEMS.map((it, i) => {
+          const isDepressive = d[it.key] === it.depKey
+          return (
+            <div key={it.key} style={{
+              display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+              padding: '6px 10px', borderRadius: 6,
+              background: d[it.key] != null ? (isDepressive ? 'rgba(239,68,68,0.06)' : 'rgba(46,125,50,0.06)') : 'rgba(255,255,255,0.02)',
+            }}>
+              <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
+                <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['Sim', 'Não'].map(opt => {
+                  const isSelected = d[it.key] === opt
+                  const isThisDepressive = opt === it.depKey
+                  return (
+                    <button key={opt} type="button" onClick={() => update({ [it.key]: opt })}
+                      style={{
+                        padding: '3px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                        fontSize: 12, fontWeight: 700,
+                        background: isSelected ? (isThisDepressive ? 'rgba(239,68,68,0.5)' : S.green) : 'rgba(255,255,255,0.08)',
+                        color: isSelected ? '#fff' : S.muted,
+                      }}>{opt}</button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Resultado */}
+      {answered > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/15 ({answered} respondidos)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: 0-4 Normal · 5-10 Leve/Moderada · 11-15 Grave</p>
+
+      {/* Observações + Status */}
+      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+          <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
     </div>
   )
 }
 
-// ─── BDI-II ───────────────────────────────────────────────────────────────────
+// ─── BDI-II (Base44-compliant, 21 itens com labels) ──────────────────────────
+const BDII_ITEMS = [
+  { key: 'q1',  label: 'Tristeza' },
+  { key: 'q2',  label: 'Pessimismo' },
+  { key: 'q3',  label: 'Fracasso Passado' },
+  { key: 'q4',  label: 'Perda de Prazer' },
+  { key: 'q5',  label: 'Sentimentos de Culpa' },
+  { key: 'q6',  label: 'Sentimentos de Punição' },
+  { key: 'q7',  label: 'Autoaversão' },
+  { key: 'q8',  label: 'Autocrítica' },
+  { key: 'q9',  label: 'Pensamentos Suicidas', alert: true },
+  { key: 'q10', label: 'Choro' },
+  { key: 'q11', label: 'Agitação' },
+  { key: 'q12', label: 'Perda de Interesse' },
+  { key: 'q13', label: 'Indecisão' },
+  { key: 'q14', label: 'Desvalorização' },
+  { key: 'q15', label: 'Perda de Energia' },
+  { key: 'q16', label: 'Alterações no Sono' },
+  { key: 'q17', label: 'Irritabilidade' },
+  { key: 'q18', label: 'Alterações no Apetite' },
+  { key: 'q19', label: 'Dificuldade de Concentração' },
+  { key: 'q20', label: 'Cansaço ou Fadiga' },
+  { key: 'q21', label: 'Perda de Interesse Sexual' },
+]
+
 function BDI2Form({ data, onChange }) {
   const d = data || {}
-  const c = classify.bdi2(d.total_score)
+
+  const update = (changes) => {
+    const next = { ...d, ...changes }
+    const total = BDII_ITEMS.reduce((sum, it) => sum + (Number(next[it.key]) || 0), 0)
+    onChange({ ...next, total_score: total, classification: classify.bdi2(total)?.label || '' })
+  }
+
+  const total = BDII_ITEMS.reduce((sum, it) => sum + (Number(d[it.key]) || 0), 0)
+  const answered = BDII_ITEMS.filter(it => d[it.key] != null).length
+  const c = answered > 0 ? classify.bdi2(total) : null
+
   return (
     <div>
-      <NumField label="Pontuação Total" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.bdi2(v)?.label })}
-        min={0} max={63} hint="0-63" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: 0-13 Mínimo · 14-19 Leve · 20-28 Moderado · 29+ Grave</p>
+      <p style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>Pontue cada item de 0 a 3.</p>
+
+      {/* 21 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {BDII_ITEMS.map((item, i) => {
+          const isAlert = item.alert && d[item.key] != null && Number(d[item.key]) > 0
+          return (
+            <div key={item.key} style={{
+              display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+              padding: '5px 10px', borderRadius: 6,
+              background: isAlert
+                ? 'rgba(239,68,68,0.12)'
+                : d[item.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
+              border: isAlert ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent',
+            }}>
+              <div style={{ fontSize: 12, color: d[item.key] != null ? '#fff' : S.muted }}>
+                <span style={{ color: S.muted, fontSize: 10, marginRight: 6 }}>{i + 1}</span>
+                {item.label}
+                {isAlert && <span style={{ color: S.red, fontSize: 10, marginLeft: 6 }}>⚠ atenção</span>}
+              </div>
+              <ScoreButtons value={d[item.key]} onChange={v => update({ [item.key]: v })} max={3} />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Resultado */}
+      {answered > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
+            Total: {total}/63
+            <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>({answered}/21 itens)</span>
+          </span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: 0-13 Mínimo · 14-19 Leve · 20-28 Moderado · ≥29 Grave</p>
+
+      {/* Campos adicionais */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+          <input type="text" value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Texto livre..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Hipótese Diagnóstica</div>
+          <input type="text" value={d.diagnostic_hypothesis || ''} onChange={e => update({ diagnostic_hypothesis: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Hipótese baseada nos resultados..." />
+        </div>
+      </div>
+      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} />
+        </div>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex || ''} onChange={e => update({ sex: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── HAD ─────────────────────────────────────────────────────────────────────
+// ─── HAD (Base44-compliant — 7 itens Ansiedade + 7 Depressão, 0–3 cada) ──────
+const HAD_ANXIETY_ITEMS = [
+  { key: 'a1', label: 'Sinto-me tenso ou contraído' },
+  { key: 'a2', label: 'Tenho uma sensação de medo, como se algo ruim fosse acontecer' },
+  { key: 'a3', label: 'Estou com a cabeça cheia de preocupações' },
+  { key: 'a4', label: 'Consigo ficar sentado à vontade e me sentir relaxado' },
+  { key: 'a5', label: 'Tenho uma sensação ruim no estômago, como se fossem "borboletas"' },
+  { key: 'a6', label: 'Sinto-me inquieto, como se precisasse ficar andando' },
+  { key: 'a7', label: 'De repente, tenho a sensação de entrar em pânico' },
+]
+const HAD_DEPRESSION_ITEMS = [
+  { key: 'd1', label: 'Ainda sinto prazer nas mesmas coisas de antes' },
+  { key: 'd2', label: 'Sou capaz de rir e achar graça nas coisas' },
+  { key: 'd3', label: 'Sinto-me alegre' },
+  { key: 'd4', label: 'Estou mais lento e preciso de mais tempo para fazer as coisas' },
+  { key: 'd5', label: 'Perdi o interesse em cuidar da minha aparência' },
+  { key: 'd6', label: 'Fico esperando animado as coisas boas que estão por vir' },
+  { key: 'd7', label: 'Consigo apreciar um bom livro ou programa de rádio/TV' },
+]
+
 function HADForm({ data, onChange }) {
   const d = data || {}
-  const ca = classify.had(d.anxiety_score)
-  const cd = classify.had(d.depression_score)
+  const [tab, setTab] = React.useState('ansiedade')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const aKeys = HAD_ANXIETY_ITEMS.map(i => i.key)
+    const dKeys = HAD_DEPRESSION_ITEMS.map(i => i.key)
+    const anxiety_answered    = aKeys.filter(k => n[k] != null).length
+    const depression_answered = dKeys.filter(k => n[k] != null).length
+    const anxiety_score    = anxiety_answered    > 0 ? aKeys.reduce((s, k) => s + (Number(n[k])||0), 0) : null
+    const depression_score = depression_answered > 0 ? dKeys.reduce((s, k) => s + (Number(n[k])||0), 0) : null
+    onChange({
+      ...n,
+      anxiety_score,
+      depression_score,
+      anxiety_classification:    anxiety_score    != null ? (classify.had(anxiety_score)?.label    || '') : '',
+      depression_classification: depression_score != null ? (classify.had(depression_score)?.label || '') : '',
+    })
+  }
+
+  const aAnswered = HAD_ANXIETY_ITEMS.filter(i => d[i.key] != null).length
+  const dAnswered = HAD_DEPRESSION_ITEMS.filter(i => d[i.key] != null).length
+  const aScore = aAnswered > 0 ? HAD_ANXIETY_ITEMS.reduce((s, i) => s + (Number(d[i.key])||0), 0) : null
+  const dScore = dAnswered > 0 ? HAD_DEPRESSION_ITEMS.reduce((s, i) => s + (Number(d[i.key])||0), 0) : null
+  const ca = aScore != null ? classify.had(aScore) : null
+  const cd = dScore != null ? classify.had(dScore) : null
+
+  const tabStyle = (t) => ({
+    padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
+    fontSize: 11, fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const itemRow = (item) => (
+    <div key={item.key} style={{
+      display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+      padding: '7px 10px', borderRadius: 6, marginBottom: 3,
+      background: d[item.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+    }}>
+      <div style={{ fontSize: 12, color: d[item.key] != null ? '#fff' : S.muted }}>{item.label}</div>
+      <ScoreButtons value={d[item.key]} onChange={v => update({ [item.key]: v })} max={3} />
+    </div>
+  )
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: S.muted, marginBottom: 8 }}>ANSIEDADE</div>
-        <NumField label="Pontuação" value={d.anxiety_score}
-          onChange={v => onChange({ ...d, anxiety_score: v, anxiety_classification: classify.had(v)?.label })}
-          min={0} max={21} hint="0-21" />
-        {ca && <div style={{ marginTop: 6 }}><Badge {...ca} /></div>}
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
       </div>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: S.muted, marginBottom: 8 }}>DEPRESSÃO</div>
-        <NumField label="Pontuação" value={d.depression_score}
-          onChange={v => onChange({ ...d, depression_score: v, depression_classification: classify.had(v)?.label })}
-          min={0} max={21} hint="0-21" />
-        {cd && <div style={{ marginTop: 6 }}><Badge {...cd} /></div>}
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <button style={tabStyle('ansiedade')} onClick={() => setTab('ansiedade')}>
+          Ansiedade {aScore != null ? `(${aScore}/21)` : ''}
+        </button>
+        <button style={tabStyle('depressao')} onClick={() => setTab('depressao')}>
+          Depressão {dScore != null ? `(${dScore}/21)` : ''}
+        </button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
       </div>
-      <p style={{ fontSize: 11, color: S.muted, gridColumn: '1/-1' }}>Ref: 0-7 Normal · 8-10 Limítrofe · 11-14 Moderado · 15-21 Grave</p>
+
+      {tab === 'ansiedade' && (
+        <div>
+          {HAD_ANXIETY_ITEMS.map(itemRow)}
+          {aScore != null && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Ansiedade: {aScore}/21</span>
+              {ca && <Badge {...ca} />}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'depressao' && (
+        <div>
+          {HAD_DEPRESSION_ITEMS.map(itemRow)}
+          {dScore != null && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Depressão: {dScore}/21</span>
+              {cd && <Badge {...cd} />}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'resultado' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Ansiedade: {aScore != null ? `${aScore}/21` : '—'}</span>
+            {ca ? <Badge {...ca} /> : <span style={{ fontSize: 11, color: S.muted }}>não respondido</span>}
+          </div>
+          <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Depressão: {dScore != null ? `${dScore}/21` : '—'}</span>
+            {cd ? <Badge {...cd} /> : <span style={{ fontSize: 11, color: S.muted }}>não respondido</span>}
+          </div>
+          <p style={{ fontSize: 11, color: S.muted }}>Ref: 0-7 Normal · 8-10 Limítrofe · 11-14 Moderado · ≥15 Grave</p>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+            <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8, width: 'auto' }}>
+              <option value="em_andamento">Em andamento</option>
+              <option value="concluido">Concluído</option>
+            </select>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── GAI ─────────────────────────────────────────────────────────────────────
+// ─── GAI (Base44-compliant — 20 itens Sim/Não) ───────────────────────────────
+const GAI_ITEMS = [
+  { key: 'q1',  label: 'Eu me preocupo em grande parte do tempo' },
+  { key: 'q2',  label: 'Eu acho difícil tomar uma decisão' },
+  { key: 'q3',  label: 'Sinto-me agitado com frequência' },
+  { key: 'q4',  label: 'Eu acho difícil relaxar' },
+  { key: 'q5',  label: 'Frequentemente não consigo aproveitar as coisas por causa das minhas preocupações' },
+  { key: 'q6',  label: 'Pequenas coisas me aborrecem muito' },
+  { key: 'q7',  label: 'Frequentemente sinto como se tivesse um frio na barriga' },
+  { key: 'q8',  label: 'Eu penso que sou preocupado' },
+  { key: 'q9',  label: 'Eu não consigo parar de me preocupar' },
+  { key: 'q10', label: 'Frequentemente me sinto nervoso' },
+  { key: 'q11', label: 'Frequentemente sinto que algo ruim vai acontecer' },
+  { key: 'q12', label: 'Frequentemente tenho tremores ou sensação de estremecimento no corpo' },
+  { key: 'q13', label: 'Eu considero que sou uma pessoa bastante ansiosa' },
+  { key: 'q14', label: 'Eu acho difícil controlar minha ansiedade' },
+  { key: 'q15', label: 'Frequentemente me sinto como se estivesse com os nervos à flor da pele' },
+  { key: 'q16', label: 'Acho que minha preocupação interfere em minhas atividades' },
+  { key: 'q17', label: 'Eu me sinto bastante nervoso com frequência' },
+  { key: 'q18', label: 'Minhas preocupações frequentemente me impedem de dormir à noite' },
+  { key: 'q19', label: 'Eu fico muito tenso com frequência' },
+  { key: 'q20', label: 'Quando fico tenso, às vezes sinto um aperto no estômago' },
+]
+
 function GAIForm({ data, onChange }) {
   const d = data || {}
-  const c = classify.gai(d.total_score)
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const total = GAI_ITEMS.filter(it => n[it.key] === 'Sim').length
+    const answered = GAI_ITEMS.filter(it => n[it.key] != null).length
+    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered > 0 ? (classify.gai(total)?.label || '') : '' })
+  }
+
+  const answered = GAI_ITEMS.filter(it => d[it.key] != null).length
+  const total    = GAI_ITEMS.filter(it => d[it.key] === 'Sim').length
+  const c        = answered > 0 ? classify.gai(total) : null
+
   return (
     <div>
-      <NumField label="Pontuação Total" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.gai(v)?.label })}
-        min={0} max={20} hint="0-20" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: 0-9 Normal · ≥10 Sintomas de ansiedade</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* 20 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {GAI_ITEMS.map((it, i) => (
+          <div key={it.key} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+            padding: '6px 10px', borderRadius: 6,
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
+              <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['Sim', 'Não'].map(opt => (
+                <button key={opt} type="button" onClick={() => update({ [it.key]: opt })}
+                  style={{
+                    padding: '3px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700,
+                    background: d[it.key] === opt ? (opt === 'Sim' ? S.green : 'rgba(239,68,68,0.3)') : 'rgba(255,255,255,0.08)',
+                    color:      d[it.key] === opt ? '#fff' : S.muted,
+                  }}>{opt}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Resultado */}
+      {answered > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/20 ({answered} respondidos)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: 0-9 Normal · ≥10 Sintomas de ansiedade</p>
+
+      {/* Observações */}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── IDATE ────────────────────────────────────────────────────────────────────
-function IDATEForm({ testKey, data, onChange, label }) {
+// ─── IDATE (Base44-compliant — 20 itens 1–4) ─────────────────────────────────
+const IDATE_LABELS = {
+  estado: [
+    'Sinto-me calmo(a)',
+    'Sinto-me seguro(a)',
+    'Estou tenso(a)',
+    'Estou arrependido(a)',
+    'Sinto-me à vontade',
+    'Sinto-me perturbado(a)',
+    'Preocupo-me com possíveis infortúnios',
+    'Sinto-me descansado(a)',
+    'Sinto-me ansioso(a)',
+    'Sinto-me em boa forma',
+    'Sinto-me confiante',
+    'Sinto-me nervoso(a)',
+    'Estou agitado(a)',
+    'Sinto-me indeciso(a)',
+    'Estou relaxado(a)',
+    'Sinto-me satisfeito(a)',
+    'Estou preocupado(a)',
+    'Sinto-me confuso(a)',
+    'Sinto-me tranquilo(a)',
+    'Sinto-me bem',
+  ],
+  traco: [
+    'Sinto-me bem',
+    'Fico cansado(a) rapidamente',
+    'Tenho vontade de chorar',
+    'Gostaria de ser tão feliz quanto os outros parecem ser',
+    'Perco oportunidades por não me decidir rapidamente',
+    'Sinto-me descansado(a)',
+    'Sou calmo(a), ponderado(a) e senhor(a) de mim mesmo(a)',
+    'Sinto que dificuldades se acumulam e não consigo enfrentá-las',
+    'Preocupo-me com coisas sem importância',
+    'Sou feliz',
+    'Deixo-me afetar muito pelas coisas',
+    'Não tenho muita confiança em mim mesmo(a)',
+    'Sinto-me seguro(a)',
+    'Evito ter que enfrentar crises e problemas',
+    'Sinto-me melancólico(a)',
+    'Estou satisfeito(a)',
+    'Alguma ideia sem importância me pertuba e fica rondando minha cabeça',
+    'Levo os desapontamentos tão a sério que não consigo esquecê-los',
+    'Sou uma pessoa estável',
+    'Fico tenso(a) e perturbado(a) quando penso nos meus problemas',
+  ],
+}
+
+function IDATEForm({ data, onChange, label }) {
   const d = data || {}
-  const c = classify.idate(d.total_score)
+  const isTraco   = label?.toLowerCase().includes('traço') || label?.toLowerCase().includes('traco') || label?.toLowerCase().includes('-t')
+  const items     = isTraco ? IDATE_LABELS.traco : IDATE_LABELS.estado
+  const scaleHint = isTraco
+    ? '1 = Quase nunca · 2 = Às vezes · 3 = Frequentemente · 4 = Quase sempre'
+    : '1 = Absolutamente não · 2 = Um pouco · 3 = Bastante · 4 = Muitíssimo'
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const keys = Array.from({ length: 20 }, (_, i) => `q${i + 1}`)
+    const answered = keys.filter(k => n[k] != null).length
+    const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
+    onChange({ ...n, total_score: total, classification: total != null ? (classify.idate(total)?.label || '') : '' })
+  }
+
+  const keys     = Array.from({ length: 20 }, (_, i) => `q${i + 1}`)
+  const answered = keys.filter(k => d[k] != null).length
+  const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(d[k]) || 0), 0) : null
+  const c        = total != null ? classify.idate(total) : null
+
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: S.muted, marginBottom: 8 }}>{label}</div>
-      <NumField label="Pontuação Total" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.idate(v)?.label })}
-        min={20} max={80} hint="20-80" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: {'<'}40 Baixo · 40-59 Médio · ≥60 Alto</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex||''} onChange={e => update({ sex: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Estado Civil</div>
+          <input value={d.marital_status||''} onChange={e => update({ marital_status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="solteiro, casado..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Ocupação</div>
+          <input value={d.occupation||''} onChange={e => update({ occupation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <input value={d.education||''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Informante / Relação</div>
+          <input value={d.informant||''} onChange={e => update({ informant: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Nome" />
+        </div>
+      </div>
+
+      {/* Escala */}
+      <div style={{ fontSize: 10, color: S.muted, marginBottom: 8, fontStyle: 'italic' }}>{scaleHint}</div>
+
+      {/* 20 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {items.map((lbl, i) => {
+          const key = `q${i + 1}`
+          return (
+            <div key={key} style={{
+              display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+              padding: '6px 10px', borderRadius: 6,
+              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+            }}>
+              <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
+                <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
+              </div>
+              <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={4} />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Resultado */}
+      {total != null && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/80 ({answered}/20 respondidos)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: {'<'}40 Baixo · 40–59 Médio · ≥60 Alto</p>
+
+      {/* Interpretação e observações */}
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+          <input value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── IQCODE ───────────────────────────────────────────────────────────────────
+// ─── IQCODE (Base44-compliant — 26 itens 1–5) ────────────────────────────────
+const IQCODE_ITEMS = [
+  'Reconhecer rostos de parentes e amigos próximos',
+  'Lembrar os nomes de parentes e amigos próximos',
+  'Lembrar coisas sobre parentes e amigos (profissão, aniversário, endereço)',
+  'Lembrar de coisas que aconteceram recentemente',
+  'Lembrar de conversas ocorridas há alguns dias',
+  'Esquecer o que disse há alguns dias',
+  'Lembrar seu próprio endereço e número de telefone',
+  'Lembrar a data de hoje (dia da semana, do mês, mês e ano)',
+  'Lembrar onde guardam as coisas normalmente',
+  'Encontrar objetos que foram colocados em lugar diferente do habitual',
+  'Adaptar-se a mudanças na rotina diária',
+  'Reconhecer e conhecer o uso de utensílios domésticos',
+  'Aprender a usar novos aparelhos',
+  'Aprender coisas novas em geral',
+  'Lembrar coisas que ocorreram em sua infância e juventude',
+  'Lembrar coisas que aprendeu quando jovem',
+  'Compreender o significado de palavras incomuns',
+  'Compreender artigos em jornais ou revistas',
+  'Acompanhar uma história em livro ou televisão',
+  'Escrever cartas a amigos e parentes',
+  'Conhecer acontecimentos nacionais e internacionais atuais',
+  'Conversar sobre assuntos que conhece bem',
+  'Lembrar de coisas que aconteceram com você recentemente',
+  'Tratar de seus próprios assuntos financeiros',
+  'Tratar de outros assuntos diários',
+  'Usar inteligência para entender o que está acontecendo e tomar decisões',
+]
+
 function IQCODEForm({ data, onChange }) {
   const d = data || {}
-  const c = classify.iqcode(d.total_score)
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const keys     = Array.from({ length: 26 }, (_, i) => `q${i + 1}`)
+    const answered = keys.filter(k => n[k] != null).length
+    const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
+    const mean     = total != null ? Math.round((total / 26) * 100) / 100 : null
+    onChange({ ...n, total_score: total, mean_score: mean, classification: mean != null ? (classify.iqcode(mean)?.label || '') : '' })
+  }
+
+  const keys     = Array.from({ length: 26 }, (_, i) => `q${i + 1}`)
+  const answered = keys.filter(k => d[k] != null).length
+  const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(d[k]) || 0), 0) : null
+  const mean     = total != null ? Math.round((total / 26) * 100) / 100 : null
+  const c        = mean != null ? classify.iqcode(mean) : null
+
   return (
     <div>
-      <NumField label="Média (1–5)" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.iqcode(v)?.label })}
-        min={1} max={5} step={0.01} hint="média dos 16 itens" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: {'<'}3,31 Sem declínio · 3,31-3,6 Indeterminado · {'>'}3,6 Sugestivo de declínio</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <NumField label="Ano de referência (10 anos atrás)" value={d.reference_year} onChange={v => update({ reference_year: v })} min={1900} max={2030} hint="ano" />
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Informante</div>
+          <input value={d.informant||''} onChange={e => update({ informant: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="nome" />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Relação com o paciente</div>
+          <input value={d.informant_relationship||''} onChange={e => update({ informant_relationship: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="filho, cônjuge..." />
+        </div>
+      </div>
+
+      {/* Escala */}
+      <div style={{ fontSize: 10, color: S.muted, marginBottom: 8, fontStyle: 'italic' }}>
+        1 = Melhorou muito · 2 = Melhorou um pouco · 3 = Não mudou · 4 = Piorou um pouco · 5 = Piorou muito
+      </div>
+
+      {/* 26 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {IQCODE_ITEMS.map((lbl, i) => {
+          const key = `q${i + 1}`
+          return (
+            <div key={key} style={{
+              display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+              padding: '6px 10px', borderRadius: 6,
+              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+            }}>
+              <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
+                <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
+              </div>
+              <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={5} />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Resultado */}
+      {mean != null && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Média: {mean.toFixed(2)} ({answered}/26 itens)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: {'<'}3,31 Sem declínio · 3,31–3,6 Indeterminado · {'>'}3,6 Sugestivo de declínio</p>
+
+      {/* Interpretação e Observações */}
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+          <input value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── B-ADL ────────────────────────────────────────────────────────────────────
+// ─── B-ADL (Base44-compliant, 25 itens com nomes descritivos) ────────────────
+const BADL_ITEMS = [
+  { key: 'q1_daily_activities',        label: 'Atividades cotidianas' },
+  { key: 'q2_self_care',               label: 'Autocuidado' },
+  { key: 'q3_medication',              label: 'Medicação' },
+  { key: 'q4_hygiene',                 label: 'Higiene' },
+  { key: 'q5_remember_dates',          label: 'Lembrar datas' },
+  { key: 'q6_reading_concentration',   label: 'Leitura / Concentração' },
+  { key: 'q7_describe_events',         label: 'Descrever eventos' },
+  { key: 'q8_conversation',            label: 'Conversação' },
+  { key: 'q9_telephone',               label: 'Telefone' },
+  { key: 'q10_give_message',           label: 'Transmitir recado' },
+  { key: 'q11_walk_without_getting_lost', label: 'Caminhar sem se perder' },
+  { key: 'q12_shopping',               label: 'Compras' },
+  { key: 'q13_prepare_food',           label: 'Preparar refeição' },
+  { key: 'q14_count_money',            label: 'Contar dinheiro' },
+  { key: 'q15_manage_finances',        label: 'Gerenciar finanças' },
+  { key: 'q16_give_directions',        label: 'Dar direções' },
+  { key: 'q17_use_appliances',         label: 'Usar eletrodomésticos' },
+  { key: 'q18_orientation_new_places', label: 'Orientação em lugares novos' },
+  { key: 'q19_use_transportation',     label: 'Usar transporte' },
+  { key: 'q20_leisure_activities',     label: 'Atividades de lazer' },
+  { key: 'q21_resume_activity',        label: 'Retomar atividade interrompida' },
+  { key: 'q22_multitask',              label: 'Múltiplas tarefas' },
+  { key: 'q23_unfamiliar_situations',  label: 'Situações não familiares' },
+  { key: 'q24_safety',                 label: 'Segurança' },
+  { key: 'q25_under_pressure',         label: 'Sob pressão' },
+]
+
 function BADLForm({ data, onChange }) {
   const d = data || {}
-  const c = classify.badl(d.total_score)
+
+  const update = (changes) => {
+    const next = { ...d, ...changes }
+    const answered = BADL_ITEMS.filter(it => next[it.key] != null && next[it.key] !== '' && Number(next[it.key]) >= 1)
+    const meanVal  = answered.length > 0
+      ? answered.reduce((sum, it) => sum + Number(next[it.key]), 0) / answered.length
+      : null
+    onChange({
+      ...next,
+      items_answered: answered.length,
+      total_score:    meanVal != null ? parseFloat(meanVal.toFixed(2)) : null,
+    })
+  }
+
+  const answered = BADL_ITEMS.filter(it => d[it.key] != null && d[it.key] !== '' && Number(d[it.key]) >= 1)
+  const meanVal  = answered.length > 0
+    ? answered.reduce((sum, it) => sum + Number(d[it.key]), 0) / answered.length
+    : null
+  const meanStr = meanVal != null ? meanVal.toFixed(2) : null
+  const c = meanStr ? classify.badl(meanStr) : null
+
   return (
     <div>
-      <NumField label="Pontuação (0–10)" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.badl(v)?.label })}
-        min={0} max={10} step={0.1} hint="0-10" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: {'<'}3,5 Normal · 3,5-4,9 Leve · 5-7,4 Moderado · ≥7,5 Grave</p>
+      <p style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
+        Pontue de 1 (sem dificuldade) a 10 (máxima dificuldade). Deixe em branco se não aplicável.
+      </p>
+
+      {/* Itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {BADL_ITEMS.map((item, i) => (
+          <div key={item.key} style={{
+            display: 'grid', gridTemplateColumns: '1fr 72px', gap: 10, alignItems: 'center',
+            padding: '5px 10px', borderRadius: 6,
+            background: d[item.key] ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize: 12, color: d[item.key] ? '#fff' : S.muted }}>
+              <span style={{ color: S.muted, fontSize: 10, marginRight: 6 }}>Q{i + 1}</span>
+              {item.label}
+            </div>
+            <input
+              type="number" min={1} max={10}
+              value={d[item.key] ?? ''}
+              onChange={e => update({ [item.key]: e.target.value === '' ? null : Number(e.target.value) })}
+              style={{ ...inputStyle, textAlign: 'center' }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Resultado */}
+      {meanStr && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, color: '#fff' }}>
+            Média: <strong>{meanStr}</strong>
+            <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>({answered.length}/25 itens)</span>
+          </span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: {'<'}3,5 Normal · 3,5-4,9 Leve · 5-7,4 Moderado · ≥7,5 Grave</p>
+
+      {/* Interpretação e Observações */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+          <input type="text" value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} placeholder="Texto livre..." />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: S.muted }}>Status:</span>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, width: 'auto', flex: 1, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Nascimento</div>
+          <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left' }} />
+        </div>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── Pfeffer ─────────────────────────────────────────────────────────────────
+// ─── Pfeffer (Base44-compliant — 10 itens 0–3) ───────────────────────────────
+const PFEFFER_ITEMS = [
+  { key: 'q1',  label: 'Manuseia próprio dinheiro (pagar contas, controlar finanças)' },
+  { key: 'q2',  label: 'Faz compras sozinho (supermercado, roupas)' },
+  { key: 'q3',  label: 'Esquenta água, apaga o fogo e desliga eletrodomésticos' },
+  { key: 'q4',  label: 'Prepara refeição completa' },
+  { key: 'q5',  label: 'Mantém-se atualizado sobre acontecimentos' },
+  { key: 'q6',  label: 'Presta atenção e compreende TV, rádio ou jornal' },
+  { key: 'q7',  label: 'Lembra compromissos, acontecimentos recentes e familiar' },
+  { key: 'q8',  label: 'Toma medicamentos corretamente' },
+  { key: 'q9',  label: 'Passeia pelo bairro e encontra o caminho de volta' },
+  { key: 'q10', label: 'Fica sozinho em casa com segurança' },
+]
+
 function PfefferForm({ data, onChange }) {
   const d = data || {}
-  const c = classify.pfeffer(d.total_score)
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const answered = PFEFFER_ITEMS.filter(it => n[it.key] != null).length
+    const total    = answered > 0 ? PFEFFER_ITEMS.reduce((s, it) => s + (Number(n[it.key]) || 0), 0) : null
+    onChange({ ...n, total_score: total, classification: total != null ? (classify.pfeffer(total)?.label || '') : '' })
+  }
+
+  const answered = PFEFFER_ITEMS.filter(it => d[it.key] != null).length
+  const total    = answered > 0 ? PFEFFER_ITEMS.reduce((s, it) => s + (Number(d[it.key]) || 0), 0) : null
+  const c        = total != null ? classify.pfeffer(total) : null
+
   return (
     <div>
-      <NumField label="Pontuação Total (0–30)" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.pfeffer(v)?.label })}
-        min={0} max={30} hint="0-30" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: 0-5 Normal · 6-10 Limítrofe · ≥11 Comprometimento funcional</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Informante</div>
+          <input value={d.informant||''} onChange={e => update({ informant: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="nome" />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Grau de parentesco</div>
+          <input value={d.informant_relationship||''} onChange={e => update({ informant_relationship: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="filho, cônjuge..." />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Escala */}
+      <div style={{ fontSize: 10, color: S.muted, marginBottom: 8, fontStyle: 'italic' }}>
+        0 = Capaz / nunca precisou de ajuda · 1 = Com dificuldade, mas capaz · 2 = Precisa de ajuda · 3 = Incapaz
+      </div>
+
+      {/* 10 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {PFEFFER_ITEMS.map((it, i) => (
+          <div key={it.key} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+            padding: '7px 10px', borderRadius: 6,
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
+              <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
+            </div>
+            <ScoreButtons value={d[it.key]} onChange={v => update({ [it.key]: v })} max={3} />
+          </div>
+        ))}
+      </div>
+
+      {/* Resultado */}
+      {total != null && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/30 ({answered}/10 itens)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: 0–5 Normal · 6–10 Limítrofe · ≥11 Comprometimento funcional</p>
+
+      {/* Interpretação e Observações */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+        <input value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── Lawton ───────────────────────────────────────────────────────────────────
+// ─── Lawton (Base44-compliant — 9 itens 1–3) ─────────────────────────────────
+const LAWTON_ITEMS = [
+  { key: 'q1_telephone',    label: 'Habilidade para usar o telefone' },
+  { key: 'q2_shopping',     label: 'Capacidade de fazer compras' },
+  { key: 'q3_meal_prep',    label: 'Preparação de refeições' },
+  { key: 'q4_housekeeping', label: 'Cuidados da casa' },
+  { key: 'q5_laundry',      label: 'Lavagem de roupas' },
+  { key: 'q6_handwork',     label: 'Trabalhos manuais domésticos' },
+  { key: 'q7_transportation',label: 'Meios de transporte' },
+  { key: 'q8_medication',   label: 'Responsabilidade com medicamentos' },
+  { key: 'q9_finances',     label: 'Capacidade para cuidar do dinheiro' },
+]
+
 function LawtonForm({ data, onChange }) {
   const d = data || {}
-  const c = classify.lawton(d.total_score)
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const answered = LAWTON_ITEMS.filter(it => n[it.key] != null).length
+    const total    = answered > 0 ? LAWTON_ITEMS.reduce((s, it) => s + (Number(n[it.key]) || 0), 0) : null
+    onChange({ ...n, total_score: total, classification: total != null ? (classify.lawton(total)?.label || '') : '' })
+  }
+
+  const answered = LAWTON_ITEMS.filter(it => d[it.key] != null).length
+  const total    = answered > 0 ? LAWTON_ITEMS.reduce((s, it) => s + (Number(d[it.key]) || 0), 0) : null
+  const c        = total != null ? classify.lawton(total) : null
+
   return (
     <div>
-      <NumField label="Pontuação Total (0–8)" value={d.total_score}
-        onChange={v => onChange({ ...d, total_score: v, classification: classify.lawton(v)?.label })}
-        min={0} max={8} hint="0-8" />
-      {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: 8 Independente · 5-7 Dep. leve · 1-4 Dep. moderada · 0 Dep. grave</p>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Escala */}
+      <div style={{ fontSize: 10, color: S.muted, marginBottom: 8, fontStyle: 'italic' }}>
+        1 = Dependente · 2 = Necessita de ajuda · 3 = Independente
+      </div>
+
+      {/* 9 itens */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {LAWTON_ITEMS.map((it, i) => (
+          <div key={it.key} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+            padding: '7px 10px', borderRadius: 6,
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
+              <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
+            </div>
+            <ScoreButtons value={d[it.key]} onChange={v => update({ [it.key]: v })} min={1} max={3} />
+          </div>
+        ))}
+      </div>
+
+      {/* Resultado */}
+      {total != null && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/27 ({answered}/9 itens)</span>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: 27 Independente · 18–26 Dep. leve · 9–17 Dep. moderada/grave</p>
+
+      {/* Interpretação e Observações */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+        <input value={d.interpretation||''} onChange={e => update({ interpretation: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
     </div>
   )
 }
 
-// ─── WASI / WASI-III ─────────────────────────────────────────────────────────
+// ─── WASI / WASI-III (Base44-compliant) ──────────────────────────────────────
 function WASIForm({ data, onChange, version }) {
   const d = data || {}
-  const cqi = classify.wasi(d.qit_2)
+  const isIII = version === 'WASI-III'
+  const [tab, setTab] = React.useState('subtestes')
+  const [showVocabItems,   setShowVocabItems]   = React.useState(false)
+  const [showSimilItems,   setShowSimilItems]   = React.useState(false)
+  const [showMatrixItems,  setShowMatrixItems]  = React.useState(false)
+
+  // Versão-específica: contagens e maximos
+  const cfg = isIII
+    ? { vocabCount: 32, vocabMax: 64, similCount: 24, similMax: 48, hasInstType: true, hasClassif: true }
+    : { vocabCount: 42, vocabMax: 84, similCount: 26, similMax: 52, hasInstType: false, hasClassif: false }
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    if (Array.isArray(n.vocabulary_items))
+      n.vocabulary_score = n.vocabulary_items.reduce((s, v) => s + (Number(v) || 0), 0)
+    if (Array.isArray(n.similarities_items))
+      n.similarities_score = n.similarities_items.reduce((s, v) => s + (Number(v) || 0), 0)
+    if (!isIII && Array.isArray(n.matrix_items))
+      n.matrix_score = n.matrix_items.reduce((s, v) => s + (Number(v) || 0), 0)
+    onChange(n)
+  }
+
+  const tabStyle = (t) => ({
+    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
+    fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const cqit2 = classify.wasi(d.qit_2)
+  const cqiv  = classify.wasi(d.qiv)
+  const cqie  = classify.wasi(d.qie)
+  const cqit4 = classify.wasi(d.qit_4)
+
+  // Grid de itens 0–2 (vocabulário / semelhanças)
+  const itemGrid02 = (items, count, fieldKey) => {
+    const arr = Array.from({ length: count }, (_, i) =>
+      Array.isArray(items) && items[i] != null ? Number(items[i]) : null
+    )
+    const total = arr.reduce((s, v) => s + (v != null ? v : 0), 0)
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 4px' }}>
+        {arr.map((v, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <span style={{ fontSize: 9, color: S.muted, lineHeight: 1 }}>{i + 1}</span>
+            <ScoreButtons value={v} max={2} onChange={nv => {
+              const a = [...(Array.isArray(items) ? items : Array(count).fill(null))]
+              a[i] = nv
+              update({ [fieldKey]: a })
+            }} />
+          </div>
+        ))}
+        <span style={{ alignSelf: 'center', marginLeft: 8, fontSize: 13, fontWeight: 700, color: S.greenL }}>= {total}</span>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-      <div>
-        <NumField label="QI Total (QIT-2)" value={d.qit_2}
-          onChange={v => onChange({ ...d, qit_2: v })}
-          min={40} max={160} hint="QI" />
-        {cqi && <div style={{ marginTop: 4 }}><Badge {...cqi} /></div>}
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <select value={d.education_level || ''} onChange={e => update({ education_level: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            {['1-4 anos','5-8 anos','9+ anos','Ensino Fundamental','Ensino Médio','Ensino Superior','Pós-graduação'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </div>
+        {cfg.hasInstType ? (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Instituição</div>
+            <select value={d.institution_type || ''} onChange={e => update({ institution_type: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+              <option value="">—</option>
+              <option value="publica">Pública</option>
+              <option value="privada">Privada</option>
+            </select>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
+            <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
+          </div>
+        )}
+        {cfg.hasInstType && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
+            <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
+          </div>
+        )}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
       </div>
-      <NumField label="Percentil" value={d.qit_percentile}
-        onChange={v => onChange({ ...d, qit_percentile: v })}
-        min={1} max={99} hint="1-99" />
-      <div style={{ paddingTop: 20 }}>
-        <input
-          value={d.classification || ''}
-          onChange={e => onChange({ ...d, classification: e.target.value })}
-          placeholder="Classificação verbal..."
-          style={{ ...inputStyle, textAlign: 'left' }}
-        />
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+        <button style={tabStyle('subtestes')} onClick={() => setTab('subtestes')}>Subtestes</button>
+        <button style={tabStyle('qis')} onClick={() => setTab('qis')}>QIs Compostos</button>
+        <button style={tabStyle('obs')} onClick={() => setTab('obs')}>Observações</button>
       </div>
+
+      {/* ── Tab: Subtestes ─────────────────────────────────────────────────────── */}
+      {tab === 'subtestes' && (
+        <div>
+          {/* Vocabulário */}
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+              Vocabulário — {cfg.vocabCount} itens (0–2)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <NumField label={`Escore bruto (0–${cfg.vocabMax})`} value={d.vocabulary_score}
+                onChange={v => update({ vocabulary_score: v })} min={0} max={cfg.vocabMax} />
+              <NumField label="Escore T" value={d.vocabulary_t_score}
+                onChange={v => update({ vocabulary_t_score: v })} min={20} max={100} hint="T" />
+            </div>
+            <button type="button" onClick={() => setShowVocabItems(!showVocabItems)}
+              style={{ fontSize: 11, color: S.blue, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+              {showVocabItems ? '▲ Ocultar itens' : `▶ Registrar ${cfg.vocabCount} itens`}
+            </button>
+            {showVocabItems && itemGrid02(d.vocabulary_items, cfg.vocabCount, 'vocabulary_items')}
+          </div>
+
+          {/* Semelhanças */}
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+              Semelhanças — {cfg.similCount} itens (0–2)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <NumField label={`Escore bruto (0–${cfg.similMax})`} value={d.similarities_score}
+                onChange={v => update({ similarities_score: v })} min={0} max={cfg.similMax} />
+              <NumField label="Escore T" value={d.similarities_t_score}
+                onChange={v => update({ similarities_t_score: v })} min={20} max={100} hint="T" />
+            </div>
+            <button type="button" onClick={() => setShowSimilItems(!showSimilItems)}
+              style={{ fontSize: 11, color: S.blue, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+              {showSimilItems ? '▲ Ocultar itens' : `▶ Registrar ${cfg.similCount} itens`}
+            </button>
+            {showSimilItems && itemGrid02(d.similarities_items, cfg.similCount, 'similarities_items')}
+          </div>
+
+          {/* Cubos */}
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Cubos — 13 itens</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <NumField label="Escore bruto" value={d.blocks_score}
+                onChange={v => update({ blocks_score: v })} min={0} max={71} />
+              <NumField label="Escore T" value={d.blocks_t_score}
+                onChange={v => update({ blocks_t_score: v })} min={20} max={100} hint="T" />
+            </div>
+          </div>
+
+          {/* Raciocínio Matricial */}
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Raciocínio Matricial — 35 itens{!isIII ? ' (0–1)' : ''}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <NumField label="Escore bruto (0–35)" value={d.matrix_score}
+                onChange={v => update({ matrix_score: v })} min={0} max={35} />
+              <NumField label="Escore T" value={d.matrix_t_score}
+                onChange={v => update({ matrix_t_score: v })} min={20} max={100} hint="T" />
+            </div>
+            {!isIII && (
+              <>
+                <button type="button" onClick={() => setShowMatrixItems(!showMatrixItems)}
+                  style={{ fontSize: 11, color: S.blue, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+                  {showMatrixItems ? '▲ Ocultar itens' : '▶ Registrar 35 itens (0/1)'}
+                </button>
+                {showMatrixItems && (
+                  <div style={{ paddingTop: 6 }}>
+                    <ItemGrid
+                      values={d.matrix_items || []}
+                      count={35}
+                      onChangeFn={v => update({ matrix_items: v })}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: QIs Compostos ─────────────────────────────────────────────────── */}
+      {tab === 'qis' && (
+        <div>
+          {[
+            { label: 'QI Verbal (Vocabulário + Semelhanças)',      qiKey: 'qiv',   percKey: 'qiv_percentile', classKey: cfg.hasClassif ? 'qiv_classification' : null, badge: cqiv  },
+            { label: 'QI de Execução (Cubos + Raciocínio Matricial)', qiKey: 'qie', percKey: 'qie_percentile', classKey: cfg.hasClassif ? 'qie_classification' : null, badge: cqie  },
+            { label: 'QI Total — 2 subtestes',                     qiKey: 'qit_2', percKey: 'qit_percentile', classKey: cfg.hasClassif ? 'qit_classification' : null, badge: cqit2 },
+            { label: 'QI Total — 4 subtestes',                     qiKey: 'qit_4', percKey: null,             classKey: null, badge: cqit4 },
+          ].map(({ label, qiKey, percKey, classKey, badge }) => (
+            <div key={qiKey} style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{label}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: percKey ? (classKey ? 'repeat(3,1fr)' : '1fr 1fr') : '1fr', gap: 8 }}>
+                <div>
+                  <NumField label="QI" value={d[qiKey]} onChange={v => update({ [qiKey]: v })} min={40} max={160} />
+                  {badge && <div style={{ marginTop: 4 }}><Badge {...badge} /></div>}
+                </div>
+                {percKey && (
+                  <NumField label="Percentil" value={d[percKey]} onChange={v => update({ [percKey]: v })} min={1} max={99} hint="1-99" />
+                )}
+                {classKey && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
+                    <input value={d[classKey] || ''} onChange={e => update({ [classKey]: e.target.value })}
+                      style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Médio" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>Ref QI: ≥130 Muito Superior · 120–129 Superior · 110–119 Médio Alto · 90–109 Médio · 80–89 Médio Baixo · 70–79 Limítrofe · &lt;70 Extremamente Baixo</p>
+        </div>
+      )}
+
+      {/* ── Tab: Observações ───────────────────────────────────────────────────── */}
+      {tab === 'obs' && (
+        <div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações comportamentais</div>
+            <textarea rows={3} value={d.behavioral_observations || ''} onChange={e => update({ behavioral_observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={3} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>URL do scan</div>
+            <input value={d.scan_url || ''} onChange={e => update({ scan_url: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="https://..." />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── WCST-N ───────────────────────────────────────────────────────────────────
+// ─── WCST-N (Base44-compliant) ────────────────────────────────────────────────
+const WCST_SEQ = ['', 'C', 'F', 'N', 'O']
+const WCST_COLORS = {
+  C: { bg: 'rgba(59,130,246,0.35)', text: '#93C5FD' },
+  F: { bg: 'rgba(46,125,50,0.45)',  text: '#4CAF50' },
+  N: { bg: 'rgba(245,158,11,0.35)', text: '#FCD34D' },
+  O: { bg: 'rgba(239,68,68,0.35)',  text: '#F87171' },
+  '': { bg: 'rgba(255,255,255,0.05)', text: S.muted },
+}
+
 function WCSTForm({ data, onChange }) {
   const d = data || {}
-  const cc = classify.wcst_cat(d.categories_completed)
+  const [tab, setTab] = React.useState('tentativas')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
+    const pe = num('perseverative_errors'), te = num('total_errors')
+    if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    onChange(n)
+  }
+
+  const setTrialResponse = (i, resp) => {
+    const arr = Array.isArray(d.trials) ? [...d.trials] : Array.from({ length: 48 }, (_, j) => ({ number: j + 1, response: '' }))
+    arr[i] = { number: i + 1, response: resp }
+    update({ trials: arr })
+  }
+
+  const trials = Array.from({ length: 48 }, (_, i) => {
+    const t = Array.isArray(d.trials) ? d.trials[i] : null
+    return t?.response || ''
+  })
+
+  const tabStyle = (t) => ({
+    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
+    fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const cc      = classify.wcst_cat(d.categories_completed)
+  const cPe     = classify.wcst_pe(d.perseverative_errors)
+  const cBreak  = classify.wcst_break(d.total_breaks)
+  const answered = trials.filter(r => r !== '').length
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-      <div>
-        <NumField label="Categorias completadas" value={d.categories_completed}
-          onChange={v => onChange({ ...d, categories_completed: v })}
-          min={0} max={6} hint="0-6" />
-        {cc && <div style={{ marginTop: 4 }}><Badge {...cc} /></div>}
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <input value={d.education || ''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: 12 anos" />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
+          <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
       </div>
-      <NumField label="Erros perseverativos" value={d.perseverative_errors}
-        onChange={v => onChange({ ...d, perseverative_errors: v })}
-        min={0} hint="total" />
-      <NumField label="Respostas perseverativas" value={d.perseverative_responses}
-        onChange={v => onChange({ ...d, perseverative_responses: v })}
-        min={0} hint="total" />
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+        <button style={tabStyle('tentativas')} onClick={() => setTab('tentativas')}>
+          Tentativas ({answered}/48)
+        </button>
+        <button style={tabStyle('pontuacao')} onClick={() => setTab('pontuacao')}>Pontuação</button>
+      </div>
+
+      {/* ── Tab: Tentativas ────────────────────────────────────────────────────── */}
+      {tab === 'tentativas' && (
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 8 }}>
+            Clique para ciclar: vazio → <span style={{ color: '#93C5FD' }}>C</span>or → <span style={{ color: '#4CAF50' }}>F</span>orma → <span style={{ color: '#FCD34D' }}>N</span>úmero → <span style={{ color: '#F87171' }}>O</span>utro → vazio
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 4 }}>
+            {trials.map((resp, i) => {
+              const c = WCST_COLORS[resp] || WCST_COLORS['']
+              return (
+                <button key={i} type="button"
+                  onClick={() => setTrialResponse(i, WCST_SEQ[(WCST_SEQ.indexOf(resp) + 1) % WCST_SEQ.length])}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    height: 42, borderRadius: 5, border: 'none', cursor: 'pointer',
+                    background: c.bg, color: c.text,
+                  }}>
+                  <span style={{ fontSize: 9, lineHeight: 1, opacity: 0.7 }}>{i + 1}</span>
+                  <span style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.2 }}>{resp || '·'}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 11, color: S.muted }}>
+            {['C','F','N','O'].map(r => {
+              const n = trials.filter(t => t === r).length
+              const c = WCST_COLORS[r]
+              return <span key={r} style={{ color: c.text }}>{r}: {n}</span>
+            })}
+            <span>Total: {answered}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: Pontuação ─────────────────────────────────────────────────────── */}
+      {tab === 'pontuacao' && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            <div>
+              <NumField label="Categorias completadas" value={d.categories_completed}
+                onChange={v => update({ categories_completed: v })} min={0} max={6} hint="0-6" />
+              {cc && <div style={{ marginTop: 4 }}><Badge {...cc} /></div>}
+            </div>
+            <NumField label="Ensaios administrados" value={d.trials_administered}
+              onChange={v => update({ trials_administered: v })} min={0} max={48} hint="0-48" />
+            <NumField label="Total de acertos" value={d.total_correct}
+              onChange={v => update({ total_correct: v })} min={0} hint="total" />
+            <NumField label="Total de erros" value={d.total_errors}
+              onChange={v => update({ total_errors: v })} min={0} hint="total" />
+            <div>
+              <NumField label="Total de rupturas" value={d.total_breaks}
+                onChange={v => update({ total_breaks: v })} min={0} hint="total" />
+              {cBreak && <div style={{ marginTop: 4 }}><Badge {...cBreak} /></div>}
+            </div>
+            <div>
+              <NumField label="Erros perseverativos" value={d.perseverative_errors}
+                onChange={v => update({ perseverative_errors: v })} min={0} hint="total" />
+              {cPe && <div style={{ marginTop: 4 }}><Badge {...cPe} /></div>}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Erros não-perseverativos</div>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
+                {d.non_perseverative_errors ?? '—'}
+              </div>
+              <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>auto (erros − persev.)</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={3} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>
+            Categorias: ≥5 Preservado · 3–4 Limítrofe · ≤2 Comprometido &nbsp;|&nbsp;
+            Erros persev.: ≤10 Preservado · 11–16 Limítrofe · ≥17 Comprometido &nbsp;|&nbsp;
+            Rupturas: 0 Preservado · 1–2 Limítrofe · ≥3 Comprometido
+          </p>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── BAMS ─────────────────────────────────────────────────────────────────────
+// ─── WCST completo (Base44-compliant) ────────────────────────────────────────
+function WCSTFullForm({ data, onChange }) {
+  const d = data || {}
+  const [tab, setTab] = React.useState('escores')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
+    const pe = num('perseverative_errors'), te = num('total_errors')
+    if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    onChange(n)
+  }
+
+  const tabStyle = (t) => ({
+    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
+    fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const cc = classify.wcst_cat(d.categories_completed)
+
+  return (
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex || ''} onChange={e => update({ sex: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <input value={d.education || ''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: 12 anos" />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
+          <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+        <button style={tabStyle('escores')} onClick={() => setTab('escores')}>Escores</button>
+        <button style={tabStyle('percentis')} onClick={() => setTab('percentis')}>Percentis</button>
+        <button style={tabStyle('interpretacao')} onClick={() => setTab('interpretacao')}>Interpretação</button>
+      </div>
+
+      {/* ── Tab: Escores ───────────────────────────────────────────────────────── */}
+      {tab === 'escores' && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            <div>
+              <NumField label="Categorias completadas" value={d.categories_completed}
+                onChange={v => update({ categories_completed: v })} min={0} max={6} hint="0-6" />
+              {cc && <div style={{ marginTop: 4 }}><Badge {...cc} /></div>}
+            </div>
+            <NumField label="Total de ensaios" value={d.total_trials}
+              onChange={v => update({ total_trials: v })} min={0} max={128} hint="0-128" />
+            <NumField label="Total de acertos" value={d.total_correct}
+              onChange={v => update({ total_correct: v })} min={0} />
+            <NumField label="Total de erros" value={d.total_errors}
+              onChange={v => update({ total_errors: v })} min={0} />
+            <NumField label="Erros perseverativos" value={d.perseverative_errors}
+              onChange={v => update({ perseverative_errors: v })} min={0} />
+            <div>
+              <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Erros não-perseverativos</div>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
+                {d.non_perseverative_errors ?? '—'}
+              </div>
+              <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>auto (erros − persev.)</div>
+            </div>
+            <NumField label="Respostas perseverativas" value={d.perseverative_responses}
+              onChange={v => update({ perseverative_responses: v })} min={0} />
+            <NumField label="Respostas nível conceitual" value={d.conceptual_level_responses}
+              onChange={v => update({ conceptual_level_responses: v })} min={0} />
+            <NumField label="Falha em manter contexto" value={d.failure_to_maintain_set}
+              onChange={v => update({ failure_to_maintain_set: v })} min={0} />
+            <NumField label="Aprendendo a aprender" value={d.learning_to_learn}
+              onChange={v => update({ learning_to_learn: v })} min={0} />
+          </div>
+          <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref categorias: ≥5 Preservado · 3–4 Limítrofe · ≤2 Comprometido</p>
+        </div>
+      )}
+
+      {/* ── Tab: Percentis ─────────────────────────────────────────────────────── */}
+      {tab === 'percentis' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+          <NumField label="Percentil — Categorias" value={d.percentile_categories}
+            onChange={v => update({ percentile_categories: v })} min={1} max={99} hint="1-99" />
+          <NumField label="Percentil — Ensaios" value={d.percentile_trials}
+            onChange={v => update({ percentile_trials: v })} min={1} max={99} hint="1-99" />
+          <NumField label="Percentil — Erros" value={d.percentile_errors}
+            onChange={v => update({ percentile_errors: v })} min={1} max={99} hint="1-99" />
+          <NumField label="Percentil — Erros perseverativos" value={d.percentile_perseverative}
+            onChange={v => update({ percentile_perseverative: v })} min={1} max={99} hint="1-99" />
+        </div>
+      )}
+
+      {/* ── Tab: Interpretação ─────────────────────────────────────────────────── */}
+      {tab === 'interpretacao' && (
+        <div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
+            <input value={d.classification || ''} onChange={e => update({ classification: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Comprometimento leve em FE" />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+            <textarea rows={3} value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Hipótese diagnóstica</div>
+            <textarea rows={3} value={d.diagnostic_hypothesis || ''} onChange={e => update({ diagnostic_hypothesis: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={2} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── ItemGrid — botões 0/1 por item ──────────────────────────────────────────
+function ItemGrid({ values, count, onChangeFn }) {
+  const arr = Array.from({ length: count }, (_, i) =>
+    Array.isArray(values) && values[i] != null ? Number(values[i]) : 0
+  )
+  const total = arr.reduce((s, x) => s + x, 0)
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+      {arr.map((v, i) => (
+        <button key={i} type="button"
+          onClick={() => { const n = [...arr]; n[i] = v === 1 ? 0 : 1; onChangeFn(n) }}
+          style={{
+            width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
+            fontSize: 11, fontWeight: 700,
+            background: v === 1 ? S.green : 'rgba(255,255,255,0.08)',
+            color: v === 1 ? '#fff' : S.muted,
+          }}>{i + 1}</button>
+      ))}
+      <span style={{ marginLeft: 6, color: S.greenL, fontWeight: 700, fontSize: 13 }}>{total}/{count}</span>
+    </div>
+  )
+}
+
+// ─── BAMS (Base44-compliant) ──────────────────────────────────────────────────
 function BAMSForm({ data, onChange }) {
   const d = data || {}
-  const cp = d.percentile != null ? (Number(d.percentile) >= 25 ? { label: 'PRESERVADO', type: 'preserved' } : Number(d.percentile) >= 10 ? { label: 'LIMÍTROFE', type: 'borderline' } : { label: 'COMPROMETIDO', type: 'impaired' }) : null
+  const [tab, setTab] = React.useState('fv')
+
+  // Recalcula todos os campos derivados e chama onChange
+  const update = (changes) => {
+    const next = { ...d, ...changes }
+    const fvTotal = (Number(next.fv_animals_hits)||0)+(Number(next.fv_fruits_hits)||0)
+                  +(Number(next.fv_utensils_hits)||0)+(Number(next.fv_clothes_hits)||0)
+    const ndArr  = Array.isArray(next.nd_scores)       ? next.nd_scores       : []
+    const niNArr = Array.isArray(next.ni_nouns)         ? next.ni_nouns        : []
+    const niVArr = Array.isArray(next.ni_verbs)         ? next.ni_verbs        : []
+    const niPArr = Array.isArray(next.ni_professions)   ? next.ni_professions  : []
+    const cgArr  = Array.isArray(next.cg_scores)        ? next.cg_scores       : []
+    const dpArr  = Array.isArray(next.dp_scores)        ? next.dp_scores       : []
+    const ciArr  = Array.isArray(next.ci_scores)        ? next.ci_scores       : []
+    const cvArr  = Array.isArray(next.cv_scores)        ? next.cv_scores       : []
+    const ndTotal   = ndArr.reduce((s,x)=>s+(x||0),0)
+    const niNounsTot= niNArr.reduce((s,x)=>s+(x||0),0)
+    const niVerbsTot= niVArr.reduce((s,x)=>s+(x||0),0)
+    const niProfTot = niPArr.reduce((s,x)=>s+(x||0),0)
+    const niTotal   = niNounsTot+niVerbsTot+niProfTot
+    const cgTotal=cgArr.reduce((s,x)=>s+(x||0),0), dpTotal=dpArr.reduce((s,x)=>s+(x||0),0)
+    const ciTotal=ciArr.reduce((s,x)=>s+(x||0),0), cvTotal=cvArr.reduce((s,x)=>s+(x||0),0)
+    const lexicoScore=ndTotal+niTotal, catScore=fvTotal+ciTotal+cvTotal
+    const concScore=cgTotal+dpTotal,  globalScore=lexicoScore+catScore+concScore
+    onChange({
+      ...next,
+      fv_total: fvTotal, nd_total: ndTotal,
+      ni_nouns_total: niNounsTot, ni_verbs_total: niVerbsTot, ni_professions_total: niProfTot,
+      ni_total: niTotal, cg_total: cgTotal, dp_total: dpTotal, ci_total: ciTotal, cv_total: cvTotal,
+      lexico_score: lexicoScore, categorization_score: catScore,
+      conceptualization_score: concScore, global_score: globalScore,
+    })
+  }
+
+  // Arrays atuais (default zeros)
+  const ndArr  = Array.isArray(d.nd_scores)       ? d.nd_scores       : Array(10).fill(0)
+  const niNArr = Array.isArray(d.ni_nouns)         ? d.ni_nouns        : Array(14).fill(0)
+  const niVArr = Array.isArray(d.ni_verbs)         ? d.ni_verbs        : Array(7).fill(0)
+  const niPArr = Array.isArray(d.ni_professions)   ? d.ni_professions  : Array(7).fill(0)
+  const cgArr  = Array.isArray(d.cg_scores)        ? d.cg_scores       : Array(10).fill(0)
+  const dpArr  = Array.isArray(d.dp_scores)        ? d.dp_scores       : Array(10).fill(0)
+  const ciArr  = Array.isArray(d.ci_scores)        ? d.ci_scores       : Array(10).fill(0)
+  const cvArr  = Array.isArray(d.cv_scores)        ? d.cv_scores       : Array(10).fill(0)
+
+  // Escores para display nas tabs
+  const fvTot  = (Number(d.fv_animals_hits)||0)+(Number(d.fv_fruits_hits)||0)+(Number(d.fv_utensils_hits)||0)+(Number(d.fv_clothes_hits)||0)
+  const ndTot  = ndArr.reduce((s,x)=>s+(x||0),0)
+  const niTot  = [...niNArr,...niVArr,...niPArr].reduce((s,x)=>s+(x||0),0)
+  const cgTot=cgArr.reduce((s,x)=>s+(x||0),0), dpTot=dpArr.reduce((s,x)=>s+(x||0),0)
+  const ciTot=ciArr.reduce((s,x)=>s+(x||0),0), cvTot=cvArr.reduce((s,x)=>s+(x||0),0)
+  const lexTot=ndTot+niTot, catTot=fvTot+ciTot+cvTot, concTot=cgTot+dpTot
+  const global=lexTot+catTot+concTot
+
+  const cp = d.percentile != null && d.percentile !== ''
+    ? (Number(d.percentile)>=25?{label:'PRESERVADO',type:'preserved'}
+       :Number(d.percentile)>=10?{label:'LIMÍTROFE',type:'borderline'}
+       :{label:'COMPROMETIDO',type:'impaired'})
+    : null
+
+  const ts = (a) => ({ padding:'4px 9px', borderRadius:5, border:'none', cursor:'pointer', fontSize:11,
+    fontWeight:a?700:400, background:a?S.green:'rgba(255,255,255,0.06)', color:a?'#fff':S.muted })
+  const sec = (t) => <div style={{ fontSize:10, color:S.muted, fontWeight:700, letterSpacing:'0.06em',
+    textTransform:'uppercase', margin:'10px 0 5px', borderTop:`1px solid ${S.border}`, paddingTop:8 }}>{t}</div>
+
+  const tabs = [
+    { id:'fv',    label:`FV (${fvTot})` },
+    { id:'nd',    label:`ND (${ndTot}/10)` },
+    { id:'ni',    label:`NI (${niTot}/28)` },
+    { id:'sem',   label:`Semântica` },
+    { id:'result',label:'Resultado' },
+    { id:'dados', label:'Dados' },
+  ]
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-      <NumField label="Escore global" value={d.global_score}
-        onChange={v => onChange({ ...d, global_score: v })} min={0} />
-      <div>
-        <NumField label="Percentil" value={d.percentile}
-          onChange={v => onChange({ ...d, percentile: v })} min={1} max={99} hint="1-99" />
-        {cp && <div style={{ marginTop: 4 }}><Badge {...cp} /></div>}
+    <div>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+        {tabs.map(t => <button key={t.id} type="button" onClick={()=>setTab(t.id)} style={ts(tab===t.id)}>{t.label}</button>)}
       </div>
-      <div style={{ paddingTop: 20 }}>
-        <input value={d.interpretation || ''}
-          onChange={e => onChange({ ...d, interpretation: e.target.value })}
-          placeholder="Interpretação..."
-          style={{ ...inputStyle, textAlign: 'left' }} />
-      </div>
+
+      {/* ── FV ── */}
+      {tab==='fv' && (
+        <div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:10 }}>Acertos, Erros e Repetições por categoria</p>
+          {[
+            {key:'animals',label:'Animais'},{key:'fruits',label:'Frutas'},
+            {key:'utensils',label:'Utensílios'},{key:'clothes',label:'Roupas'},
+          ].map(cat => (
+            <div key={cat.key} style={{ marginBottom:10, padding:'10px 14px', background:'rgba(255,255,255,0.03)', borderRadius:8 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'#fff', marginBottom:8 }}>{cat.label}</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                <NumField label="Acertos"     value={d[`fv_${cat.key}_hits`]}        onChange={v=>update({[`fv_${cat.key}_hits`]:v})}        min={0} hint="nº" />
+                <NumField label="Erros"       value={d[`fv_${cat.key}_errors`]}      onChange={v=>update({[`fv_${cat.key}_errors`]:v})}      min={0} hint="nº" />
+                <NumField label="Repetições"  value={d[`fv_${cat.key}_repetitions`]} onChange={v=>update({[`fv_${cat.key}_repetitions`]:v})} min={0} hint="nº" />
+              </div>
+            </div>
+          ))}
+          <div style={{ padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
+            Total FV (acertos): <span style={{ color:S.greenL, fontWeight:700 }}>{fvTot}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── ND ── */}
+      {tab==='nd' && (
+        <div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>Clique para marcar acerto (verde) ou erro</p>
+          <ItemGrid values={ndArr} count={10} onChangeFn={arr=>update({nd_scores:arr})} />
+          {sec('Subcategorias (seres vivos vs artefatos)')}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <NumField label="Seres Vivos (/5)" value={d.nd_living_total}    onChange={v=>update({nd_living_total:v})}    min={0} max={5} hint="0-5" />
+            <NumField label="Artefatos (/5)"   value={d.nd_artifacts_total} onChange={v=>update({nd_artifacts_total:v})} min={0} max={5} hint="0-5" />
+          </div>
+          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
+            Total ND: <span style={{ color:S.greenL, fontWeight:700 }}>{ndTot}/10</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── NI ── */}
+      {tab==='ni' && (
+        <div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>Clique para marcar acerto (verde) ou erro</p>
+          {sec(`Substantivos (${niNArr.reduce((s,x)=>s+(x||0),0)}/14)`)}
+          <ItemGrid values={niNArr} count={14} onChangeFn={arr=>update({ni_nouns:arr})} />
+          {sec(`Verbos (${niVArr.reduce((s,x)=>s+(x||0),0)}/7)`)}
+          <ItemGrid values={niVArr} count={7} onChangeFn={arr=>update({ni_verbs:arr})} />
+          {sec(`Profissões (${niPArr.reduce((s,x)=>s+(x||0),0)}/7)`)}
+          <ItemGrid values={niPArr} count={7} onChangeFn={arr=>update({ni_professions:arr})} />
+          {sec('Subcategorias (seres vivos vs artefatos)')}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <NumField label="Seres Vivos" value={d.ni_living_total}    onChange={v=>update({ni_living_total:v})}    min={0} hint="nº" />
+            <NumField label="Artefatos"   value={d.ni_artifacts_total} onChange={v=>update({ni_artifacts_total:v})} min={0} hint="nº" />
+          </div>
+          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
+            Total NI: <span style={{ color:S.greenL, fontWeight:700 }}>{niTot}/28</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Semântica ── */}
+      {tab==='sem' && (
+        <div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>Clique para marcar acerto (verde) ou erro</p>
+          {sec(`CG — Categorização (${cgTot}/10)`)}
+          <ItemGrid values={cgArr} count={10} onChangeFn={arr=>update({cg_scores:arr})} />
+          {sec(`DP — Definição de Palavras (${dpTot}/10)`)}
+          <ItemGrid values={dpArr} count={10} onChangeFn={arr=>update({dp_scores:arr})} />
+          {sec(`CI — Classificação de Imagens (${ciTot}/10)`)}
+          <ItemGrid values={ciArr} count={10} onChangeFn={arr=>update({ci_scores:arr})} />
+          {sec(`CV — Correspondência Visual (${cvTot}/10)`)}
+          <ItemGrid values={cvArr} count={10} onChangeFn={arr=>update({cv_scores:arr})} />
+        </div>
+      )}
+
+      {/* ── Resultado ── */}
+      {tab==='result' && (
+        <div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14,
+            padding:'10px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
+            <div><span style={{ color:S.muted }}>Léxico:</span> <span style={{ color:'#fff', fontWeight:700 }}>{lexTot}</span></div>
+            <div><span style={{ color:S.muted }}>Categoriz.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{catTot}</span></div>
+            <div><span style={{ color:S.muted }}>Concept.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{concTot}</span></div>
+            <div><span style={{ color:S.muted }}>Global:</span> <span style={{ color:S.greenL, fontWeight:700 }}>{global}</span></div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div>
+              <NumField label="Percentil" value={d.percentile} onChange={v=>update({percentile:v})} min={1} max={99} hint="1-99" />
+              {cp && <div style={{ marginTop:4 }}><Badge {...cp} /></div>}
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
+              <select value={d.interpretation||''} onChange={e=>update({interpretation:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
+                <option value="">— selecionar —</option>
+                <option>Normal</option><option>Limítrofe</option>
+                <option>Comprometimento leve</option><option>Comprometimento moderado</option>
+                <option>Comprometimento grave</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Observações</div>
+            <textarea rows={3} value={d.observations||''} onChange={e=>update({observations:e.target.value})}
+              style={{ ...inputStyle, textAlign:'left', resize:'vertical', padding:'8px 10px', lineHeight:1.5 }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Dados ── */}
+      {tab==='dados' && (
+        <div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Data de Aplicação</div>
+              <input type="date" value={d.application_date||''} onChange={e=>update({application_date:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left' }} />
+            </div>
+            <NumField label="Duração (min)" value={d.duration} onChange={v=>update({duration:v})} min={0} hint="minutos" />
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
+            <NumField label="Idade" value={d.age} onChange={v=>update({age:v})} min={0} max={120} hint="anos" />
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Escolaridade</div>
+              <input type="text" value={d.education||''} onChange={e=>update({education:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left' }} placeholder="Ex: 12 anos" />
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Profissão</div>
+              <input type="text" value={d.profession||''} onChange={e=>update({profession:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left' }} />
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Região</div>
+              <input type="text" value={d.region||''} onChange={e=>update({region:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left' }} />
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:10 }}>
+            <label style={{ fontSize:12, color:S.muted, display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+              <input type="checkbox" checked={!!d.retired} onChange={e=>update({retired:e.target.checked})} />
+              Aposentado
+            </label>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:11, color:S.muted }}>Status:</span>
+              <select value={d.status||'em_andamento'} onChange={e=>update({status:e.target.value})}
+                style={{ ...inputStyle, width:'auto', textAlign:'left', paddingLeft:8 }}>
+                <option value="em_andamento">Em andamento</option>
+                <option value="concluido">Concluído</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -633,7 +2688,1037 @@ function MoCAForm({ data, onChange }) {
   )
 }
 
-// ─── Anamnese Completa ────────────────────────────────────────────────────────
+// ─── DEX (Base44-compliant, 20 itens × 2 respondentes) ───────────────────────
+const DEX_ITEMS = [
+  { n: 1,  label: 'Pensamento Abstrato' },
+  { n: 2,  label: 'Impulsividade' },
+  { n: 3,  label: 'Confabulação' },
+  { n: 4,  label: 'Planejamento' },
+  { n: 5,  label: 'Euforia' },
+  { n: 6,  label: 'Comportamento Inapropriado' },
+  { n: 7,  label: 'Inibição de Respostas' },
+  { n: 8,  label: 'Insight / Autoconsciência' },
+  { n: 9,  label: 'Apatia / Motivação' },
+  { n: 10, label: 'Distrabilidade' },
+  { n: 11, label: 'Agressividade' },
+  { n: 12, label: 'Perseveração' },
+  { n: 13, label: 'Motivação Variável' },
+  { n: 14, label: 'Afeto Superficial' },
+  { n: 15, label: 'Memória Temporal' },
+  { n: 16, label: 'Consciência Social' },
+  { n: 17, label: 'Sugestionabilidade' },
+  { n: 18, label: 'Desinibição Social' },
+  { n: 19, label: 'Inquietação / Agitação' },
+  { n: 20, label: 'Regulação Emocional' },
+]
+
+function DEXForm({ data, onChange }) {
+  const d = data || {}
+  const [tab, setTab] = React.useState('patient')
+
+  const update = (changes) => {
+    const next = { ...d, ...changes }
+    const patTotal = DEX_ITEMS.reduce((s, it) => s + (Number(next[`patient_q${it.n}`]) || 0), 0)
+    const famTotal = DEX_ITEMS.reduce((s, it) => s + (Number(next[`family_q${it.n}`])  || 0), 0)
+    const patAns = DEX_ITEMS.filter(it => next[`patient_q${it.n}`] != null).length
+    const famAns = DEX_ITEMS.filter(it => next[`family_q${it.n}`]  != null).length
+    onChange({
+      ...next,
+      patient_total: patTotal,
+      family_total:  famTotal,
+      patient_mean:  patAns > 0 ? parseFloat((patTotal / patAns).toFixed(2)) : null,
+      family_mean:   famAns > 0 ? parseFloat((famTotal / famAns).toFixed(2)) : null,
+    })
+  }
+
+  const patTotal = DEX_ITEMS.reduce((s, it) => s + (Number(d[`patient_q${it.n}`]) || 0), 0)
+  const famTotal = DEX_ITEMS.reduce((s, it) => s + (Number(d[`family_q${it.n}`])  || 0), 0)
+  const patAns = DEX_ITEMS.filter(it => d[`patient_q${it.n}`] != null).length
+  const famAns = DEX_ITEMS.filter(it => d[`family_q${it.n}`]  != null).length
+  const cPat = patAns > 0 ? classify.dex(patTotal) : null
+  const cFam = famAns > 0 ? classify.dex(famTotal) : null
+  const disc = patAns > 0 && famAns > 0 ? patTotal - famTotal : null
+
+  const ts = (a) => ({ padding:'4px 9px', borderRadius:5, border:'none', cursor:'pointer',
+    fontSize:11, fontWeight:a?700:400, background:a?S.green:'rgba(255,255,255,0.06)', color:a?'#fff':S.muted })
+
+  const ItemList = ({ prefix }) => (
+    <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+      {DEX_ITEMS.map(it => {
+        const key = `${prefix}_q${it.n}`
+        const val = d[key]
+        return (
+          <div key={key} style={{
+            display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'center',
+            padding:'5px 10px', borderRadius:6,
+            background: val != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
+          }}>
+            <div style={{ fontSize:12, color: val != null ? '#fff' : S.muted }}>
+              <span style={{ color:S.muted, fontSize:10, marginRight:6 }}>{it.n}</span>{it.label}
+            </div>
+            <ScoreButtons value={val} onChange={v => update({ [key]: v })} max={4} />
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+        <button type="button" onClick={()=>setTab('patient')} style={ts(tab==='patient')}>
+          Paciente ({patAns}/20)
+        </button>
+        <button type="button" onClick={()=>setTab('family')} style={ts(tab==='family')}>
+          Familiar/Informante ({famAns}/20)
+        </button>
+        <button type="button" onClick={()=>setTab('result')} style={ts(tab==='result')}>
+          Resultado
+        </button>
+        <button type="button" onClick={()=>setTab('dados')} style={ts(tab==='dados')}>
+          Dados
+        </button>
+      </div>
+
+      {/* Paciente */}
+      {tab === 'patient' && (
+        <div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>
+            0 = Nunca · 1 = Raramente · 2 = Às vezes · 3 = Frequentemente · 4 = Muito frequentemente
+          </p>
+          <ItemList prefix="patient" />
+          {patAns > 0 && (
+            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontSize:13, color:'#fff', fontWeight:700 }}>Total: {patTotal}/80</span>
+              {cPat && <Badge {...cPat} />}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Familiar */}
+      {tab === 'family' && (
+        <div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Nome do Informante</div>
+            <input type="text" value={d.informant||''} onChange={e=>update({informant:e.target.value})}
+              style={{ ...inputStyle, textAlign:'left' }} placeholder="Nome completo" />
+          </div>
+          <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>
+            0 = Nunca · 1 = Raramente · 2 = Às vezes · 3 = Frequentemente · 4 = Muito frequentemente
+          </p>
+          <ItemList prefix="family" />
+          {famAns > 0 && (
+            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontSize:13, color:'#fff', fontWeight:700 }}>Total: {famTotal}/80</span>
+              {cFam && <Badge {...cFam} />}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Resultado */}
+      {tab === 'result' && (
+        <div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:14 }}>
+            <div style={{ padding:'12px', background:'rgba(255,255,255,0.04)', borderRadius:8 }}>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:6 }}>PACIENTE</div>
+              <div style={{ fontSize:20, fontWeight:700, color:'#fff' }}>{patTotal}<span style={{ fontSize:13, color:S.muted }}>/80</span></div>
+              <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>Média/item: {patAns>0?(patTotal/patAns).toFixed(2):'—'}</div>
+              {cPat && <div style={{ marginTop:6 }}><Badge {...cPat} /></div>}
+            </div>
+            <div style={{ padding:'12px', background:'rgba(255,255,255,0.04)', borderRadius:8 }}>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:6 }}>FAMILIAR / INFORMANTE</div>
+              <div style={{ fontSize:20, fontWeight:700, color:'#fff' }}>{famTotal}<span style={{ fontSize:13, color:S.muted }}>/80</span></div>
+              <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>Média/item: {famAns>0?(famTotal/famAns).toFixed(2):'—'}</div>
+              {cFam && <div style={{ marginTop:6 }}><Badge {...cFam} /></div>}
+            </div>
+          </div>
+
+          {disc !== null && (
+            <div style={{ padding:'10px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12, marginBottom:12 }}>
+              Discrepância (paciente − familiar):{' '}
+              <span style={{ color: Math.abs(disc)>10 ? S.amber : S.greenL, fontWeight:700 }}>
+                {disc>=0?'+':''}{disc}
+              </span>
+              {Math.abs(disc)>10 && <span style={{ marginLeft:8, color:S.amber, fontSize:11 }}>⚠ Clinicamente relevante (&gt;10)</span>}
+            </div>
+          )}
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
+              <input type="text" value={d.interpretation||''} onChange={e=>update({interpretation:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left' }} placeholder="Texto livre..." />
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Status</div>
+              <select value={d.status||'em_andamento'} onChange={e=>update({status:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
+                <option value="em_andamento">Em andamento</option>
+                <option value="concluido">Concluído</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop:8 }}>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Observações</div>
+            <textarea rows={2} value={d.observations||''} onChange={e=>update({observations:e.target.value})}
+              style={{ ...inputStyle, textAlign:'left', resize:'vertical', padding:'8px 10px', lineHeight:1.5 }} />
+          </div>
+          <p style={{ fontSize:11, color:S.muted, marginTop:8 }}>Ref: média/item ≤1,5 Sem alteração · ≤2,5 Leve · &gt;2,5 Significativo</p>
+        </div>
+      )}
+
+      {/* Dados */}
+      {tab === 'dados' && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          <div>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Data de Aplicação</div>
+            <input type="date" value={d.application_date||''} onChange={e=>update({application_date:e.target.value})}
+              style={{ ...inputStyle, textAlign:'left' }} />
+          </div>
+          <div>
+            <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Data de Nascimento</div>
+            <input type="date" value={d.birth_date||''} onChange={e=>update({birth_date:e.target.value})}
+              style={{ ...inputStyle, textAlign:'left' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── TRIACOG (Base44-compliant) ──────────────────────────────────────────────
+function TRIACOGForm({ data, onChange }) {
+  const d = data || {}
+  const [tab, setTab] = React.useState('cognitivo')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const num = k => Number(n[k]) || 0
+
+    n.orientacao_total = num('orientacao_idade') + num('orientacao_ano')
+    n.atencao_total    = num('atencao_span_direto') + num('atencao_span_inverso')
+
+    const cfArr = n.praxia_copia_figura_items || []
+    n.praxia_copia_figura_total = cfArr.reduce((s, v) => s + (Number(v) || 0), 0)
+    const relArr = n.praxia_relogio_items || []
+    n.praxia_relogio_total = relArr.reduce((s, v) => s + (Number(v) || 0), 0)
+
+    n.fe_fluencia_verbal_total = num('fe_fluencia_verbal_15s') + num('fe_fluencia_verbal_30s')
+    n.fe_nsr_total_acertos = num('fe_nsr_a_acertos') + num('fe_nsr_b_acertos') + num('fe_nsr_c_acertos')
+    n.fe_nsr_total_erros   = num('fe_nsr_a_erros')   + num('fe_nsr_b_erros')   + num('fe_nsr_c_erros')
+
+    n.linguagem_nomeacao_total  = num('linguagem_nomeacao_acao') + num('linguagem_nomeacao_objeto')
+    n.linguagem_repeticao_total = num('linguagem_repeticao_terra') + num('linguagem_repeticao_prazer') +
+      num('linguagem_repeticao_sossego') + num('linguagem_repeticao_nupo')
+    n.linguagem_escrita_total   = num('linguagem_escrita_terra') + num('linguagem_escrita_prazer') +
+      num('linguagem_escrita_sossego') + num('linguagem_escrita_nupo')
+
+    n.processamento_numerico_total = num('processamento_numerico_a') + num('processamento_numerico_b_27') +
+      num('processamento_numerico_b_menos') + num('processamento_numerico_b_18') + num('processamento_numerico_c')
+
+    onChange(n)
+  }
+
+  const tabStyle = (t) => ({
+    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
+    fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const sectionTitle = (label) => (
+    <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginTop: 10 }}>{label}</div>
+  )
+
+  const scoreRow = (label, value, max) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: `1px solid ${S.border}` }}>
+      <span style={{ fontSize: 12, color: S.muted }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{value ?? '—'}/{max}</span>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
+        <NumField label="Anos de estudo" value={d.education_years} onChange={v => update({ education_years: v })} min={0} max={30} />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Lateralidade</div>
+          <select value={d.laterality || ''} onChange={e => update({ laterality: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="direita">Direita</option>
+            <option value="esquerda">Esquerda</option>
+            <option value="ambidestro">Ambidestro</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de aplicação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Horário início</div>
+          <input type="time" value={d.start_time || ''} onChange={e => update({ start_time: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Horário término</div>
+          <input type="time" value={d.end_time || ''} onChange={e => update({ end_time: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
+        {[['cognitivo','Cognitivo'],['praxia','Praxia + Visual'],['fe','FE + Numérico'],['linguagem','Linguagem']].map(([k, lbl]) => (
+          <button key={k} style={tabStyle(k)} onClick={() => setTab(k)}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* ── Tab: Cognitivo ─────────────────────────────────────────────────────── */}
+      {tab === 'cognitivo' && (
+        <div>
+          {sectionTitle('Orientação (máx 2)')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: S.muted }}>Qual a sua idade?</span>
+              <ScoreButtons value={d.orientacao_idade} onChange={v => update({ orientacao_idade: v })} max={1} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: S.muted }}>Em que ano estamos?</span>
+              <ScoreButtons value={d.orientacao_ano} onChange={v => update({ orientacao_ano: v })} max={1} />
+            </div>
+          </div>
+          {(d.orientacao_total != null) && (
+            <div style={{ fontSize: 12, color: S.greenL, fontWeight: 700, marginTop: 4 }}>Total orientação: {d.orientacao_total}/2</div>
+          )}
+
+          {sectionTitle('Memória')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+            <NumField label="Evocação Imediata (lista palavras)" value={d.memoria_evocacao_imediata}
+              onChange={v => update({ memoria_evocacao_imediata: v })} min={0} max={6} hint="0-6" />
+            <NumField label="Evocação Tardia (lista palavras)" value={d.memoria_evocacao_tardia}
+              onChange={v => update({ memoria_evocacao_tardia: v })} min={0} max={6} hint="0-6" />
+          </div>
+
+          {sectionTitle('Atenção — Span de Dígitos (máx 10)')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+            <NumField label="Span Direto" value={d.atencao_span_direto}
+              onChange={v => update({ atencao_span_direto: v })} min={0} max={5} hint="0-5" />
+            <NumField label="Span Inverso" value={d.atencao_span_inverso}
+              onChange={v => update({ atencao_span_inverso: v })} min={0} max={5} hint="0-5" />
+          </div>
+          {(d.atencao_total != null) && (
+            <div style={{ fontSize: 12, color: S.greenL, fontWeight: 700, marginTop: 4 }}>Total atenção: {d.atencao_total}/10</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Praxia + Visual ───────────────────────────────────────────────── */}
+      {tab === 'praxia' && (
+        <div>
+          {sectionTitle('Memória Visual — Evocação Tardia da Figura (máx 24)')}
+          <NumField label="Memória Visual Total" value={d.memoria_visual_total}
+            onChange={v => update({ memoria_visual_total: v })} min={0} max={24} hint="0-24" />
+
+          {sectionTitle('Cópia de Figura — 8 itens (0–3 cada, máx 24)')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {Array.from({ length: 8 }, (_, i) => {
+              const arr = d.praxia_copia_figura_items || []
+              return (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8, alignItems: 'center', padding: '5px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                  <span style={{ fontSize: 12, color: S.muted }}>Item {i + 1}</span>
+                  <ScoreButtons value={arr[i] != null ? Number(arr[i]) : null} max={3} onChange={v => {
+                    const a = [...(d.praxia_copia_figura_items || Array(8).fill(null))]
+                    a[i] = v
+                    update({ praxia_copia_figura_items: a })
+                  }} />
+                </div>
+              )
+            })}
+          </div>
+          {(d.praxia_copia_figura_total != null) && (
+            <div style={{ fontSize: 12, color: S.greenL, fontWeight: 700, marginTop: 5 }}>Total cópia: {d.praxia_copia_figura_total}/24</div>
+          )}
+
+          {sectionTitle('Desenho do Relógio — 9 critérios (0/1)')}
+          <ItemGrid
+            values={d.praxia_relogio_items || []}
+            count={9}
+            onChangeFn={v => update({ praxia_relogio_items: v })}
+          />
+          {(d.praxia_relogio_total != null) && (
+            <div style={{ fontSize: 12, color: S.greenL, fontWeight: 700, marginTop: 3 }}>Total relógio: {d.praxia_relogio_total}/9</div>
+          )}
+
+          {sectionTitle('Praxia Ideomotora')}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, maxWidth: 320 }}>
+            <span style={{ fontSize: 12, color: S.muted }}>Uso do garfo</span>
+            <ScoreButtons value={d.praxia_ideomotora} onChange={v => update({ praxia_ideomotora: v })} max={1} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: FE + Numérico ────────────────────────────────────────────────── */}
+      {tab === 'fe' && (
+        <div>
+          {sectionTitle('Fluência Verbal')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+            <NumField label="15 segundos" value={d.fe_fluencia_verbal_15s}
+              onChange={v => update({ fe_fluencia_verbal_15s: v })} min={0} />
+            <NumField label="30 segundos" value={d.fe_fluencia_verbal_30s}
+              onChange={v => update({ fe_fluencia_verbal_30s: v })} min={0} />
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Total</div>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: S.greenL }}>{d.fe_fluencia_verbal_total ?? '—'}</div>
+            </div>
+          </div>
+
+          {sectionTitle('NSR — Nomeação Serial Reversa (8 acertos/parte, máx 24)')}
+          {[['a','A'],['b','B'],['c','C']].map(([k, lbl]) => (
+            <div key={k} style={{ marginBottom: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Parte {lbl}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                <NumField label="Acertos" value={d[`fe_nsr_${k}_acertos`]}
+                  onChange={v => update({ [`fe_nsr_${k}_acertos`]: v })} min={0} max={8} hint="0-8" />
+                <NumField label="Erros" value={d[`fe_nsr_${k}_erros`]}
+                  onChange={v => update({ [`fe_nsr_${k}_erros`]: v })} min={0} />
+                <NumField label="Tempo (s)" value={d[`fe_nsr_${k}_tempo`]}
+                  onChange={v => update({ [`fe_nsr_${k}_tempo`]: v })} min={0} />
+              </div>
+            </div>
+          ))}
+          {d.fe_nsr_total_acertos != null && (
+            <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: 12, color: S.greenL, fontWeight: 700 }}>
+              <span>Total acertos NSR: {d.fe_nsr_total_acertos}/24</span>
+              <span style={{ color: S.amber }}>Total erros: {d.fe_nsr_total_erros}</span>
+            </div>
+          )}
+
+          {sectionTitle('Processamento Numérico (máx 7)')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+              <span style={{ fontSize: 12, color: S.muted }}>91 × 12 — cálculo mental (0–3)</span>
+              <ScoreButtons value={d.processamento_numerico_a} onChange={v => update({ processamento_numerico_a: v })} max={3} />
+            </div>
+            {[
+              ['processamento_numerico_b_27',    '27 — transcrição'],
+              ['processamento_numerico_b_menos', '< — transcrição do sinal'],
+              ['processamento_numerico_b_18',    '18 — transcrição'],
+              ['processamento_numerico_c',       '27 − 18 = resultado'],
+            ].map(([fk, flbl]) => (
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>{flbl}</span>
+                <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={1} />
+              </div>
+            ))}
+          </div>
+          {d.processamento_numerico_total != null && (
+            <div style={{ fontSize: 12, color: S.greenL, fontWeight: 700, marginTop: 5 }}>Total proc. numérico: {d.processamento_numerico_total}/7</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Linguagem ────────────────────────────────────────────────────── */}
+      {tab === 'linguagem' && (
+        <div>
+          {sectionTitle('Compreensão e Nomeação')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {[
+              ['linguagem_compreensao_oral',    'Compreensão oral', 1],
+              ['linguagem_compreensao_escrita', 'Compreensão escrita', 1],
+            ].map(([fk, flbl, fmax]) => (
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>{flbl} (0–{fmax})</span>
+                <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={fmax} />
+              </div>
+            ))}
+            {[
+              ['linguagem_nomeacao_acao',   'Nomeação — ação', 2],
+              ['linguagem_nomeacao_objeto', 'Nomeação — objeto', 2],
+            ].map(([fk, flbl, fmax]) => (
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>{flbl} (0–{fmax})</span>
+                <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={fmax} />
+              </div>
+            ))}
+          </div>
+          {d.linguagem_nomeacao_total != null && (
+            <div style={{ fontSize: 11, color: S.greenL, marginTop: 3 }}>Total nomeação: {d.linguagem_nomeacao_total}/4</div>
+          )}
+
+          {sectionTitle('Vocabulário e Leitura')}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+            <NumField label="Vocabulário" value={d.linguagem_vocabulario}
+              onChange={v => update({ linguagem_vocabulario: v })} min={0} max={2} hint="0-2" />
+            <NumField label="Leitura" value={d.linguagem_leitura}
+              onChange={v => update({ linguagem_leitura: v })} min={0} max={14} hint="0-14" />
+            <NumField label="Inferências" value={d.linguagem_inferencias}
+              onChange={v => update({ linguagem_inferencias: v })} min={0} max={2} hint="0-2" />
+          </div>
+
+          {sectionTitle('Repetição (0–2 cada, máx 8)')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {['terra','prazer','sossego','nupo'].map(w => (
+              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>{w.charAt(0).toUpperCase() + w.slice(1)}</span>
+                <ScoreButtons value={d[`linguagem_repeticao_${w}`]} onChange={v => update({ [`linguagem_repeticao_${w}`]: v })} max={2} />
+              </div>
+            ))}
+          </div>
+          {d.linguagem_repeticao_total != null && (
+            <div style={{ fontSize: 11, color: S.greenL, marginTop: 3 }}>Total repetição: {d.linguagem_repeticao_total}/8</div>
+          )}
+
+          {sectionTitle('Escrita (0–1 cada, máx 4)')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {['terra','prazer','sossego','nupo'].map(w => (
+              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>{w.charAt(0).toUpperCase() + w.slice(1)}</span>
+                <ScoreButtons value={d[`linguagem_escrita_${w}`]} onChange={v => update({ [`linguagem_escrita_${w}`]: v })} max={1} />
+              </div>
+            ))}
+          </div>
+          {d.linguagem_escrita_total != null && (
+            <div style={{ fontSize: 11, color: S.greenL, marginTop: 3 }}>Total escrita: {d.linguagem_escrita_total}/4</div>
+          )}
+
+          {/* Resumo por domínio */}
+          <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Resumo por Domínio</div>
+            {scoreRow('Orientação', d.orientacao_total, 2)}
+            {scoreRow('Mem. Imediata', d.memoria_evocacao_imediata, 6)}
+            {scoreRow('Mem. Tardia', d.memoria_evocacao_tardia, 6)}
+            {scoreRow('Atenção (span)', d.atencao_total, 10)}
+            {scoreRow('Mem. Visual', d.memoria_visual_total, 24)}
+            {scoreRow('Praxia — Cópia', d.praxia_copia_figura_total, 24)}
+            {scoreRow('Praxia — Relógio', d.praxia_relogio_total, 9)}
+            {scoreRow('FE — NSR acertos', d.fe_nsr_total_acertos, 24)}
+            {scoreRow('FE — Fluência', d.fe_fluencia_verbal_total, null)}
+            {scoreRow('Proc. Numérico', d.processamento_numerico_total, 7)}
+            {scoreRow('Lgg — Nomeação', d.linguagem_nomeacao_total, 4)}
+            {scoreRow('Lgg — Repetição', d.linguagem_repeticao_total, 8)}
+            {scoreRow('Lgg — Escrita', d.linguagem_escrita_total, 4)}
+          </div>
+
+          {/* Observações */}
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={3} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── TOKEN (Base44-compliant) ─────────────────────────────────────────────────
+const TOKEN_PARTS = [
+  { key: 'part_a', label: 'Parte A', desc: 'Todas as peças', count: 7 },
+  { key: 'part_b', label: 'Parte B', desc: 'Somente peças grandes', count: 4 },
+  { key: 'part_c', label: 'Parte C', desc: 'Todas as peças, sem repetir instruções', count: 4 },
+  { key: 'part_d', label: 'Parte D', desc: 'Somente peças grandes, sem repetir instruções', count: 4 },
+  { key: 'part_e', label: 'Parte E', desc: 'Todas as peças, sem repetir instruções', count: 4 },
+  { key: 'part_f', label: 'Parte F', desc: 'Todas as peças, sem repetir instruções', count: 13 },
+]
+const TOKEN_MAX = 36
+
+function TOKENForm({ data, onChange }) {
+  const d = data || {}
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    let totalScore = 0
+    TOKEN_PARTS.forEach(p => {
+      const arr = n[`${p.key}_items`] || []
+      const score = arr.reduce((s, v) => s + (Number(v) || 0), 0)
+      n[`${p.key}_score`] = score
+      totalScore += score
+    })
+    n.total_score = totalScore
+    n.errors = TOKEN_MAX - totalScore
+    onChange(n)
+  }
+
+  const total = d.total_score ?? TOKEN_PARTS.reduce((s, p) => {
+    const arr = d[`${p.key}_items`] || []
+    return s + arr.reduce((ss, v) => ss + (Number(v) || 0), 0)
+  }, 0)
+  const hasAny = TOKEN_PARTS.some(p => (d[`${p.key}_items`] || []).some(v => v != null && v !== 0))
+  const c = hasAny ? classify.token(total) : null
+
+  return (
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
+        <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Sexo</div>
+          <select value={d.sex || ''} onChange={e => update({ sex: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
+          <select value={d.education || ''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">—</option>
+            {['1-4 anos','5-8 anos','9+ anos','Ensino Fundamental','Ensino Médio','Ensino Superior','Pós-graduação'].map(o => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
+          <input type="date" value={d.birth_date || ''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de avaliação</div>
+          <input type="date" value={d.application_date || ''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+          <select value={d.status || 'em_andamento'} onChange={e => update({ status: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Partes A–F */}
+      {TOKEN_PARTS.map(p => {
+        const arr = d[`${p.key}_items`] || []
+        const score = d[`${p.key}_score`] ?? arr.reduce((s, v) => s + (Number(v) || 0), 0)
+        return (
+          <div key={p.key} style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{p.label}</span>
+              <span style={{ fontSize: 10, color: S.muted }}>{p.desc}</span>
+            </div>
+            <ItemGrid values={arr} count={p.count} onChangeFn={v => update({ [`${p.key}_items`]: v })} />
+          </div>
+        )
+      })}
+
+      {/* Resultado */}
+      {hasAny && (
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/{TOKEN_MAX}</span>
+            <span style={{ fontSize: 12, color: S.muted, marginLeft: 14 }}>Erros: {d.errors ?? TOKEN_MAX - total}</span>
+          </div>
+          {c && <Badge {...c} />}
+        </div>
+      )}
+      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: ≥29 Normal · 25–28 Leve · 20–24 Moderado · &lt;20 Grave</p>
+
+      {/* Percentil + Classificação manual */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, marginTop: 10 }}>
+        <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} />
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
+          <input value={d.classification || ''} onChange={e => update({ classification: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Normal" />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
+        <textarea rows={2} value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+        <textarea rows={2} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
+          style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── MEMIMP / MemoryTest (Base44-compliant — 16 itens × 2 respondentes, 0–4) ──
+const MEMIMP_ITEMS = [
+  'Deixa de fazer algo planejado durante o dia',
+  'Esquece de passar uma mensagem a alguém',
+  'Esquece um compromisso ou reunião',
+  'Esquece de executar tarefa rotineira (ex: tomar remédio)',
+  'Esquece de comprar algo necessário',
+  'Não faz algo que deveria ter feito anteriormente',
+  'Esquece de retornar uma ligação',
+  'Esquece de verificar algo antes de sair de casa',
+  'Esquece palavras ou nomes de pessoas',
+  'Esquece onde colocou coisas',
+  'Perde o fio do raciocínio no meio de uma conversa',
+  'Esquece o que estava fazendo',
+  'Esquece detalhes de algo lido recentemente',
+  'Esquece algo que alguém disse recentemente',
+  'Confunde a ordem em que eventos aconteceram',
+  'Confunde datas ou horários',
+]
+
+function computeMemimp(n, prefix) {
+  const keys = Array.from({ length: 16 }, (_, i) => `${prefix}_q${i + 1}`)
+  const answered = keys.filter(k => n[k] != null).length
+  if (answered === 0) return { prospective: null, retrospective: null, total: null, mean: null, sd: null }
+  const vals = keys.map(k => Number(n[k]) || 0)
+  const prospective    = vals.slice(0, 8).reduce((s, v) => s + v, 0)
+  const retrospective  = vals.slice(8).reduce((s, v) => s + v, 0)
+  const total          = prospective + retrospective
+  const mean           = Math.round((total / 16) * 100) / 100
+  const variance       = vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / 16
+  const sd             = Math.round(Math.sqrt(variance) * 100) / 100
+  return { prospective, retrospective, total, mean, sd }
+}
+
+function MEMIMPForm({ data, onChange }) {
+  const d = data || {}
+  const [tab, setTab] = React.useState('paciente')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const p = computeMemimp(n, 'patient')
+    const f = computeMemimp(n, 'family')
+    onChange({
+      ...n,
+      patient_prospective: p.prospective, patient_retrospective: p.retrospective,
+      patient_total: p.total, patient_mean: p.mean, patient_sd: p.sd,
+      family_prospective:  f.prospective, family_retrospective:  f.retrospective,
+      family_total:  f.total, family_mean:  f.mean,  family_sd:  f.sd,
+    })
+  }
+
+  const p = computeMemimp(d, 'patient')
+  const f = computeMemimp(d, 'family')
+
+  const tabStyle = (t) => ({
+    padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
+    fontSize: 11, fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const itemList = (prefix) => MEMIMP_ITEMS.map((lbl, i) => {
+    const key = `${prefix}_q${i + 1}`
+    const isProsp = i < 8
+    return (
+      <div key={key} style={{
+        display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+        padding: '6px 10px', borderRadius: 6, marginBottom: 3,
+        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+        borderLeft: `3px solid ${isProsp ? 'rgba(59,130,246,0.4)' : 'rgba(245,158,11,0.4)'}`,
+      }}>
+        <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
+          <span style={{ fontSize: 9, color: isProsp ? S.blue : S.amber, marginRight: 5, fontWeight: 700 }}>
+            {isProsp ? 'PM' : 'RM'}
+          </span>
+          <span style={{ color: S.muted, marginRight: 4 }}>{i + 1}.</span>{lbl}
+        </div>
+        <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} max={4} />
+      </div>
+    )
+  })
+
+  const scoreBox = (label, stats) => stats.total != null && (
+    <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, marginBottom: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{label}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+        {[
+          ['Prospectiva', stats.prospective, 32],
+          ['Retrospectiva', stats.retrospective, 32],
+          ['Total', stats.total, 64],
+          ['Média', stats.mean, null],
+        ].map(([k, v, mx]) => (
+          <div key={k} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: S.muted }}>{k}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: S.greenL }}>{v != null ? v : '—'}{mx ? `/${mx}` : ''}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Informante</div>
+          <input value={d.informant||''} onChange={e => update({ informant: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="nome" />
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 8, fontSize: 10, color: S.muted }}>
+        <span><span style={{ color: S.blue, fontWeight: 700 }}>PM</span> = Prospectiva (q1–q8) — intenções futuras</span>
+        <span><span style={{ color: S.amber, fontWeight: 700 }}>RM</span> = Retrospectiva (q9–q16) — eventos passados</span>
+        <span>0=Nunca · 4=Sempre</span>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <button style={tabStyle('paciente')} onClick={() => setTab('paciente')}>
+          Paciente {p.total != null ? `(${p.total}/64)` : ''}
+        </button>
+        <button style={tabStyle('familiar')} onClick={() => setTab('familiar')}>
+          Familiar {f.total != null ? `(${f.total}/64)` : ''}
+        </button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+      </div>
+
+      {tab === 'paciente' && <div>{itemList('patient')}</div>}
+      {tab === 'familiar' && <div>{itemList('family')}</div>}
+
+      {tab === 'resultado' && (
+        <div>
+          {scoreBox('Paciente', p)}
+          {scoreBox('Familiar', f)}
+          {p.total != null && f.total != null && (
+            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: S.muted }}>Discrepância Paciente − Familiar:</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: p.total - f.total > 0 ? S.amber : S.greenL }}>
+                {p.total - f.total > 0 ? '+' : ''}{p.total - f.total}
+              </div>
+              <div style={{ fontSize: 10, color: S.muted }}>{'>'} 0 = Paciente relata mais falhas que familiar</div>
+            </div>
+          )}
+          <p style={{ fontSize: 11, color: S.muted }}>Escores maiores = mais falhas percebidas de memória</p>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Hipótese Diagnóstica</div>
+            <input value={d.diagnostic_hypothesis||''} onChange={e => update({ diagnostic_hypothesis: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+            <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8, width: 'auto' }}>
+              <option value="em_andamento">Em andamento</option>
+              <option value="concluido">Concluído</option>
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── PCRS (Base44-compliant — 17 itens × 2 respondentes, 1–5) ────────────────
+const PCRS_ITEMS = [
+  'Lembrar onde colocou coisas',
+  'Lembrar nomes de pessoas',
+  'Orientar-se em lugares novos',
+  'Ler para obter informações',
+  'Concentrar-se em uma tarefa',
+  'Planejar o que precisa fazer',
+  'Reagir adequadamente em situações sociais',
+  'Ser irritável',
+  'Sentir-se deprimido(a)',
+  'Ter energia para fazer coisas',
+  'Controlar o temperamento',
+  'Deslocar-se / usar transporte',
+  'Lidar com dinheiro',
+  'Seguir instruções',
+  'Manter-se atualizado(a) sobre acontecimentos',
+  'Desempenhar tarefas de trabalho ou estudo',
+  'Manter bons relacionamentos com amigos e família',
+]
+
+function PCRSForm({ data, onChange }) {
+  const d = data || {}
+  const [tab, setTab] = React.useState('paciente')
+
+  const update = (changes) => {
+    const n = { ...d, ...changes }
+    const pKeys = PCRS_ITEMS.map((_, i) => `patient_q${i + 1}`)
+    const iKeys = PCRS_ITEMS.map((_, i) => `informant_q${i + 1}`)
+    const pAnswered = pKeys.filter(k => n[k] != null).length
+    const iAnswered = iKeys.filter(k => n[k] != null).length
+    const patient_total   = pAnswered > 0 ? pKeys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
+    const informant_total = iAnswered > 0 ? iKeys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
+
+    const discrepancies = PCRS_ITEMS.map((_, i) => {
+      const pv = n[`patient_q${i+1}`], iv = n[`informant_q${i+1}`]
+      return (pv != null && iv != null) ? Number(pv) - Number(iv) : null
+    })
+    const validDisc = discrepancies.filter(v => v != null)
+    const total_discrepancy     = validDisc.length > 0 ? validDisc.reduce((s, v) => s + Math.abs(v), 0) : null
+    const percentage_discrepant = validDisc.length > 0
+      ? Math.round(validDisc.filter(v => Math.abs(v) >= 2).length / 17 * 100)
+      : null
+
+    onChange({ ...n, patient_total, informant_total, discrepancies, total_discrepancy, percentage_discrepant })
+  }
+
+  const pKeys = PCRS_ITEMS.map((_, i) => `patient_q${i + 1}`)
+  const iKeys = PCRS_ITEMS.map((_, i) => `informant_q${i + 1}`)
+  const pTotal = pKeys.filter(k => d[k] != null).length > 0 ? pKeys.reduce((s, k) => s + (Number(d[k]) || 0), 0) : null
+  const iTotal = iKeys.filter(k => d[k] != null).length > 0 ? iKeys.reduce((s, k) => s + (Number(d[k]) || 0), 0) : null
+  const discrepancy = pTotal != null && iTotal != null ? pTotal - iTotal : null
+
+  const tabStyle = (t) => ({
+    padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
+    fontSize: 11, fontWeight: tab === t ? 700 : 400,
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
+    color: tab === t ? '#fff' : S.muted,
+  })
+
+  const itemList = (prefix) => PCRS_ITEMS.map((lbl, i) => {
+    const key = `${prefix}_q${i + 1}`
+    return (
+      <div key={key} style={{
+        display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+        padding: '6px 10px', borderRadius: 6, marginBottom: 3,
+        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
+      }}>
+        <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
+          <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
+        </div>
+        <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={5} />
+      </div>
+    )
+  })
+
+  return (
+    <div>
+      {/* Metadados */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
+          <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Informante</div>
+          <input value={d.informant||''} onChange={e => update({ informant: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="nome" />
+        </div>
+      </div>
+
+      {/* Escala */}
+      <div style={{ fontSize: 10, color: S.muted, marginBottom: 8, fontStyle: 'italic' }}>
+        1 = Não consigo fazer · 3 = Consigo com dificuldade · 5 = Consigo facilmente
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <button style={tabStyle('paciente')} onClick={() => setTab('paciente')}>
+          Paciente {pTotal != null ? `(${pTotal}/85)` : ''}
+        </button>
+        <button style={tabStyle('informante')} onClick={() => setTab('informante')}>
+          Informante {iTotal != null ? `(${iTotal}/85)` : ''}
+        </button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+      </div>
+
+      {tab === 'paciente'   && <div>{itemList('patient')}</div>}
+      {tab === 'informante' && <div>{itemList('informant')}</div>}
+
+      {tab === 'resultado' && (
+        <div>
+          {/* Totais */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            {[['Paciente', pTotal], ['Informante', iTotal]].map(([lbl, v]) => (
+              <div key={lbl} style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: S.muted }}>{lbl}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: S.greenL }}>{v != null ? `${v}/85` : '—'}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Discrepância */}
+          {discrepancy !== null && (
+            <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: S.muted }}>Discrepância total (Paciente − Informante)</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: Math.abs(discrepancy) > 10 ? S.amber : S.greenL }}>
+                  {discrepancy >= 0 ? '+' : ''}{discrepancy}
+                </span>
+              </div>
+              {d.percentage_discrepant != null && (
+                <div style={{ fontSize: 11, color: S.muted }}>
+                  {d.percentage_discrepant}% dos itens com discrepância ≥ 2 pontos
+                </div>
+              )}
+              {Math.abs(discrepancy) > 10 && (
+                <div style={{ marginTop: 6, fontSize: 11, color: S.amber, fontWeight: 600 }}>
+                  ⚠ Discrepância clinicamente relevante — avaliar insight / anosognosia
+                </div>
+              )}
+              <div style={{ marginTop: 4, fontSize: 10, color: S.muted }}>
+                Positiva = paciente superestima competências · Negativa = paciente subestima
+              </div>
+            </div>
+          )}
+
+          {/* Per-item discrepancies */}
+          {Array.isArray(d.discrepancies) && d.discrepancies.some(v => v != null) && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: S.muted, marginBottom: 6 }}>Discrepâncias por item</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {d.discrepancies.map((v, i) => v != null && (
+                  <div key={i} style={{
+                    padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                    background: Math.abs(v) >= 2 ? 'rgba(245,158,11,0.2)' : 'rgba(46,125,50,0.15)',
+                    color: Math.abs(v) >= 2 ? S.amber : S.greenL,
+                    border: `1px solid ${Math.abs(v) >= 2 ? S.amber : S.green}`,
+                  }}>
+                    Q{i+1}: {v >= 0 ? '+' : ''}{v}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
+            Ref: Discrepância &gt;10 pts total ou ≥2 pts em vários itens = sugestivo de falta de insight
+          </p>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Hipótese Diagnóstica</div>
+            <input value={d.diagnostic_hypothesis||''} onChange={e => update({ diagnostic_hypothesis: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="texto livre..." />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
+            <textarea rows={2} value={d.observations||''} onChange={e => update({ observations: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
+            <select value={d.status||'em_andamento'} onChange={e => update({ status: e.target.value })}
+              style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8, width: 'auto' }}>
+              <option value="em_andamento">Em andamento</option>
+              <option value="concluido">Concluído</option>
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Anamnese ─────────────────────────────────────────────────────────────────
 function ANAMNESEForm({ data, onChange }) {
   const d = data || {}
   const set = (k, v) => onChange({ ...d, [k]: v })
@@ -648,8 +3733,8 @@ function ANAMNESEForm({ data, onChange }) {
   const box = { background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
   const sub = (txt) => <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '10px 0 5px', borderTop: `1px solid ${S.border}`, paddingTop: 8 }}>{txt}</div>
 
-  const Fld = ({ label, k, rows, placeholder, half }) => (
-    <div style={{ marginBottom: 10, ...(half ? {} : {}) }}>
+  const Fld = ({ label, k, rows, placeholder }) => (
+    <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>{label}</div>
       {rows
         ? <textarea rows={rows} value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
@@ -673,18 +3758,15 @@ function ANAMNESEForm({ data, onChange }) {
 
   return (
     <div>
-      {/* Informante */}
       <div style={{ ...box, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <Fld label="Informante / Acompanhante" k="acompanhante" placeholder="Nome completo" />
         <Fld label="Parentesco / Relação" k="parentesco_acompanhante" placeholder="Ex: filha, cônjuge..." />
       </div>
 
-      {/* Tab nav */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
         {tabList.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>)}
       </div>
 
-      {/* 1 – Queixas */}
       {tab === 'queixas' && <div style={box}>
         <Fld label="Objetivo da avaliação / Motivo do encaminhamento" k="objetivo_avaliacao" rows={2} />
         <Fld label="Queixas principais (cognitivas, emocionais, comportamentais)" k="queixas" rows={3} />
@@ -696,7 +3778,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Queixa principal do informante / cuidador" k="queixa_informante" rows={2} />
       </div>}
 
-      {/* 2 – Clínico */}
       {tab === 'clinico' && <div style={box}>
         <Fld label="Doenças preexistentes (HAS, DM, cardiopatia, AVC, TCE, depressão...)" k="doencas_preexistentes" rows={3} />
         <Fld label="Medicamentos em uso (nome, dose, motivo)" k="medicamentos" rows={3} />
@@ -716,7 +3797,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Uso de drogas (tipo, frequência, tratamento)" k="drogas_frequencia_quantidade" />
       </div>}
 
-      {/* 3 – Memória */}
       {tab === 'memoria' && <div style={box}>
         <Grid2>
           <Fld label="Esquece onde coloca objetos? Frequência?" k="memoria_esquece_objetos" />
@@ -736,7 +3816,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Relato de um dia típico" k="memoria_relato_dia" rows={3} />
       </div>}
 
-      {/* 4 – Funcional */}
       {tab === 'funcional' && <div style={box}>
         <Grid2>
           <Fld label="Executa atividades externas sozinho? (supermercado, banco)" k="executa_atividades_externas" />
@@ -752,7 +3831,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Flutuações do estado geral / agitação noturna?" k="flutuacoes_estado_geral" />
       </div>}
 
-      {/* 5 – Sono / Apetite / Sensorial */}
       {tab === 'sono' && <div style={box}>
         {sub('Sono')}
         <Fld label="Como é o sono?" k="sono_como_e" />
@@ -778,7 +3856,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Dificuldade de motricidade / equilíbrio / quedas?" k="motricidade_dificuldade" />
       </div>}
 
-      {/* 6 – Exames */}
       {tab === 'exames' && <div style={box}>
         <Grid2>
           <Fld label="Tomografia (quando e resultado)" k="exame_tomografia" />
@@ -795,7 +3872,6 @@ function ANAMNESEForm({ data, onChange }) {
         <Fld label="Observações adicionais do avaliador" k="observacoes_avaliador" rows={3} />
       </div>}
 
-      {/* 7 – Família / Antecedentes */}
       {tab === 'familia' && <div style={box}>
         <Fld label="Histórico familiar de demência / Alzheimer?" k="historia_familiar_demencia" />
         <Fld label="Histórico familiar de doenças neurológicas" k="historia_familiar_neurologica" />
@@ -812,41 +3888,49 @@ function ANAMNESEForm({ data, onChange }) {
 // ─── Configuração dos testes ──────────────────────────────────────────────────
 const TEST_CONFIG = [
   { group: 'Anamnese', items: [
-    { key: 'ANAMNESE', label: 'Anamnese', Form: ANAMNESEForm, isAnamnese: true },
+    { key: 'ANAMNESE',  label: 'Anamnese',  Form: ANAMNESEForm, isAnamnese: true },
   ]},
   { group: 'Rastreio Cognitivo', items: [
-    { key: 'MoCA',      label: 'MoCA',    Form: MoCAForm },
-  ]},
-  { group: 'Memória', items: [
-    { key: 'RAVLT',     label: 'RAVLT',   Form: RAVLTForm },
-    { key: 'BAMS',      label: 'BAMS',    Form: BAMSForm },
+    { key: 'MoCA',      label: 'MoCA',      Form: MoCAForm },
   ]},
   { group: 'Bateria Cognitiva', items: [
     { key: 'NEUPSILIN', label: 'NEUPSILIN', Form: NEUPSILINForm },
+    { key: 'TRIACOG',   label: 'TRIACOG',   Form: TRIACOGForm },
+  ]},
+  { group: 'Memória', items: [
+    { key: 'RAVLT',     label: 'RAVLT',     Form: RAVLTForm },
+    { key: 'BAMS',      label: 'BAMS',      Form: BAMSForm },
+    { key: 'MEMIMP',    label: 'MEMIMP',    Form: MEMIMPForm },
   ]},
   { group: 'Funções Executivas', items: [
-    { key: 'FAB',       label: 'FAB',      Form: FABForm },
-    { key: 'WCST-N',    label: 'WCST-N',   Form: WCSTForm },
+    { key: 'FAB',       label: 'FAB',       Form: FABForm },
+    { key: 'WCST',      label: 'WCST',      Form: WCSTFullForm },
+    { key: 'WCST-N',    label: 'WCST-N',    Form: WCSTForm },
+    { key: 'DEX',       label: 'DEX',       Form: DEXForm },
+  ]},
+  { group: 'Linguagem', items: [
+    { key: 'TOKEN',     label: 'Token',     Form: TOKENForm },
   ]},
   { group: 'Inteligência', items: [
-    { key: 'WASI',      label: 'WASI',     Form: (p) => <WASIForm {...p} version="WASI" /> },
-    { key: 'WASI-III',  label: 'WASI-III', Form: (p) => <WASIForm {...p} version="WASI-III" /> },
+    { key: 'WASI',      label: 'WASI',      Form: (p) => <WASIForm {...p} version="WASI" /> },
+    { key: 'WASI-III',  label: 'WASI-III',  Form: (p) => <WASIForm {...p} version="WASI-III" /> },
   ]},
   { group: 'Humor', items: [
-    { key: 'GDS-15',    label: 'GDS-15',   Form: GDS15Form },
-    { key: 'BDI-II',    label: 'BDI-II',   Form: BDI2Form },
-    { key: 'HAD',       label: 'HAD',      Form: HADForm },
+    { key: 'GDS-15',    label: 'GDS-15',    Form: GDS15Form },
+    { key: 'BDI-II',    label: 'BDI-II',    Form: BDI2Form },
+    { key: 'HAD',       label: 'HAD',       Form: HADForm },
   ]},
   { group: 'Ansiedade', items: [
-    { key: 'GAI',       label: 'GAI',      Form: GAIForm },
-    { key: 'IDATE-E',   label: 'IDATE-E',  Form: (p) => <IDATEForm {...p} label="Estado (IDATE-E)" /> },
-    { key: 'IDATE-T',   label: 'IDATE-T',  Form: (p) => <IDATEForm {...p} label="Traço (IDATE-T)" /> },
+    { key: 'GAI',       label: 'GAI',       Form: GAIForm },
+    { key: 'IDATE-E',   label: 'IDATE-E',   Form: (p) => <IDATEForm {...p} label="Estado (IDATE-E)" /> },
+    { key: 'IDATE-T',   label: 'IDATE-T',   Form: (p) => <IDATEForm {...p} label="Traço (IDATE-T)" /> },
   ]},
   { group: 'Funcional / Informante', items: [
-    { key: 'IQCODE',    label: 'IQCODE',   Form: IQCODEForm },
-    { key: 'B-ADL',     label: 'B-ADL',    Form: BADLForm },
-    { key: 'Pfeffer',   label: 'Pfeffer',  Form: PfefferForm },
-    { key: 'Lawton',    label: 'Lawton',   Form: LawtonForm },
+    { key: 'IQCODE',    label: 'IQCODE',    Form: IQCODEForm },
+    { key: 'B-ADL',     label: 'B-ADL',     Form: BADLForm },
+    { key: 'Pfeffer',   label: 'Pfeffer',   Form: PfefferForm },
+    { key: 'Lawton',    label: 'Lawton',    Form: LawtonForm },
+    { key: 'PCRS',      label: 'PCRS',      Form: PCRSForm },
   ]},
 ]
 
@@ -886,7 +3970,6 @@ export default function Tests() {
         <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Registro e classificação automática em tempo real</p>
       </div>
 
-      {/* Seletor de paciente */}
       <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <FlaskConical size={16} color={S.greenL} />
         <select
@@ -911,7 +3994,6 @@ export default function Tests() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16 }}>
-        {/* Menu lateral */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {TEST_CONFIG.map(group => (
             <div key={group.group}>
@@ -946,7 +4028,6 @@ export default function Tests() {
           ))}
         </div>
 
-        {/* Painel do teste ativo */}
         <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '20px 24px' }}>
           {!patientId ? (
             <div style={{ textAlign: 'center', padding: 40, color: S.muted }}>
@@ -973,7 +4054,14 @@ export default function Tests() {
                   : handleChange(activeKey, data)
                 }
               />
-              {!activeConf.isAnamnese && (
+              {activeConf.isAnamnese ? (
+                <TestScanUpload
+                  patientId={patientId}
+                  testKey="ANAMNESE"
+                  existingUrls={session.session?.anamnesis?.scan_urls || []}
+                  onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
+                />
+              ) : (
                 <TestScanUpload
                   patientId={patientId}
                   testKey={activeKey}

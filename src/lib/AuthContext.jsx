@@ -1,19 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { Brain, Eye, EyeOff } from 'lucide-react'
 
 const AuthContext = createContext(null)
+const ADMIN_UIDS  = ['i5nwg569WabTUk69wzCWV5PRw9E3']
 
 export function AuthProvider({ children }) {
-  const [user,        setUser]        = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [loginErr,    setLoginErr]    = useState(null)
-  const [email,       setEmail]       = useState('')
-  const [password,    setPassword]    = useState('')
-  const [showPass,    setShowPass]    = useState(false)
-  const [emailLoading,setEmailLoading]= useState(false)
+  const [user,         setUser]         = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [loginErr,     setLoginErr]     = useState(null)
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
+  const [showPass,     setShowPass]     = useState(false)
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [resetMsg,     setResetMsg]     = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fu) => {
@@ -21,31 +24,40 @@ export function AuthProvider({ children }) {
         try {
           const ref  = doc(db, 'users', fu.uid)
           const snap = await getDoc(ref)
+
           if (snap.exists()) {
-            const profile = snap.data()
-            if (profile.active === false) {
+            const data = snap.data()
+            if (data.active === false) {
               await firebaseSignOut(auth)
               setLoginErr('Seu acesso está desativado. Entre em contato com o administrador.')
               setUser(null)
               setLoading(false)
               return
             }
-            setUser({ id: fu.uid, ...profile })
-            await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+            const role = ADMIN_UIDS.includes(fu.uid) ? 'admin' : (data.role || 'professional')
+            if (ADMIN_UIDS.includes(fu.uid) && data.role !== 'admin') {
+              await setDoc(ref, { role: 'admin', last_login: serverTimestamp() }, { merge: true })
+            } else {
+              await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+            }
+            setUser({ id: fu.uid, ...data, role })
           } else {
+            const isAdmin = ADMIN_UIDS.includes(fu.uid)
             const profile = {
               email:      fu.email,
               full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
               photo_url:  fu.photoURL || '',
-              role:       'professional',
+              role:       isAdmin ? 'admin' : 'professional',
+              active:     true,
               created_at: serverTimestamp(),
               last_login: serverTimestamp(),
             }
             await setDoc(ref, profile)
             setUser({ id: fu.uid, ...profile })
           }
-        } catch {
-          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: 'professional' })
+        } catch (err) {
+          console.error('[AuthContext] erro ao carregar perfil:', err)
+          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional' })
         }
       } else {
         setUser(null)
@@ -59,7 +71,7 @@ export function AuthProvider({ children }) {
     try {
       setLoginErr(null)
       await signInWithPopup(auth, googleProvider)
-    } catch (e) {
+    } catch {
       setLoginErr('Não foi possível fazer login com Google. Tente novamente.')
     }
   }
@@ -73,15 +85,28 @@ export function AuthProvider({ children }) {
       await signInWithEmailAndPassword(auth, email, password)
     } catch (err) {
       const msg = {
-        'auth/user-not-found':  'E-mail não encontrado.',
-        'auth/wrong-password':  'Senha incorreta.',
-        'auth/invalid-email':   'E-mail inválido.',
+        'auth/user-not-found':     'E-mail não encontrado.',
+        'auth/wrong-password':     'Senha incorreta.',
+        'auth/invalid-email':      'E-mail inválido.',
         'auth/invalid-credential': 'E-mail ou senha incorretos.',
-        'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos.',
+        'auth/too-many-requests':  'Muitas tentativas. Aguarde alguns minutos.',
       }
       setLoginErr(msg[err.code] || 'Erro ao fazer login. Verifique os dados.')
     } finally {
       setEmailLoading(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!email) { setResetMsg('Digite seu e-mail acima primeiro.'); return }
+    setResetLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, email)
+      setResetMsg('E-mail de redefinição enviado! Verifique sua caixa de entrada.')
+    } catch {
+      setResetMsg('Erro ao enviar e-mail. Verifique se o endereço está correto.')
+    } finally {
+      setResetLoading(false)
     }
   }
 
@@ -93,14 +118,12 @@ export function AuthProvider({ children }) {
     color: '#fff', outline: 'none', boxSizing: 'border-box',
   }
 
-  // Tela de login — tema escuro verde floresta
   const LoginScreen = () => (
     <div style={{
       minHeight: '100vh', background: '#0D1117',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24,
     }}>
-      {/* Logo */}
       <div style={{ marginBottom: 32, textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', marginBottom: 6 }}>
           NEUROPSICOLOGIA NA PRÁTICA
@@ -114,7 +137,6 @@ export function AuthProvider({ children }) {
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Sistema de Laudos Neuropsicológicos</div>
       </div>
 
-      {/* Card */}
       <div style={{
         background: '#1A2744', borderRadius: 16, padding: '32px 32px',
         width: '100%', maxWidth: 380, border: '1px solid rgba(255,255,255,0.08)',
@@ -132,30 +154,24 @@ export function AuthProvider({ children }) {
           </div>
         )}
 
-        {/* Formulário e-mail / senha */}
         <form onSubmit={loginWithEmail}>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>
               E-MAIL
             </label>
-            <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com" autoComplete="email"
-              style={inputStyle}
-            />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="seu@email.com" autoComplete="email" style={inputStyle} />
           </div>
 
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>
               SENHA
             </label>
             <div style={{ position: 'relative' }}>
-              <input
-                type={showPass ? 'text' : 'password'} value={password}
+              <input type={showPass ? 'text' : 'password'} value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••" autoComplete="current-password"
-                style={{ ...inputStyle, paddingRight: 42 }}
-              />
+                style={{ ...inputStyle, paddingRight: 42 }} />
               <button type="button" onClick={() => setShowPass(v => !v)} style={{
                 position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
                 background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 0,
@@ -169,20 +185,35 @@ export function AuthProvider({ children }) {
             width: '100%', padding: '13px', borderRadius: 10, border: 'none',
             background: emailLoading ? 'rgba(46,125,50,0.5)' : '#2E7D32',
             color: '#fff', fontSize: 14, fontWeight: 700, cursor: emailLoading ? 'not-allowed' : 'pointer',
-            letterSpacing: '0.04em', marginBottom: 16,
+            letterSpacing: '0.04em', marginBottom: 8,
           }}>
             {emailLoading ? 'Entrando...' : 'ENTRAR'}
           </button>
         </form>
 
-        {/* Divisor */}
+        <button onClick={handleReset} disabled={resetLoading} style={{
+          width: '100%', background: 'none', border: 'none',
+          color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', padding: '4px 0', marginBottom: 16,
+        }}>
+          {resetLoading ? 'Enviando...' : 'Esqueci minha senha'}
+        </button>
+
+        {resetMsg && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 8, fontSize: 12, textAlign: 'center', marginBottom: 16,
+            background: resetMsg.includes('enviado') ? 'rgba(46,125,50,0.15)' : 'rgba(239,68,68,0.1)',
+            color: resetMsg.includes('enviado') ? '#4CAF50' : '#EF4444',
+          }}>
+            {resetMsg}
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>ou</span>
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
         </div>
 
-        {/* Google */}
         <button onClick={loginWithGoogle} style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 10, padding: '11px 20px',
@@ -204,7 +235,6 @@ export function AuthProvider({ children }) {
         </p>
       </div>
 
-      {/* Supervisor */}
       <div style={{ marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
         Supervisão: Dr. Pedro Donizetti · CRP 06/82060
       </div>
@@ -227,7 +257,7 @@ export function AuthProvider({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, login: loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, logout }}>
       {!user ? <LoginScreen /> : children}
     </AuthContext.Provider>
   )

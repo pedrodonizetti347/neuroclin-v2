@@ -47,7 +47,7 @@ function normalizePatient(raw) {
 
   return {
     prodoctor_id: String(raw.codigo ?? raw.id ?? ''),
-    full_name:    raw.nomeCivil || raw.nome || '',
+    full_name:    raw.nome || raw.nomeCivil || '',
     birth_date:   normDate(raw.dataNascimento ?? ''),
     cpf:          raw.cpf ?? '',
     phone:        String(phone),
@@ -74,23 +74,123 @@ function normSex(val) {
   return ''
 }
 
+let _allPatientsCache   = null
+let _cacheTimestamp     = 0
+let _loadingPromise     = null
+const CACHE_TTL_MS      = 10 * 60 * 1000  // 10 min
+
+// Formatos de paginação que a API ProDoctor pode aceitar (tenta em ordem)
+const PAGINATION_FORMATS = (page) => [
+  { pagina: page, quantidade: 100, somenteAtivos: true },
+  { pagina: page, quantidade: 100 },
+  { pagina: page, limite: 100, somenteAtivos: true },
+  { page,         per_page: 100 },
+  { offset: (page - 1) * 100, limite: 100, somenteAtivos: true },
+  { termo: '', campo: 0, pagina: page, somenteAtivos: true, quantidade: 100 },
+  { termo: '', campo: 1, pagina: page, somenteAtivos: true, quantidade: 100 },
+]
+
+async function fetchPage(page) {
+  for (const body of PAGINATION_FORMATS(page)) {
+    try {
+      const data  = await request('/api/v1/Pacientes', 'POST', body)
+      const batch = data?.payload?.pacientes ?? data?.pacientes ?? []
+      if (batch.length > 0) {
+        console.log(`[ProDoctor] pág.${page} formato ${JSON.stringify(body)} → ${batch.length}`)
+        return batch
+      }
+    } catch { /* tenta próximo */ }
+  }
+  return []
+}
+
+async function _doLoad() {
+  const all     = []
+  const seenIds = new Set()
+  let   page    = 1
+
+  while (page <= 200) {
+    const batch = await fetchPage(page)
+
+    if (batch.length === 0) {
+      console.log(`[ProDoctor] pág.${page} vazia — fim da lista`)
+      break
+    }
+
+    let novos = 0
+    for (const raw of batch) {
+      const id = String(raw.codigo ?? raw.id ?? '')
+      if (id && !seenIds.has(id)) {
+        seenIds.add(id)
+        all.push(normalizePatient(raw))
+        novos++
+      }
+    }
+
+    console.log(`[ProDoctor] pág.${page} → ${batch.length} recebidos, ${novos} novos (total: ${all.length})`)
+
+    // Se não chegou nenhum novo ID a API não suporta paginação real
+    if (novos === 0) break
+    page++
+  }
+
+  console.log(`[ProDoctor] carregamento concluído: ${all.length} pacientes únicos`)
+  return all
+}
+
+async function loadAllPatients(forceRefresh = false) {
+  const now = Date.now()
+  if (!forceRefresh && _allPatientsCache && (now - _cacheTimestamp) < CACHE_TTL_MS) {
+    return _allPatientsCache
+  }
+
+  // Evita múltiplos carregamentos paralelos
+  if (!_loadingPromise) {
+    _loadingPromise = _doLoad().then(all => {
+      _allPatientsCache = all
+      _cacheTimestamp   = Date.now()
+      _loadingPromise   = null
+      return all
+    }).catch(err => {
+      _loadingPromise = null
+      throw err
+    })
+  }
+
+  return _loadingPromise
+}
+
+/** Limpa o cache — útil quando o usuário clica em "Atualizar" */
+export function clearPatientsCache() {
+  _allPatientsCache = null
+  _cacheTimestamp   = 0
+  _loadingPromise   = null
+}
+
+/** Quantos pacientes estão em cache no momento */
+export function getCachedCount() {
+  return _allPatientsCache?.length ?? 0
+}
+
 /**
- * Busca pacientes por nome.
- * POST /api/v1/Pacientes → response.payload.pacientes[]
+ * Busca pacientes por nome ou CPF.
+ * Carrega todos os pacientes via paginação e filtra localmente.
  */
-export async function searchPatients(termo) {
+export async function searchPatients(termo, forceRefresh = false) {
   if (!termo || termo.trim().length < 2) return []
 
-  const data = await request('/api/v1/Pacientes', 'POST', {
-    termo:        termo.trim(),
-    campo:        0,
-    pagina:       1,
-    somenteAtivos: true,
-    quantidade:   20,
-  })
+  const t       = termo.trim()
+  const q       = t.toLowerCase()
+  const qDigits = q.replace(/\D/g, '')
 
-  const list = data?.payload?.pacientes ?? data?.pacientes ?? data ?? []
-  return Array.isArray(list) ? list.map(normalizePatient) : []
+  const all = await loadAllPatients(forceRefresh)
+  console.log(`[ProDoctor] filtrando "${t}" em ${all.length} pacientes`)
+
+  return all.filter(p => {
+    if (p.full_name?.toLowerCase().includes(q)) return true
+    if (qDigits.length >= 3 && p.cpf?.replace(/\D/g, '').includes(qDigits)) return true
+    return false
+  })
 }
 
 /**

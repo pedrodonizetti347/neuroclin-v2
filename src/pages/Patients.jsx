@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
 import { useAuth } from '@/lib/AuthContext'
-import { searchPatients } from '@/services/prodoctorApi'
-import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, AlertTriangle, Lock } from 'lucide-react'
+import { searchPatients, clearPatientsCache, getCachedCount } from '@/services/prodoctorApi'
+import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, RefreshCw, AlertTriangle, Lock } from 'lucide-react'
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
@@ -61,6 +61,7 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
   const [searching,  setSearching]  = useState(false)
   const [showList,   setShowList]   = useState(false)
   const [pdError,    setPdError]    = useState('')
+  const [cachedQty,  setCachedQty]  = useState(() => getCachedCount())
   const debounce     = useRef(null)
   const wrapRef      = useRef(null)
 
@@ -70,25 +71,34 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
     return () => document.removeEventListener('mousedown', hide)
   }, [])
 
-  const handleChange = (v) => {
+  const doSearch = (v, force = false) => {
     onChange(v)
     setPdError('')
     clearTimeout(debounce.current)
-    if (v.length < 3) { setResults([]); setShowList(false); return }
+    if (!force && v.length < 3) { setResults([]); setShowList(false); return }
+    const termo = force ? (value || v) : v
+    if (termo.length < 2) return
     debounce.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const list = await searchPatients(v)
+        const list = await searchPatients(termo, force)
+        setCachedQty(getCachedCount())
         setResults(list)
         setShowList(true)
-        if (list.length === 0) setPdError('Nenhum paciente encontrado no ProDoctor.')
+        if (list.length === 0) setPdError(`Nenhum paciente encontrado para "${termo}".`)
       } catch (e) {
         setPdError('ProDoctor indisponível — preencha manualmente.')
         setShowList(false)
       } finally {
         setSearching(false)
       }
-    }, 500)
+    }, force ? 0 : 500)
+  }
+
+  const handleRefresh = () => {
+    clearPatientsCache()
+    setCachedQty(0)
+    doSearch(value, true)
   }
 
   const pick = (p) => {
@@ -98,39 +108,34 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
     setPdError('')
   }
 
-  const eduMap = {
-    'analfabeto': 'Analfabeto',
-    'fundamental_incompleto': 'Fund. incompleto',
-    'fundamental_completo': 'Fund. completo',
-    'medio_incompleto': 'Médio incompleto',
-    'medio_completo': 'Médio completo',
-    'superior_incompleto': 'Superior incompleto',
-    'superior_completo': 'Superior completo',
-    'pos_graduacao': 'Pós-graduação',
-  }
-
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <div style={{ position: 'relative' }}>
         <input
-          style={{ ...inputStyle, paddingRight: 36 }}
+          style={{ ...inputStyle, paddingRight: 68 }}
           value={value}
-          onChange={e => handleChange(e.target.value)}
+          onChange={e => doSearch(e.target.value)}
           placeholder="Digite o nome para buscar no ProDoctor..."
           autoComplete="off"
         />
-        {searching && (
-          <Loader2 size={15} style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            animation: 'spin 0.8s linear infinite', color: '#185FA5'
-          }} />
-        )}
-        {!searching && value.length >= 3 && (
-          <CloudDownload size={15} style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            color: '#185FA5', opacity: 0.5
-          }} />
-        )}
+        <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {searching && (
+            <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite', color: '#185FA5' }} />
+          )}
+          <button
+            type="button"
+            title={cachedQty > 0 ? `${cachedQty} pacientes em cache — clique para atualizar` : 'Carregar pacientes do ProDoctor'}
+            onClick={handleRefresh}
+            style={{
+              border: 'none', background: searching ? 'rgba(24,95,165,0.05)' : 'rgba(24,95,165,0.1)',
+              borderRadius: 5, padding: '3px 5px', cursor: searching ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 3, color: '#185FA5',
+            }}
+          >
+            <RefreshCw size={13} style={searching ? { animation: 'spin 1s linear infinite' } : {}} />
+            {cachedQty > 0 && <span style={{ fontSize: 10, fontWeight: 700 }}>{cachedQty}</span>}
+          </button>
+        </div>
       </div>
 
       {pdError && (
@@ -196,11 +201,23 @@ export default function Patients() {
   const [form,          setForm]          = useState(EMPTY)
   const [saving,        setSaving]        = useState(false)
   const [pdImported,    setPdImported]    = useState(false)
+  const [pdRefreshing,  setPdRefreshing]  = useState(false)
+  const [pdCacheQty,    setPdCacheQty]    = useState(() => getCachedCount())
 
   const [deleteTarget,  setDeleteTarget]  = useState(null)
   const [deletePassword,setDeletePassword]= useState('')
   const [deleteError,   setDeleteError]   = useState('')
   const [deleting,      setDeleting]      = useState(false)
+
+  const handlePdRefresh = async () => {
+    setPdRefreshing(true)
+    clearPatientsCache()
+    try {
+      await searchPatients('a', true)
+    } catch { /* ignora */ }
+    setPdCacheQty(getCachedCount())
+    setPdRefreshing(false)
+  }
 
   const filtered = patients.filter(p =>
     p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -280,13 +297,34 @@ export default function Patients() {
             {patients.length} paciente{patients.length !== 1 ? 's' : ''} cadastrado{patients.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={openNew} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: '#185FA5', color: '#fff', border: 'none',
-          padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer'
-        }}>
-          <Plus size={16} /> Novo paciente
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={handlePdRefresh}
+            disabled={pdRefreshing}
+            title="Recarregar lista de pacientes do ProDoctor"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: pdRefreshing ? 'rgba(24,95,165,0.05)' : '#EBF4FF',
+              color: '#185FA5', border: '1.5px solid #C3DAFA', borderRadius: 10,
+              padding: '9px 14px', fontSize: 13, fontWeight: 500,
+              cursor: pdRefreshing ? 'not-allowed' : 'pointer', opacity: pdRefreshing ? 0.7 : 1,
+            }}
+          >
+            <RefreshCw size={14} style={pdRefreshing ? { animation: 'spin 1s linear infinite' } : {}} />
+            {pdRefreshing
+              ? 'Atualizando...'
+              : pdCacheQty > 0
+                ? `ProDoctor (${pdCacheQty})`
+                : 'Atualizar ProDoctor'}
+          </button>
+          <button onClick={openNew} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#185FA5', color: '#fff', border: 'none',
+            padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer'
+          }}>
+            <Plus size={16} /> Novo paciente
+          </button>
+        </div>
       </div>
 
       {/* Search */}

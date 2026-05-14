@@ -39,8 +39,8 @@ exports.prodoctorProxy = onRequest(
     const { path, method = 'GET', body: rawBody = null } = req.body || {}
     if (!path) { res.set(CORS).status(400).json({ error: 'path obrigatório' }); return }
 
-    const apiKey  = process.env.PRODOCTOR_APIKEY
-    const apiPass = process.env.PRODOCTOR_APIPASSWORD
+    const apiKey  = process.env.PRODOCTOR_APIKEY  || process.env.PRODOCTOR_KEY
+    const apiPass = process.env.PRODOCTOR_APIPASSWORD || process.env.PRODOCTOR_PASS
 
     if (!apiKey || !apiPass) {
       res.set(CORS).status(500).json({ error: 'Credenciais ProDoctor não configuradas no servidor' })
