@@ -1197,7 +1197,7 @@ Regras:
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          model: 'claude-opus-4-7',
+          model: 'claude-opus-4-5',
           max_tokens: 4096,
           messages: [{ role: 'user', content: prompt }],
         }),
