@@ -3,7 +3,7 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
-import { FlaskConical, CheckCircle2, Save, Camera } from 'lucide-react'
+import { FlaskConical, CheckCircle2, Save, Camera, Lock } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
 const S = {
@@ -3718,6 +3718,23 @@ function PCRSForm({ data, onChange }) {
   )
 }
 
+// ─── Regras de conclusão da Anamnese ─────────────────────────────────────────
+const TAB_FIELDS = {
+  queixas:   ['objetivo_avaliacao', 'queixas', 'inicio_sintomas_data', 'forma_inicio', 'desenvolvimento_sintomas', 'queixa_informante'],
+  clinico:   ['doencas_preexistentes', 'medicamentos', 'cirurgias_internacoes', 'tce_historico', 'avc_historico', 'epilepsia', 'tontura_desmaio', 'fono_dificuldade_fala', 'alteracao_humor_comportamento', 'alcool_frequencia_quantidade', 'drogas_frequencia_quantidade'],
+  memoria:   ['memoria_esquece_objetos', 'memoria_esquece_nomes', 'memoria_dificuldade_palavras', 'memoria_esquece_hoje', 'memoria_conta_repetido', 'memoria_recursos_lembrar', 'memoria_perdeu_lugar_conhecido', 'memoria_troca_objetos', 'memoria_familia_acha_esquecido', 'memoria_relato_dia'],
+  funcional: ['executa_atividades_externas', 'cuida_proprio_dinheiro', 'administra_casa_adulto', 'dirige', 'dificuldade_avds', 'comprometimento_trabalho_social', 'atividade_fisica_lazer', 'flutuacoes_estado_geral'],
+  sono:      ['sono_como_e', 'sono_duracao_adulto', 'sono_continuo_adulto', 'sono_ronco_apneia', 'sono_sonambulismo', 'apetite_como_e', 'apetite_voraz_perda', 'apetite_mudanca_habitos', 'audicao_dificuldade', 'visao_usa_oculos', 'motricidade_dificuldade'],
+  exames:    ['exame_tomografia', 'exame_ressonancia', 'exame_eeg', 'exame_outros', 'exames', 'medico_responsavel', 'hipotese_diagnostica_previa', 'observacoes_avaliador'],
+  familia:   ['historia_familiar_demencia', 'historia_familiar_neurologica', 'como_envelheceram_pais_adulto', 'estado_civil', 'profissao', 'escolaridade_detalhada', 'lateralidade'],
+}
+function isTabComplete(tabId, d) {
+  return (TAB_FIELDS[tabId] || []).some(k => (d[k] || '').toString().trim().length > 0)
+}
+function isAnamnesisComplete(d) {
+  return Object.keys(TAB_FIELDS).every(tabId => isTabComplete(tabId, d))
+}
+
 // ─── Anamnese ─────────────────────────────────────────────────────────────────
 function AnamFld({ d, set, label, k, rows, placeholder }) {
   return (
@@ -3768,9 +3785,32 @@ function ANAMNESEForm({ data, onChange }) {
         <AnamFld d={d} set={set} label="Parentesco / Relação" k="parentesco_acompanhante" placeholder="Ex: filha, cônjuge..." />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-        {tabList.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>)}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+        {tabList.map(t => {
+          const done = isTabComplete(t.id, d)
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ ...tabStyle(tab === t.id), display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {t.label}
+              {done && <CheckCircle2 size={9} color={tab === t.id ? 'rgba(255,255,255,0.8)' : S.greenL} />}
+            </button>
+          )
+        })}
       </div>
+      {(() => {
+        const n    = Object.keys(TAB_FIELDS).filter(id => isTabComplete(id, d)).length
+        const done = n === 7
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '6px 10px', borderRadius: 7, background: done ? 'rgba(46,125,50,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${done ? 'rgba(46,125,50,0.3)' : S.border}` }}>
+            <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: `${(n / 7) * 100}%`, height: '100%', background: done ? S.greenL : '#F59E0B', borderRadius: 2, transition: 'width 0.3s' }} />
+            </div>
+            <span style={{ fontSize: 11, color: done ? S.greenL : S.muted, whiteSpace: 'nowrap' }}>
+              {n}/7 {done ? '— Anamnese completa ✓' : 'seções preenchidas'}
+            </span>
+          </div>
+        )
+      })()}
 
       {tab === 'queixas' && <div style={box}>
         <AnamFld d={d} set={set} label="Objetivo da avaliação / Motivo do encaminhamento" k="objetivo_avaliacao" rows={2} />
@@ -3960,13 +4000,22 @@ export default function Tests() {
   }, [patientId])
 
   const activeConf = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
-  const patient = patients.find(p => p.id === patientId)
+  const patient    = patients.find(p => p.id === patientId)
 
   const handleChange = (key, data) => {
     session.updateTest(key, data)
     setJustSaved(prev => ({ ...prev, [key]: true }))
     setTimeout(() => setJustSaved(prev => ({ ...prev, [key]: false })), 2000)
   }
+
+  const anamnesisData     = session.session?.anamnesis || {}
+  const anamnesisComplete = patientId ? isAnamnesisComplete(anamnesisData) : false
+
+  useEffect(() => {
+    if (patientId && !anamnesisComplete && activeKey !== 'ANAMNESE') {
+      setActiveKey('ANAMNESE')
+    }
+  }, [patientId, anamnesisComplete])
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -4006,7 +4055,8 @@ export default function Tests() {
                 {group.group}
               </div>
               {group.items.map(item => {
-                const hasData = patientId && (
+                const locked  = !!patientId && !item.isAnamnese && !anamnesisComplete
+                const hasData = !locked && patientId && (
                   item.isAnamnese
                     ? session.session?.anamnesis && Object.keys(session.session.anamnesis).length > 0
                     : session.getTest(item.key) && Object.keys(session.getTest(item.key)).length > 0
@@ -4014,18 +4064,25 @@ export default function Tests() {
                 return (
                   <button
                     key={item.key}
-                    onClick={() => setActiveKey(item.key)}
+                    onClick={() => { if (!locked) setActiveKey(item.key) }}
+                    title={locked ? 'Conclua todas as seções da Anamnese primeiro' : ''}
                     style={{
                       width: '100%', textAlign: 'left', padding: '7px 10px',
-                      borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12,
+                      borderRadius: 7, border: 'none',
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      fontSize: 12,
                       background: activeKey === item.key ? 'rgba(46,125,50,0.25)' : 'transparent',
                       color: activeKey === item.key ? '#fff' : S.muted,
                       fontWeight: activeKey === item.key ? 700 : 400,
+                      opacity: locked ? 0.35 : 1,
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}
                   >
                     {item.label}
-                    {hasData && <CheckCircle2 size={11} color={S.greenL} />}
+                    {locked
+                      ? <Lock size={10} />
+                      : (hasData && <CheckCircle2 size={11} color={S.greenL} />)
+                    }
                   </button>
                 )
               })}
@@ -4059,22 +4116,29 @@ export default function Tests() {
                   : handleChange(activeKey, data)
                 }
               />
-              {activeConf.isAnamnese ? (
-                <TestScanUpload
-                  key="anamnese-scan"
-                  patientId={patientId}
-                  testKey="ANAMNESE"
-                  existingUrls={session.session?.anamnesis?.scan_urls || []}
-                  onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
-                />
+              {anamnesisComplete ? (
+                activeConf.isAnamnese ? (
+                  <TestScanUpload
+                    key="anamnese-scan"
+                    patientId={patientId}
+                    testKey="ANAMNESE"
+                    existingUrls={session.session?.anamnesis?.scan_urls || []}
+                    onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
+                  />
+                ) : (
+                  <TestScanUpload
+                    key={activeKey + '-scan'}
+                    patientId={patientId}
+                    testKey={activeKey}
+                    existingUrls={session.getTest(activeKey)?.scan_urls || []}
+                    onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
+                  />
+                )
               ) : (
-                <TestScanUpload
-                  key={activeKey + '-scan'}
-                  patientId={patientId}
-                  testKey={activeKey}
-                  existingUrls={session.getTest(activeKey)?.scan_urls || []}
-                  onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
-                />
+                <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
+                  <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
+                  <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha as 7 seções da anamnese para liberar o anexo de fotos e os demais testes</p>
+                </div>
               )}
             </>
           ) : null}
