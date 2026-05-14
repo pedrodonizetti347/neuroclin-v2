@@ -1221,7 +1221,7 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
         },
         body: JSON.stringify({
           model: 'claude-opus-4-5',
-          max_tokens: 4096,
+          max_tokens: 8192,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
