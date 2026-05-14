@@ -3719,6 +3719,24 @@ function PCRSForm({ data, onChange }) {
 }
 
 // ─── Anamnese ─────────────────────────────────────────────────────────────────
+function AnamFld({ d, set, label, k, rows, placeholder }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>{label}</div>
+      {rows
+        ? <textarea rows={rows} value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
+            style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', width: '100%', lineHeight: 1.5 }} />
+        : <input type="text" value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
+            style={{ ...inputStyle, textAlign: 'left', padding: '7px 10px', width: '100%' }} />
+      }
+    </div>
+  )
+}
+
+function AnamGrid2({ children }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{children}</div>
+}
+
 function ANAMNESEForm({ data, onChange }) {
   const d = data || {}
   const set = (k, v) => onChange({ ...d, [k]: v })
@@ -3733,19 +3751,6 @@ function ANAMNESEForm({ data, onChange }) {
   const box = { background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
   const sub = (txt) => <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '10px 0 5px', borderTop: `1px solid ${S.border}`, paddingTop: 8 }}>{txt}</div>
 
-  const Fld = ({ label, k, rows, placeholder }) => (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>{label}</div>
-      {rows
-        ? <textarea rows={rows} value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
-            style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', width: '100%', lineHeight: 1.5 }} />
-        : <input type="text" value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
-            style={{ ...inputStyle, textAlign: 'left', padding: '7px 10px', width: '100%' }} />
-      }
-    </div>
-  )
-  const Grid2 = ({ children }) => <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{children}</div>
-
   const tabList = [
     { id: 'queixas',   label: '1.Queixas'   },
     { id: 'clinico',   label: '2.Clínico'   },
@@ -3759,8 +3764,8 @@ function ANAMNESEForm({ data, onChange }) {
   return (
     <div>
       <div style={{ ...box, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Fld label="Informante / Acompanhante" k="acompanhante" placeholder="Nome completo" />
-        <Fld label="Parentesco / Relação" k="parentesco_acompanhante" placeholder="Ex: filha, cônjuge..." />
+        <AnamFld d={d} set={set} label="Informante / Acompanhante" k="acompanhante" placeholder="Nome completo" />
+        <AnamFld d={d} set={set} label="Parentesco / Relação" k="parentesco_acompanhante" placeholder="Ex: filha, cônjuge..." />
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
@@ -3768,118 +3773,118 @@ function ANAMNESEForm({ data, onChange }) {
       </div>
 
       {tab === 'queixas' && <div style={box}>
-        <Fld label="Objetivo da avaliação / Motivo do encaminhamento" k="objetivo_avaliacao" rows={2} />
-        <Fld label="Queixas principais (cognitivas, emocionais, comportamentais)" k="queixas" rows={3} />
-        <Grid2>
-          <Fld label="Início dos sintomas (data aproximada)" k="inicio_sintomas_data" placeholder="Ex: 2022, há 2 anos..." />
-          <Fld label="Forma de início" k="forma_inicio" placeholder="Agudo / Gradual / Insidioso" />
-        </Grid2>
-        <Fld label="Evolução / Desenvolvimento dos sintomas" k="desenvolvimento_sintomas" rows={3} />
-        <Fld label="Queixa principal do informante / cuidador" k="queixa_informante" rows={2} />
+        <AnamFld d={d} set={set} label="Objetivo da avaliação / Motivo do encaminhamento" k="objetivo_avaliacao" rows={2} />
+        <AnamFld d={d} set={set} label="Queixas principais (cognitivas, emocionais, comportamentais)" k="queixas" rows={3} />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Início dos sintomas (data aproximada)" k="inicio_sintomas_data" placeholder="Ex: 2022, há 2 anos..." />
+          <AnamFld d={d} set={set} label="Forma de início" k="forma_inicio" placeholder="Agudo / Gradual / Insidioso" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Evolução / Desenvolvimento dos sintomas" k="desenvolvimento_sintomas" rows={3} />
+        <AnamFld d={d} set={set} label="Queixa principal do informante / cuidador" k="queixa_informante" rows={2} />
       </div>}
 
       {tab === 'clinico' && <div style={box}>
-        <Fld label="Doenças preexistentes (HAS, DM, cardiopatia, AVC, TCE, depressão...)" k="doencas_preexistentes" rows={3} />
-        <Fld label="Medicamentos em uso (nome, dose, motivo)" k="medicamentos" rows={3} />
-        <Fld label="Cirurgias / Internações (tipo, data, sequelas)" k="cirurgias_internacoes" rows={2} />
+        <AnamFld d={d} set={set} label="Doenças preexistentes (HAS, DM, cardiopatia, AVC, TCE, depressão...)" k="doencas_preexistentes" rows={3} />
+        <AnamFld d={d} set={set} label="Medicamentos em uso (nome, dose, motivo)" k="medicamentos" rows={3} />
+        <AnamFld d={d} set={set} label="Cirurgias / Internações (tipo, data, sequelas)" k="cirurgias_internacoes" rows={2} />
         {sub('Neurológico')}
-        <Grid2>
-          <Fld label="Já bateu a cabeça / TCE? Como?" k="tce_historico" />
-          <Fld label="AVC / AIT? Quando? Sequelas?" k="avc_historico" />
-        </Grid2>
-        <Grid2>
-          <Fld label="Epilepsia / Crises convulsivas?" k="epilepsia" />
-          <Fld label="Tontura / Desmaio / Síncope?" k="tontura_desmaio" />
-        </Grid2>
-        <Fld label="Dificuldade na fala / linguagem?" k="fono_dificuldade_fala" />
-        <Fld label="Alteração de humor / comportamento?" k="alteracao_humor_comportamento" rows={2} />
-        <Fld label="Uso de álcool (frequência, quantidade)" k="alcool_frequencia_quantidade" />
-        <Fld label="Uso de drogas (tipo, frequência, tratamento)" k="drogas_frequencia_quantidade" />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Já bateu a cabeça / TCE? Como?" k="tce_historico" />
+          <AnamFld d={d} set={set} label="AVC / AIT? Quando? Sequelas?" k="avc_historico" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Epilepsia / Crises convulsivas?" k="epilepsia" />
+          <AnamFld d={d} set={set} label="Tontura / Desmaio / Síncope?" k="tontura_desmaio" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Dificuldade na fala / linguagem?" k="fono_dificuldade_fala" />
+        <AnamFld d={d} set={set} label="Alteração de humor / comportamento?" k="alteracao_humor_comportamento" rows={2} />
+        <AnamFld d={d} set={set} label="Uso de álcool (frequência, quantidade)" k="alcool_frequencia_quantidade" />
+        <AnamFld d={d} set={set} label="Uso de drogas (tipo, frequência, tratamento)" k="drogas_frequencia_quantidade" />
       </div>}
 
       {tab === 'memoria' && <div style={box}>
-        <Grid2>
-          <Fld label="Esquece onde coloca objetos? Frequência?" k="memoria_esquece_objetos" />
-          <Fld label="Esquece nome de pessoas conhecidas?" k="memoria_esquece_nomes" />
-        </Grid2>
-        <Grid2>
-          <Fld label="Dificuldade para encontrar palavras?" k="memoria_dificuldade_palavras" />
-          <Fld label="Esquece fatos recentes? Frequência?" k="memoria_esquece_hoje" />
-        </Grid2>
-        <Grid2>
-          <Fld label="Conta casos repetidamente?" k="memoria_conta_repetido" />
-          <Fld label="Usa recursos para lembrar? Quais?" k="memoria_recursos_lembrar" />
-        </Grid2>
-        <Fld label="Já se perdeu em lugar conhecido?" k="memoria_perdeu_lugar_conhecido" />
-        <Fld label="Troca de objetos / coloca coisas em lugar errado?" k="memoria_troca_objetos" rows={2} />
-        <Fld label="Família nota que está esquecendo?" k="memoria_familia_acha_esquecido" />
-        <Fld label="Relato de um dia típico" k="memoria_relato_dia" rows={3} />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Esquece onde coloca objetos? Frequência?" k="memoria_esquece_objetos" />
+          <AnamFld d={d} set={set} label="Esquece nome de pessoas conhecidas?" k="memoria_esquece_nomes" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Dificuldade para encontrar palavras?" k="memoria_dificuldade_palavras" />
+          <AnamFld d={d} set={set} label="Esquece fatos recentes? Frequência?" k="memoria_esquece_hoje" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Conta casos repetidamente?" k="memoria_conta_repetido" />
+          <AnamFld d={d} set={set} label="Usa recursos para lembrar? Quais?" k="memoria_recursos_lembrar" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Já se perdeu em lugar conhecido?" k="memoria_perdeu_lugar_conhecido" />
+        <AnamFld d={d} set={set} label="Troca de objetos / coloca coisas em lugar errado?" k="memoria_troca_objetos" rows={2} />
+        <AnamFld d={d} set={set} label="Família nota que está esquecendo?" k="memoria_familia_acha_esquecido" />
+        <AnamFld d={d} set={set} label="Relato de um dia típico" k="memoria_relato_dia" rows={3} />
       </div>}
 
       {tab === 'funcional' && <div style={box}>
-        <Grid2>
-          <Fld label="Executa atividades externas sozinho? (supermercado, banco)" k="executa_atividades_externas" />
-          <Fld label="Cuida do próprio dinheiro / finanças?" k="cuida_proprio_dinheiro" />
-        </Grid2>
-        <Grid2>
-          <Fld label="Administra a casa / atividades domésticas?" k="administra_casa_adulto" />
-          <Fld label="Dirige? Se não, por quê?" k="dirige" />
-        </Grid2>
-        <Fld label="Dificuldade nas AVDs (alimentação, higiene, vestuário)?" k="dificuldade_avds" rows={2} />
-        <Fld label="Comprometimento do trabalho e vida social?" k="comprometimento_trabalho_social" rows={2} />
-        <Fld label="Atividade física / lazer / hobbies?" k="atividade_fisica_lazer" />
-        <Fld label="Flutuações do estado geral / agitação noturna?" k="flutuacoes_estado_geral" />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Executa atividades externas sozinho? (supermercado, banco)" k="executa_atividades_externas" />
+          <AnamFld d={d} set={set} label="Cuida do próprio dinheiro / finanças?" k="cuida_proprio_dinheiro" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Administra a casa / atividades domésticas?" k="administra_casa_adulto" />
+          <AnamFld d={d} set={set} label="Dirige? Se não, por quê?" k="dirige" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Dificuldade nas AVDs (alimentação, higiene, vestuário)?" k="dificuldade_avds" rows={2} />
+        <AnamFld d={d} set={set} label="Comprometimento do trabalho e vida social?" k="comprometimento_trabalho_social" rows={2} />
+        <AnamFld d={d} set={set} label="Atividade física / lazer / hobbies?" k="atividade_fisica_lazer" />
+        <AnamFld d={d} set={set} label="Flutuações do estado geral / agitação noturna?" k="flutuacoes_estado_geral" />
       </div>}
 
       {tab === 'sono' && <div style={box}>
         {sub('Sono')}
-        <Fld label="Como é o sono?" k="sono_como_e" />
-        <Grid2>
-          <Fld label="Duração (horas/noite)" k="sono_duracao_adulto" placeholder="Ex: 6-7 horas" />
-          <Fld label="Contínuo ou com interrupções?" k="sono_continuo_adulto" />
-        </Grid2>
-        <Grid2>
-          <Fld label="Ronco / Apneia?" k="sono_ronco_apneia" />
-          <Fld label="Sonambulismo / Pesadelos?" k="sono_sonambulismo" />
-        </Grid2>
+        <AnamFld d={d} set={set} label="Como é o sono?" k="sono_como_e" />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Duração (horas/noite)" k="sono_duracao_adulto" placeholder="Ex: 6-7 horas" />
+          <AnamFld d={d} set={set} label="Contínuo ou com interrupções?" k="sono_continuo_adulto" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Ronco / Apneia?" k="sono_ronco_apneia" />
+          <AnamFld d={d} set={set} label="Sonambulismo / Pesadelos?" k="sono_sonambulismo" />
+        </AnamGrid2>
         {sub('Apetite')}
-        <Fld label="Como está o apetite?" k="apetite_como_e" />
-        <Grid2>
-          <Fld label="Voracidade ou perda de apetite?" k="apetite_voraz_perda" />
-          <Fld label="Mudança de hábitos alimentares?" k="apetite_mudanca_habitos" />
-        </Grid2>
+        <AnamFld d={d} set={set} label="Como está o apetite?" k="apetite_como_e" />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Voracidade ou perda de apetite?" k="apetite_voraz_perda" />
+          <AnamFld d={d} set={set} label="Mudança de hábitos alimentares?" k="apetite_mudanca_habitos" />
+        </AnamGrid2>
         {sub('Sensorial')}
-        <Grid2>
-          <Fld label="Dificuldade de audição?" k="audicao_dificuldade" />
-          <Fld label="Dificuldade de visão / usa óculos?" k="visao_usa_oculos" />
-        </Grid2>
-        <Fld label="Dificuldade de motricidade / equilíbrio / quedas?" k="motricidade_dificuldade" />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Dificuldade de audição?" k="audicao_dificuldade" />
+          <AnamFld d={d} set={set} label="Dificuldade de visão / usa óculos?" k="visao_usa_oculos" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Dificuldade de motricidade / equilíbrio / quedas?" k="motricidade_dificuldade" />
       </div>}
 
       {tab === 'exames' && <div style={box}>
-        <Grid2>
-          <Fld label="Tomografia (quando e resultado)" k="exame_tomografia" />
-          <Fld label="Ressonância magnética (quando e resultado)" k="exame_ressonancia" />
-        </Grid2>
-        <Grid2>
-          <Fld label="EEG (quando e resultado)" k="exame_eeg" />
-          <Fld label="Outros exames laboratoriais / complementares" k="exame_outros" />
-        </Grid2>
-        <Fld label="Resumo dos exames imagiológicos para o laudo" k="exames" rows={3} placeholder="Ex: Ressonância de 03/2024 sem alterações estruturais significativas..." />
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="Tomografia (quando e resultado)" k="exame_tomografia" />
+          <AnamFld d={d} set={set} label="Ressonância magnética (quando e resultado)" k="exame_ressonancia" />
+        </AnamGrid2>
+        <AnamGrid2>
+          <AnamFld d={d} set={set} label="EEG (quando e resultado)" k="exame_eeg" />
+          <AnamFld d={d} set={set} label="Outros exames laboratoriais / complementares" k="exame_outros" />
+        </AnamGrid2>
+        <AnamFld d={d} set={set} label="Resumo dos exames imagiológicos para o laudo" k="exames" rows={3} placeholder="Ex: Ressonância de 03/2024 sem alterações estruturais significativas..." />
         {sub('Acompanhamento')}
-        <Fld label="Neurologista / psiquiatra que acompanha" k="medico_responsavel" />
-        <Fld label="Hipótese diagnóstica prévia (se houver)" k="hipotese_diagnostica_previa" />
-        <Fld label="Observações adicionais do avaliador" k="observacoes_avaliador" rows={3} />
+        <AnamFld d={d} set={set} label="Neurologista / psiquiatra que acompanha" k="medico_responsavel" />
+        <AnamFld d={d} set={set} label="Hipótese diagnóstica prévia (se houver)" k="hipotese_diagnostica_previa" />
+        <AnamFld d={d} set={set} label="Observações adicionais do avaliador" k="observacoes_avaliador" rows={3} />
       </div>}
 
       {tab === 'familia' && <div style={box}>
-        <Fld label="Histórico familiar de demência / Alzheimer?" k="historia_familiar_demencia" />
-        <Fld label="Histórico familiar de doenças neurológicas" k="historia_familiar_neurologica" />
-        <Fld label="Como envelheceram os pais?" k="como_envelheceram_pais_adulto" rows={2} />
-        <Fld label="Estado civil" k="estado_civil" placeholder="Casado, divorciado, viúvo..." />
-        <Fld label="Profissão / ocupação atual" k="profissao" />
-        <Fld label="Escolaridade detalhada (escola pública/particular, repetências)" k="escolaridade_detalhada" rows={2} />
-        <Fld label="Lateralidade dominante" k="lateralidade" placeholder="Destro / Canhoto / Ambidestro" />
+        <AnamFld d={d} set={set} label="Histórico familiar de demência / Alzheimer?" k="historia_familiar_demencia" />
+        <AnamFld d={d} set={set} label="Histórico familiar de doenças neurológicas" k="historia_familiar_neurologica" />
+        <AnamFld d={d} set={set} label="Como envelheceram os pais?" k="como_envelheceram_pais_adulto" rows={2} />
+        <AnamFld d={d} set={set} label="Estado civil" k="estado_civil" placeholder="Casado, divorciado, viúvo..." />
+        <AnamFld d={d} set={set} label="Profissão / ocupação atual" k="profissao" />
+        <AnamFld d={d} set={set} label="Escolaridade detalhada (escola pública/particular, repetências)" k="escolaridade_detalhada" rows={2} />
+        <AnamFld d={d} set={set} label="Lateralidade dominante" k="lateralidade" placeholder="Destro / Canhoto / Ambidestro" />
       </div>}
     </div>
   )
