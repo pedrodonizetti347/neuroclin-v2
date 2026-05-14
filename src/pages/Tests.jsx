@@ -255,8 +255,9 @@ function RAVLTForm({ data, onChange }) {
     const proactive_interference     = (a('b1_score')!=null&&a1!=null&&a1>0) ? Math.round((a('b1_score')/a1)*100)/100 : null
     const retroactive_interference   = (a6!=null&&a5!=null&&a5>0) ? Math.round((a6/a5)*100)/100 : null
     const recognition_score          = (hits!=null&&fp!=null) ? hits-fp : null
+    const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : (n.classification || '')
 
-    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_score })
+    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_score, classification })
   }
 
   const gn = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
@@ -1579,6 +1580,7 @@ function BADLForm({ data, onChange }) {
       ...next,
       items_answered: answered.length,
       total_score:    meanVal != null ? parseFloat(meanVal.toFixed(2)) : null,
+      classification: meanVal != null ? (classify.badl(meanVal)?.label || '') : (next.classification || ''),
     })
   }
 
@@ -1878,6 +1880,9 @@ function WASIForm({ data, onChange, version }) {
       n.similarities_score = n.similarities_items.reduce((s, v) => s + (Number(v) || 0), 0)
     if (!isIII && Array.isArray(n.matrix_items))
       n.matrix_score = n.matrix_items.reduce((s, v) => s + (Number(v) || 0), 0)
+    if (n.qit_2 != null && n.qit_2 !== '') n.classification      = classify.wasi(n.qit_2)?.label || ''
+    if (n.qiv   != null && n.qiv   !== '') n.qiv_classification  = classify.wasi(n.qiv)?.label   || ''
+    if (n.qie   != null && n.qie   !== '') n.qie_classification  = classify.wasi(n.qie)?.label   || ''
     onChange(n)
   }
 
@@ -2128,6 +2133,8 @@ function WCSTForm({ data, onChange }) {
     const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
     const pe = num('perseverative_errors'), te = num('total_errors')
     if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    const catComp = num('categories_completed')
+    if (catComp != null) n.classification = classify.wcst_cat(catComp)?.label || ''
     onChange(n)
   }
 
@@ -2283,6 +2290,8 @@ function WCSTFullForm({ data, onChange }) {
     const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
     const pe = num('perseverative_errors'), te = num('total_errors')
     if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    const catComp = num('categories_completed')
+    if (catComp != null) n.classification = classify.wcst_cat(catComp)?.label || ''
     onChange(n)
   }
 
@@ -2608,7 +2617,7 @@ function BAMSForm({ data, onChange }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div>
               <NumField label="Percentil" value={d.percentile}
-                onChange={v => { const c = classify.bams_pct(v); update({ percentile: v, interpretation: c ? c.interpretation : (d.interpretation || '') }) }}
+                onChange={v => { const c = classify.bams_pct(v); update({ percentile: v, interpretation: c ? c.interpretation : (d.interpretation || ''), classification: c ? c.label : (d.classification || '') }) }}
                 min={1} max={99} hint="1-99" />
               {cp && <div style={{ marginTop:4 }}><Badge {...cp} /></div>}
             </div>
@@ -2735,6 +2744,9 @@ function DEXForm({ data, onChange }) {
       family_total:  famTotal,
       patient_mean:  patAns > 0 ? parseFloat((patTotal / patAns).toFixed(2)) : null,
       family_mean:   famAns > 0 ? parseFloat((famTotal / famAns).toFixed(2)) : null,
+      patient_classification: patAns > 0 ? (classify.dex(patTotal)?.label || '') : (next.patient_classification || ''),
+      family_classification:  famAns > 0 ? (classify.dex(famTotal)?.label || '') : (next.family_classification  || ''),
+      classification: patAns > 0 ? (classify.dex(patTotal)?.label || '') : (next.classification || ''),
     })
   }
 
@@ -3253,6 +3265,8 @@ function TOKENForm({ data, onChange }) {
     })
     n.total_score = totalScore
     n.errors = TOKEN_MAX - totalScore
+    const hasAnyItems = TOKEN_PARTS.some(p => (n[`${p.key}_items`] || []).some(v => v != null && Number(v) !== 0))
+    n.classification = hasAnyItems ? (classify.token(totalScore)?.label || '') : (n.classification || '')
     onChange(n)
   }
 
@@ -4018,7 +4032,11 @@ export default function Tests() {
   const patient    = patients.find(p => p.id === patientId)
 
   const handleChange = (key, data) => {
-    session.updateTest(key, data)
+    const hasClassification = !!(data.classification && data.classification.trim())
+    const autoData = hasClassification && (!data.status || data.status === 'em_andamento')
+      ? { ...data, status: 'concluido' }
+      : data
+    session.updateTest(key, autoData)
     setJustSaved(prev => ({ ...prev, [key]: true }))
     setTimeout(() => setJustSaved(prev => ({ ...prev, [key]: false })), 2000)
   }
