@@ -565,7 +565,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [new TableRow({ children: [
       makeSigCell(sig1Data, 140, 96, professional, user?.crp || 'CRP: ___________', 'Neuropsicólogo(a)', `Téc. Prof. CNES 707604276735994 | Supervisor`),
-      makeSigCell(sig2Data, 130, 74, 'NEUROAVALIAÇÃO ME', 'CRPJ 06/6481 / CNES 49795', 'CNPJ 29.313.355/0001-12', ''),
+      // sig-002.png: 586x332 → exibir 148x84 mantendo proporção
+      makeSigCell(sig2Data, 148, 84, 'NEUROAVALIAÇÃO ME', 'CRPJ 06/6481 / CNES 49795', 'CNPJ 29.313.355/0001-12', ''),
     ]})]
   }))
 
@@ -607,8 +608,11 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   })
 
   // ── MONTAR DOCUMENTO ──────────────────────────────────────────────────────
+  // Logo: usa proporção real da imagem; para cabeçalho horizontal ideal fornecer logo_header.png landscape
+  // Atual: 1414x2000 (retrato) → exibe 48x68 mantendo proporção
+  const logoW = 48, logoH = 68
   const headerChildren = logoData
-    ? [new Paragraph({ children: [new ImageRun({ data: logoData, transformation: { width: 483, height: 60 }, type: 'png' })], spacing: { after: 80 } })]
+    ? [new Paragraph({ children: [new ImageRun({ data: logoData, transformation: { width: logoW, height: logoH }, type: 'png' })], spacing: { after: 80 } })]
     : [new Paragraph({ children: [new TextRun({ text: 'NEUROAVALIAÇÃO — Neuropsicologia na Prática', bold: true, font: 'Arial', size: 24, color: C.dark })], alignment: AlignmentType.LEFT })]
 
   const doc = new Document({
