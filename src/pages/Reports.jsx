@@ -4,6 +4,7 @@ import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
+import { exportToDocx } from '@/utils/generateDocx'
 
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
@@ -925,6 +926,7 @@ export default function Reports() {
   const [editMode,       setEditMode]       = useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
+  const [docxExporting,  setDocxExporting]  = useState(false)
   const reportRef = useRef(null)
 
   const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
@@ -1133,9 +1135,9 @@ Escalas Funcionais e AVD:
         ? patient.full_name.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + '.').join('')
         : 'N.P.'
 
-      const prompt = `Você é um neuropsicólogo clínico especialista em laudos neuropsicológicos. As tabelas de identificação do paciente e de resultados dos testes já foram incluídas no laudo pelo sistema — NÃO as repita.
+      const prompt = `Você é um neuropsicólogo clínico especialista em laudos neuropsicológicos da Clínica Neuroavaliação. As tabelas de identificação do paciente e de resultados dos testes já foram incluídas no laudo pelo sistema — NÃO as repita nem mencione valores brutos.
 
-Sua tarefa é elaborar as seções interpretativas do laudo neuropsicológico em português brasileiro técnico e empático, formatadas em HTML.
+Sua tarefa é elaborar as seções interpretativas em português brasileiro técnico, empático e clínico, formatadas em HTML.
 
 DADOS DO CASO:
 Paciente (iniciais): ${initials} | ${age != null ? age + ' anos' : 'N/D'} | ${patient?.sex || 'N/D'}
@@ -1146,65 +1148,70 @@ Aplicado por: ${professional} | Supervisão: ${SUPERVISOR.name} — ${SUPERVISOR
 ANAMNESE CLÍNICA:
 ${anamSummary}
 
-RESULTADOS DOS TESTES (interprete — NÃO repita valores brutos):
+RESULTADOS DOS TESTES (use para interpretar — NÃO repita valores):
 ${resultsSummary}
 
-Gere EXATAMENTE estas seções em HTML:
+=== GERE EXATAMENTE ESTAS 5 SEÇÕES EM HTML ===
 
 <div style="margin-bottom:20px;">
 <div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO</div>
-[Contextualização clínica: apresente o quadro geral do(a) paciente ${initials} integrando as queixas relatadas, o histórico clínico, o desenvolvimento dos sintomas e o perfil biográfico relevante. 2 parágrafos. NÃO repita dados da tabela — interprete-os clinicamente.]
+[Contextualização clínica integrando queixas relatadas, histórico clínico, desenvolvimento dos sintomas e perfil biográfico relevante de ${initials}. 2 parágrafos justificados. NÃO repita dados da tabela — interprete-os clinicamente.]
 </div>
 
 <div style="margin-bottom:20px;">
 <div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">OBSERVAÇÕES COMPORTAMENTAIS</div>
-[Descreva o comportamento do(a) paciente durante a avaliação: nível de alerta, atenção sustentada, cooperação, velocidade de resposta, contato, adaptação às tarefas, sinais de ansiedade, fadiga, etc. Integre com as observações da anamnese. 1 a 2 parágrafos.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE NEUROPSICOLÓGICA — DOMÍNIOS COGNITIVOS</div>
-[Análise técnica e detalhada de cada domínio cognitivo avaliado, organizada com subtítulos em negrito para cada domínio (ex: <span style="font-weight:bold;color:${H};">Atenção e Processamento:</span>). Para cada domínio: mencione o instrumento, o resultado (preservado/limítrofe/comprometido), a magnitude do achado e sua relevância clínica para o caso. Relacione com as queixas e o histórico. Domínios a cobrir (apenas os testados): Orientação Temporal e Espacial, Atenção e Processamento, Percepção Visual, Memória (episódica/imediata, evocação tardia, reconhecimento, de trabalho, semântica, prospectiva), Linguagem Oral e Escrita, Praxias, Funções Executivas e Controle Inibitório, Funcionamento Intelectual. Use ${initials}.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">AVALIAÇÃO DO HUMOR E ASPECTOS EMOCIONAIS</div>
-[Analise os resultados das escalas de rastreio de humor (GDS-15, BDI-II, HAD) e ansiedade (GAI, IDATE). Se nenhuma escala de humor foi aplicada, comente sobre as observações clínicas disponíveis e sua relevância para o perfil cognitivo. Discuta a interação entre humor, cognição e qualidade de vida de ${initials}.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">FUNCIONAMENTO ADAPTATIVO E QUALIDADE DE VIDA</div>
-[Analise as escalas funcionais aplicadas (IQCODE, B-ADL, Pfeffer, Lawton, BADL) e/ou os relatos de funcionalidade na anamnese. Descreva o impacto do perfil cognitivo encontrado nas AVDs, na autonomia, no trabalho e na qualidade de vida de ${initials}. Se não há escalas funcionais, baseie-se no relato da anamnese.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">SÍNTESE DIAGNÓSTICA</div>
-[Integração de todos os achados. Descreva o padrão neuropsicológico identificado (ex: perfil frontosubcortical, padrão hipocampal de CCL amnésico, perfil de TDAH, etc.). Identifique domínios preservados e deficitários. Discuta diagnóstico diferencial segundo DSM-5/CID-11. Considere fatores de risco e proteção. 2 a 3 parágrafos fundamentados.]
+[Comportamento de ${initials} durante a avaliação: nível de alerta, atenção sustentada, cooperação, velocidade de resposta, contato, adaptação às tarefas, sinais de ansiedade/fadiga. 1 a 2 parágrafos.]
 </div>
 
 <div style="margin-bottom:20px;">
 <div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONCLUSÃO</div>
-[OBRIGATÓRIO: inicie com "Enfim, os achados neuropsicológicos desta avaliação e da observação clínica do(a) paciente ${initials} indicam..." e então apresente: o perfil neuropsicológico integrado, a hipótese diagnóstica fundamentada (DSM-5/CID-11), o nível de comprometimento funcional e os fatores de risco e proteção identificados. Use sempre ${initials} — nunca o nome completo.]
+[REGRA ABSOLUTA: redigir em PROSA CONTÍNUA sem JAMAIS nomear os instrumentos/testes aplicados. Organizar por domínios cognitivos na ordem abaixo, usando subtítulos em negrito somente para os domínios efetivamente avaliados:
+
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Orientação Têmporo-Espacial:</span> [resultado e interpretação clínica em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Atenção:</span> [resultado por subtipo — seletiva, sustentada, dividida, alternada — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Memória:</span> [resultado por subtipo — operacional, episódica verbal imediata, evocação tardia, reconhecimento, semântica, prospectiva, retrospectiva — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Funções Executivas:</span> [planejamento, controle inibitório, fluência verbal, resolução de problemas — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Linguagem:</span> [oral e escrita: nomeação, fluência, compreensão — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Percepção:</span> [habilidades visuoespaciais — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Praxias:</span> [ideomotora, construtiva, reflexiva — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Aspectos Emocionais:</span> [resultados de escalas de humor/ansiedade e sua interação com cognição — em prosa]</p>
+]
 </div>
 
 <div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENCAMINHAMENTOS E RECOMENDAÇÕES</div>
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENFIM</div>
+[OBRIGATÓRIO — PARÁGRAFO ÚNICO em prosa contínua, SEM bullet points, SEM quebra de linha:
+Iniciar com: "De acordo com os achados na avaliação neuropsicológica e da observação clínica feita durante o processo, sugere-se que ${initials} apresenta perfil de "
+Em seguida: diagnóstico principal em <strong><u>MAIÚSCULAS (CID-10 FXXX)</u></strong>, depois comorbidade se houver em <strong><u>MAIÚSCULAS (CID-10 FXXX)</u></strong>, depois justificativa clínica breve em prosa.
+REGRA: códigos CID-10 SOMENTE neste parágrafo, nunca no restante do texto.]
+</div>
+
+<div style="margin-bottom:20px;">
+<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENCAMINHAMENTOS</div>
 <p style="font-size:11pt;margin:8px 0;">Com base nos resultados, sugere-se:</p>
 <ul style="margin:8px 0 12px 24px;font-size:11pt;">
-[liste de 6 a 8 encaminhamentos individualizados e específicos para este caso: avaliações complementares (neurologia, psiquiatria, fonoaudiologia, fisioterapia, etc.), intervenções (reabilitação cognitiva, psicoterapia, estimulação cognitiva, etc.), orientações ao familiar/cuidador, adaptações de rotina, estratégias compensatórias. Encerre sempre com reavaliação neuropsicológica.]
+[Listar 6 a 8 encaminhamentos individualizados para este caso. Incluir OBRIGATORIAMENTE:
+• Retorno ao médico solicitante com este laudo
+• Exercícios cognitivos (mínimo 2x/semana)
+• Treino de memória, função executiva e atenção
+• Psicoterapia (modalidade adequada ao caso)
+• Exercícios físicos regulares
+• <em><strong>Reavaliação neuropsicológica após 1 ano</strong></em> (este item sempre em itálico e negrito)
+Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaudiologia, orientação ao cuidador, etc.)]
 </ul>
 </div>
 
-Regras:
+=== REGRAS DE FORMATAÇÃO ===
 - Parágrafos: <p style="font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;">
 - Listas: <ul style="margin:8px 0 12px 24px;font-size:11pt;"><li style="margin-bottom:4px;">
-- Subtítulos dentro de seções: <p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Subtítulo:</span>
 - NÃO inclua html/body/head/style
+- NÃO mencione nomes de instrumentos/testes na seção CONCLUSÃO
 - NÃO mencione "inteligência artificial" ou "IA"
-- NÃO repita as tabelas de dados já incluídas no documento
-- SEMPRE use iniciais ${initials} ao referenciar o paciente
+- NÃO repita tabelas de dados
+- SEMPRE use iniciais ${initials} ao referenciar o paciente, nunca nome completo
 - Tom: técnico, rigoroso, clínico, individualizado, empático
-- Critérios: DSM-5 / CID-11 / CFP Resolução nº 31/2022
-- Laudo interpretativo mínimo de 1.500 palavras`
+- Critérios diagnósticos: DSM-5 / CID-10 / CFP Resolução nº 31/2022
+- Mínimo de 1.500 palavras no total`
 
       const res = await fetch(`${fnUrl}/anthropicProxy`, {
         method: 'POST',
@@ -1312,6 +1319,32 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       setReportStatus('aguardando_aprovacao')
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  const handleExportDocx = async () => {
+    if (!report) return
+    setDocxExporting(true)
+    try {
+      const patient = patients.find(p => p.id === patientId)
+      const ad = session.session?.anamnesis || {}
+      const td = session.session?.tests     || {}
+      await exportToDocx({
+        patient,
+        selectedTests,
+        ad,
+        td,
+        aiBodyHtml: aiBodyState,
+        approvalInfo,
+        appliedBy,
+        user,
+        dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      })
+    } catch (e) {
+      console.error('[exportDocx]', e)
+      alert('Erro ao gerar .docx: ' + e.message)
+    } finally {
+      setDocxExporting(false)
     }
   }
 
@@ -1502,6 +1535,12 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
               {report && isSupervisor && reportStatus === 'aprovado' && (
                 <button onClick={print} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   <Download size={13} /> IMPRIMIR / PDF
+                </button>
+              )}
+              {/* Exportar Word — disponível quando laudo aprovado */}
+              {report && isSupervisor && reportStatus === 'aprovado' && (
+                <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.1)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
+                  {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> EXPORTAR WORD</>}
                 </button>
               )}
               {report && !isSupervisor && reportStatus !== 'aprovado' && (
