@@ -3734,13 +3734,6 @@ function isTabComplete(tabId, d) {
 function isAnamnesisComplete(d) {
   return Object.keys(TAB_FIELDS).every(tabId => isTabComplete(tabId, d))
 }
-function isTestFilled(testData) {
-  if (!testData) return false
-  const SKIP = new Set(['scan_urls', '_savedAt'])
-  return Object.entries(testData)
-    .filter(([k]) => !SKIP.has(k))
-    .some(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
-}
 
 // ─── Anamnese ─────────────────────────────────────────────────────────────────
 function AnamFld({ d, set, label, k, rows, placeholder }) {
@@ -3761,7 +3754,7 @@ function AnamGrid2({ children }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{children}</div>
 }
 
-function ANAMNESEForm({ data, onChange }) {
+function ANAMNESEForm({ data, onChange, uploadSlot }) {
   const d = data || {}
   const set = (k, v) => onChange({ ...d, [k]: v })
   const [tab, setTab] = React.useState('queixas')
@@ -3932,6 +3925,7 @@ function ANAMNESEForm({ data, onChange }) {
         <AnamFld d={d} set={set} label="Profissão / ocupação atual" k="profissao" />
         <AnamFld d={d} set={set} label="Escolaridade detalhada (escola pública/particular, repetências)" k="escolaridade_detalhada" rows={2} />
         <AnamFld d={d} set={set} label="Lateralidade dominante" k="lateralidade" placeholder="Destro / Canhoto / Ambidestro" />
+        {uploadSlot && <div style={{ marginTop: 16 }}>{uploadSlot}</div>}
       </div>}
     </div>
   )
@@ -4116,37 +4110,26 @@ export default function Tests() {
                   </span>
                 )}
               </div>
-              <activeConf.Form
-                data={activeConf.isAnamnese ? (session.session?.anamnesis || {}) : session.getTest(activeKey)}
-                onChange={(data) => activeConf.isAnamnese
-                  ? session.updateAnamnesis(data)
-                  : handleChange(activeKey, data)
-                }
-              />
-              {(() => {
-                if (!anamnesisComplete) return (
-                  <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
-                    <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
-                    <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha as 7 seções da anamnese para liberar o anexo de fotos e os demais testes</p>
-                  </div>
-                )
-                if (activeConf.isAnamnese) return (
-                  <TestScanUpload
-                    key="anamnese-scan"
-                    patientId={patientId}
-                    testKey="ANAMNESE"
-                    existingUrls={session.session?.anamnesis?.scan_urls || []}
-                    onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
+              {activeConf.isAnamnese ? (
+                <ANAMNESEForm
+                  data={session.session?.anamnesis || {}}
+                  onChange={session.updateAnamnesis}
+                  uploadSlot={
+                    <TestScanUpload
+                      key="anamnese-scan"
+                      patientId={patientId}
+                      testKey="ANAMNESE"
+                      existingUrls={session.session?.anamnesis?.scan_urls || []}
+                      onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
+                    />
+                  }
+                />
+              ) : (
+                <>
+                  <activeConf.Form
+                    data={session.getTest(activeKey)}
+                    onChange={(data) => handleChange(activeKey, data)}
                   />
-                )
-                const testFilled = isTestFilled(session.getTest(activeKey))
-                if (!testFilled) return (
-                  <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
-                    <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
-                    <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha o teste <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos</p>
-                  </div>
-                )
-                return (
                   <TestScanUpload
                     key={activeKey + '-scan'}
                     patientId={patientId}
@@ -4154,8 +4137,8 @@ export default function Tests() {
                     existingUrls={session.getTest(activeKey)?.scan_urls || []}
                     onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
                   />
-                )
-              })()}
+                </>
+              )}
             </>
           ) : null}
         </div>
