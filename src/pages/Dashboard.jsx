@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { Users, FileText, FlaskConical, ArrowRight, Clock, CheckCircle, AlertCircle } from 'lucide-react'
@@ -70,19 +70,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [pSnap, rSnap, sSnap] = await Promise.all([
-          getDocs(collection(db, 'patients')),
-          getDocs(collection(db, 'reports')),
-          getDocs(collection(db, 'sessions')),
-        ])
-        setCounts({ patients: pSnap.size, reports: rSnap.size, tests: sSnap.size })
-        setRecent(pSnap.docs.slice(0, 5).map(d => ({ id: d.id, ...d.data() })))
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
-    }
-    load()
+    let unsubs = []
+    const counts = { patients: 0, reports: 0, tests: 0 }
+
+    const unsubP = onSnapshot(collection(db, 'patients'), snap => {
+      counts.patients = snap.size
+      setCounts(c => ({ ...c, patients: snap.size }))
+      setRecent(snap.docs.slice(0, 5).map(d => ({ id: d.id, ...d.data() })))
+      setLoading(false)
+    }, e => { console.error(e); setLoading(false) })
+
+    const unsubR = onSnapshot(collection(db, 'reports'), snap => {
+      setCounts(c => ({ ...c, reports: snap.size }))
+    }, console.error)
+
+    const unsubS = onSnapshot(collection(db, 'sessions'), snap => {
+      setCounts(c => ({ ...c, tests: snap.size }))
+    }, console.error)
+
+    unsubs = [unsubP, unsubR, unsubS]
+    return () => unsubs.forEach(u => u())
   }, [])
 
   const firstName = user?.full_name?.split(' ')[0] || 'Doutor(a)'
