@@ -657,7 +657,7 @@ function buildWCSTSection(td) {
 }
 
 // ── Documento completo ────────────────────────────────────────────────────────
-function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada }) {
+function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
     ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null
@@ -843,6 +843,20 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     </div>
   </div>
 
+  <!-- APROVAÇÃO DO SUPERVISOR -->
+  ${approvalInfo?.approved ? `
+  <div style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    <div style="font-size:10px;font-weight:800;color:#1A3D2B;letter-spacing:0.12em;margin-bottom:10px;text-transform:uppercase;">✓ Laudo Aprovado pelo Supervisor Técnico</div>
+    <div style="font-size:14px;font-weight:800;color:#1A3D2B;">${approvalInfo.supervisor_name || SUPERVISOR.name}</div>
+    <div style="font-size:11px;color:#555;margin-top:3px;">${SUPERVISOR.crp} — Neuropsicólogo · Supervisor Técnico · Diretor Clínico</div>
+    <div style="font-size:11px;color:#555;margin-top:2px;">Aprovado em: ${approvalInfo.approval_date ? new Date(approvalInfo.approval_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</div>
+    <div style="margin-top:10px;display:inline-block;border:1.5px solid #2E7D32;border-radius:4px;padding:6px 18px;">
+      <div style="font-size:10px;font-weight:800;color:#2E7D32;letter-spacing:0.06em;">NEUROAVALIAÇÃO ME</div>
+      <div style="font-size:9px;color:#666;margin-top:2px;">CRPJ 06/6481 &nbsp;|&nbsp; CNES 49795 &nbsp;|&nbsp; CNPJ 29.313.355/0001-12</div>
+    </div>
+  </div>
+  ` : ''}
+
   <!-- REFERÊNCIAS -->
   <div style="margin-top:32px;padding-top:12px;border-top:1px solid #c8dfc8;">
     ${secHead('REFERÊNCIAS BIBLIOGRÁFICAS')}
@@ -909,6 +923,8 @@ export default function Reports() {
   const [approvalLoading,setApprovalLoading]= useState(false)
   const [approvalErr,    setApprovalErr]    = useState('')
   const [editMode,       setEditMode]       = useState(false)
+  const [aiBodyState,    setAiBodyState]    = useState('')
+  const [reportDate,     setReportDate]     = useState('')
   const reportRef = useRef(null)
 
   const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
@@ -1210,6 +1226,8 @@ Regras:
 
       const data   = await res.json()
       const aiBody = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
+      setAiBodyState(aiBody)
+      setReportDate(dataFormatada)
 
       const fullDoc = buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada })
       setReport(fullDoc)
@@ -1305,14 +1323,28 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       const now = new Date()
       const approval = {
         approved: true,
-        supervisor_name: user?.full_name || 'Supervisor',
+        supervisor_name: user?.full_name || SUPERVISOR.name,
         supervisor_id: user?.id || '',
         approval_date: now.toISOString(),
       }
+
+      // Rebuild document HTML with approval stamp embedded
+      const patient   = patients.find(p => p.id === patientId)
+      const ad        = session.session?.anamnesis || {}
+      const td        = session.session?.tests     || {}
+      const updatedDoc = buildFullDocument({
+        patient, selectedTests, appliedBy, user, ad, td,
+        aiBody: aiBodyState,
+        dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+        approvalInfo: approval,
+      })
+      setReport(updatedDoc)
+
       if (savedReportId) {
         await updateDoc(doc(db, 'reports', savedReportId), {
           status: 'aprovado',
           supervisor_approval: approval,
+          reportHtml: updatedDoc,
           updatedAt: serverTimestamp(),
         })
       }
