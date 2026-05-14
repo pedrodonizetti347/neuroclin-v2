@@ -386,8 +386,14 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     }
   }
 
-  if (scaleRows.length) {
+  const hasMemimp    = selectedTests.includes('MEMIMP') && td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null)
+  const hasDexDomain = selectedTests.includes('DEX')    && td?.DEX   && (td.DEX.patient_q1 != null || td.DEX.family_q1 != null)
+
+  if (scaleRows.length || hasMemimp || hasDexDomain) {
     body.push(secHeader('TABELA DE RESULTADOS – ESCALAS'))
+  }
+
+  if (scaleRows.length) {
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -399,16 +405,138 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
         ]}))
       ]
     }))
+    body.push(spacer(100))
+  }
+
+  // MEMIMP — Memória Prospectiva e Retrospectiva
+  if (hasMemimp) {
+    const mm = td.MEMIMP
+    const memimpClass = (v, max) => {
+      if (v == null) return '—'
+      const pct = v / max
+      if (pct <= 0.25) return 'Normal'
+      if (pct <= 0.50) return 'Leve'
+      return 'Elevado'
+    }
+    const mRows = [
+      ['Memória Prospectiva',   mm.family_prospective,   memimpClass(mm.family_prospective, 32),  mm.patient_prospective,   memimpClass(mm.patient_prospective, 32)],
+      ['Memória Retrospectiva', mm.family_retrospective, memimpClass(mm.family_retrospective, 32), mm.patient_retrospective, memimpClass(mm.patient_retrospective, 32)],
+      ['Total',                 mm.family_total,          memimpClass(mm.family_total, 64),          mm.patient_total,          memimpClass(mm.patient_total, 64)],
+    ]
+    body.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({ children: [new TableCell({ columnSpan: 5, children: [new Paragraph({ children: [new TextRun({ text: 'Memória Prospectiva e Retrospectiva (MEMIMP)', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [hCell('Itens', { pct: 30 }), hCell('Familiar', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true }), hCell('Paciente', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true })] }),
+        ...mRows.map(([lbl, famV, famC, patV, patC], i) => new TableRow({ children: [
+          dCell(lbl, { alt: i % 2 === 1 }),
+          dCell(famV ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+          dCell(famC,        { alt: i % 2 === 1, center: true, bold: true }),
+          dCell(patV ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+          dCell(patC,        { alt: i % 2 === 1, center: true, bold: true }),
+        ]}))
+      ]
+    }))
+    body.push(spacer(100))
+  }
+
+  // DEX — por domínio (Comportamental / Cognitivo / Emoções)
+  if (hasDexDomain) {
+    const dx = td.DEX
+    const DEX_DOMAINS = [
+      { lbl: 'Comportamental', items: [2, 6, 7, 11, 16, 17, 18, 19] },
+      { lbl: 'Cognitivo',      items: [1, 3, 4, 8, 10, 12, 15] },
+      { lbl: 'Emoções',        items: [5, 9, 13, 14, 20] },
+    ]
+    const dexDomainClass = (v, max) => {
+      if (v == null) return '—'
+      const cutNorm = Math.round(max * 0.25)
+      const cutLim  = Math.round(max * 0.4375)
+      if (v <= cutNorm) return 'Normal'
+      if (v <= cutLim)  return 'Limítrofe'
+      return 'Alterado'
+    }
+    const dexColorMap = (c) => c === 'Alterado' ? C.comprometido : c === 'Limítrofe' ? C.comprometido : c === 'Normal' ? C.preservado : C.text
+
+    const domainRows = DEX_DOMAINS.map(({ lbl, items }) => {
+      const max    = items.length * 4
+      const patHas = items.some(n => dx[`patient_q${n}`] != null)
+      const famHas = items.some(n => dx[`family_q${n}`]  != null)
+      const patScore = patHas ? items.reduce((s, n) => s + (Number(dx[`patient_q${n}`]) || 0), 0) : null
+      const famScore = famHas ? items.reduce((s, n) => s + (Number(dx[`family_q${n}`])  || 0), 0) : null
+      return { lbl, patScore, patClass: patHas ? dexDomainClass(patScore, max) : null, famScore, famClass: famHas ? dexDomainClass(famScore, max) : null }
+    })
+    const patTot = dx.patient_total
+    const famTot = dx.family_total
+    const patCls = dx.patient_classification
+    const famCls = dx.family_classification
+
+    body.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({ children: [new TableCell({ columnSpan: 5, children: [new Paragraph({ children: [new TextRun({ text: 'Questionário Disexecutivo (DEX) — por Domínio', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [hCell('Domínio', { pct: 30 }), hCell('Familiar', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true }), hCell('Paciente', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true })] }),
+        ...domainRows.map(({ lbl, famScore, famClass, patScore, patClass }, i) => new TableRow({ children: [
+          dCell(lbl, { alt: i % 2 === 1 }),
+          dCell(famScore ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+          dCell(famClass ?? '—', { alt: i % 2 === 1, center: true, bold: !!famClass, color: famClass ? dexColorMap(famClass) : C.text }),
+          dCell(patScore ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+          dCell(patClass ?? '—', { alt: i % 2 === 1, center: true, bold: !!patClass, color: patClass ? dexColorMap(patClass) : C.text }),
+        ]})),
+        new TableRow({ children: [
+          dCell('Total', { alt: true }),
+          dCell(famTot ?? '—', { alt: true, center: true, bold: true }),
+          dCell(famCls ?? '—', { alt: true, center: true, bold: !!famCls, color: classColor(famCls) }),
+          dCell(patTot ?? '—', { alt: true, center: true, bold: true }),
+          dCell(patCls ?? '—', { alt: true, center: true, bold: !!patCls, color: classColor(patCls) }),
+        ]}),
+      ]
+    }))
     body.push(spacer(160))
   }
 
   // ── TABELA DE RESULTADOS — TESTES ─────────────────────────────────────────
-  const hasNp  = selectedTests.includes('NEUPSILIN') && td?.NEUPSILIN
-  const hasRv  = selectedTests.includes('RAVLT')     && td?.RAVLT
-  const hasBams = selectedTests.includes('BAMS')     && td?.BAMS
+  const hasNp   = selectedTests.includes('NEUPSILIN') && td?.NEUPSILIN
+  const hasRv   = selectedTests.includes('RAVLT')     && td?.RAVLT
+  const hasBams = selectedTests.includes('BAMS')      && td?.BAMS
+  const hasTok  = selectedTests.includes('TOKEN')     && td?.TOKEN
 
-  if (hasNp || hasRv || hasBams) {
+  if (hasNp || hasRv || hasBams || hasTok) {
     body.push(secHeader('TABELA DE RESULTADOS – TESTES'))
+  }
+
+  // TOKEN
+  if (hasTok) {
+    const tok = td.TOKEN
+    const tokParts = [
+      { key: 'part_a', lbl: 'Parte A — Todas as peças' },
+      { key: 'part_b', lbl: 'Parte B — Somente peças grandes' },
+      { key: 'part_c', lbl: 'Parte C — Todas, sem repetir instrução' },
+      { key: 'part_d', lbl: 'Parte D — Grandes, sem repetir instrução' },
+      { key: 'part_e', lbl: 'Parte E — Todas, sem repetir instrução' },
+      { key: 'part_f', lbl: 'Parte F — Todas, sem repetir instrução' },
+    ]
+    const tokRows = tokParts.filter(p => tok[`${p.key}_score`] != null)
+    if (tokRows.length || tok.total_score != null) {
+      body.push(new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Token Test', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [hCell('Parte', { pct: 60 }), hCell('Pontos', { pct: 20, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
+          ...tokRows.map((p, i) => new TableRow({ children: [
+            dCell(p.lbl, { alt: i % 2 === 1 }),
+            dCell(tok[`${p.key}_score`] ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+            dCell('—', { alt: i % 2 === 1, center: true }),
+          ]})),
+          ...(tok.total_score != null ? [new TableRow({ children: [
+            dCell('Total', { alt: true }),
+            dCell(String(tok.total_score), { alt: true, center: true, bold: true }),
+            dCell(tok.classification ?? '—', { alt: true, center: true, bold: !!tok.classification, color: classColor(tok.classification) }),
+          ]})] : []),
+        ]
+      }))
+      body.push(spacer(120))
+    }
   }
 
   // NEUPSILIN
