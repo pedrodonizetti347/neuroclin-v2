@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
+import { useAuth } from '@/lib/AuthContext'
 import { searchPatients } from '@/services/prodoctorApi'
-import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, AlertTriangle, Lock } from 'lucide-react'
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
@@ -186,12 +187,20 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
 
 export default function Patients() {
   const { patients, loading, create, update, remove } = usePatients()
-  const [search,       setSearch]       = useState('')
-  const [dialog,       setDialog]       = useState(false)
-  const [editing,      setEditing]      = useState(null)
-  const [form,         setForm]         = useState(EMPTY)
-  const [saving,       setSaving]       = useState(false)
-  const [pdImported,   setPdImported]   = useState(false)
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
+
+  const [search,        setSearch]        = useState('')
+  const [dialog,        setDialog]        = useState(false)
+  const [editing,       setEditing]       = useState(null)
+  const [form,          setForm]          = useState(EMPTY)
+  const [saving,        setSaving]        = useState(false)
+  const [pdImported,    setPdImported]    = useState(false)
+
+  const [deleteTarget,  setDeleteTarget]  = useState(null)
+  const [deletePassword,setDeletePassword]= useState('')
+  const [deleteError,   setDeleteError]   = useState('')
+  const [deleting,      setDeleting]      = useState(false)
 
   const filtered = patients.filter(p =>
     p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -234,9 +243,27 @@ export default function Patients() {
     }
   }
 
-  const handleDelete = async (p) => {
-    if (!confirm(`Excluir ${p.full_name}? Esta ação não pode ser desfeita.`)) return
-    await remove(p.id)
+  const openDelete = (p) => {
+    setDeleteTarget(p)
+    setDeletePassword('')
+    setDeleteError('')
+  }
+
+  const handleDeleteConfirm = async () => {
+    const correct = import.meta.env.VITE_ADMIN_DELETE_PASSWORD
+    if (deletePassword !== correct) {
+      setDeleteError('Senha incorreta.')
+      return
+    }
+    setDeleting(true)
+    try {
+      await remove(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch (e) {
+      setDeleteError('Erro ao deletar: ' + e.message)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const initials = (name) =>
@@ -339,17 +366,71 @@ export default function Patients() {
                 }}>
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => handleDelete(p)} style={{
-                  padding: '6px 10px', borderRadius: 8, border: '1px solid #FFE0E0',
-                  background: '#FFF5F5', cursor: 'pointer', color: '#E53E3E', display: 'flex', alignItems: 'center'
-                }}>
-                  <Trash2 size={14} />
-                </button>
+                {isAdmin && (
+                  <button onClick={() => openDelete(p)} style={{
+                    padding: '6px 10px', borderRadius: 8, border: '1px solid #FFE0E0',
+                    background: '#FFF5F5', cursor: 'pointer', color: '#E53E3E', display: 'flex', alignItems: 'center'
+                  }}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Modal de confirmação de delete */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Excluir paciente">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FFF5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <AlertTriangle size={18} color="#E53E3E" />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e', marginBottom: 4 }}>
+              Excluir <span style={{ color: '#E53E3E' }}>{deleteTarget?.full_name}</span>?
+            </div>
+            <div style={{ fontSize: 13, color: '#888' }}>
+              Esta ação não pode ser desfeita. Digite a senha de administrador para confirmar.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: '#666', marginBottom: 6 }}>
+            <Lock size={12} /> Senha de administrador
+          </label>
+          <input
+            type="password"
+            value={deletePassword}
+            onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleDeleteConfirm()}
+            placeholder="Digite a senha..."
+            style={{ ...inputStyle, borderColor: deleteError ? '#FC8181' : '#E8ECF0' }}
+            autoFocus
+          />
+          {deleteError && (
+            <div style={{ fontSize: 12, color: '#E53E3E', marginTop: 6 }}>{deleteError}</div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={() => setDeleteTarget(null)} style={{
+            padding: '8px 16px', borderRadius: 8, border: '1px solid #E8ECF0',
+            background: '#fff', color: '#666', fontSize: 13, cursor: 'pointer'
+          }}>
+            Cancelar
+          </button>
+          <button onClick={handleDeleteConfirm} disabled={deleting || !deletePassword} style={{
+            padding: '8px 16px', borderRadius: 8, border: 'none',
+            background: deleting ? '#FC8181' : '#E53E3E', color: '#fff',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6, opacity: !deletePassword ? 0.5 : 1
+          }}>
+            {deleting ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Excluindo...</> : 'Excluir paciente'}
+          </button>
+        </div>
+      </Modal>
 
       {/* Dialog */}
       <Modal open={dialog} onClose={closeDialog} title={editing ? 'Editar paciente' : 'Novo paciente'}>

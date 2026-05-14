@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
@@ -921,8 +921,8 @@ export default function Reports() {
         await new Promise(r => setTimeout(r, 500))
       }
 
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-      if (!apiKey) throw new Error('Chave da API não configurada. Verifique o arquivo .env.local.')
+      const fnUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-neuroclin-f55a5.cloudfunctions.net'
+      const token = await auth.currentUser?.getIdToken()
 
       const ad  = session.session?.anamnesis || {}
       const td  = session.session?.tests     || {}
@@ -1023,13 +1023,11 @@ Regras:
 - SEMPRE use iniciais ${initials} ao referenciar o paciente, nunca o nome completo
 - Tom: técnico, rigoroso, individualizado, empático, seguindo as boas práticas do CFP e critérios DSM-5/CID-10`
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(`${fnUrl}/anthropicProxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           model: 'claude-opus-4-5',
