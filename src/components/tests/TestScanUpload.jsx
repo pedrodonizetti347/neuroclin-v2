@@ -61,13 +61,22 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
   }, [existingUrls])
 
   const uploadFile = async (file) => {
+    const user = auth.currentUser
+    if (!user) throw new Error('Sessão expirada. Recarregue a página e tente novamente.')
     const blob = await compressImage(file)
-    const uid  = auth.currentUser?.uid || 'anon'
-    const path = `test-scans/${patientId}/${testKey}/${uid}_${Date.now()}.jpg`
+    const path = `test-scans/${patientId}/${testKey}/${user.uid}_${Date.now()}.jpg`
     const storageRef = ref(storage, path)
     await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' })
     return getDownloadURL(storageRef)
   }
+
+  const withTimeout = (promise, ms = 45000) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Tempo esgotado. Verifique sua conexão e tente novamente.')), ms)
+      ),
+    ])
 
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files || [])
@@ -77,7 +86,7 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
     try {
       const remaining = maxPhotos - previews.length
       const toProcess = files.slice(0, remaining)
-      const newUrls = await Promise.all(toProcess.map(uploadFile))
+      const newUrls = await Promise.all(toProcess.map(f => withTimeout(uploadFile(f))))
       const updated = [...previews, ...newUrls]
       setPreviews(updated)
       onUrlsChange?.(updated)
