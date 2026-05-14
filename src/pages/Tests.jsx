@@ -3734,6 +3734,13 @@ function isTabComplete(tabId, d) {
 function isAnamnesisComplete(d) {
   return Object.keys(TAB_FIELDS).every(tabId => isTabComplete(tabId, d))
 }
+function isTestFilled(testData) {
+  if (!testData) return false
+  const SKIP = new Set(['scan_urls', '_savedAt'])
+  return Object.entries(testData)
+    .filter(([k]) => !SKIP.has(k))
+    .some(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+}
 
 // ─── Anamnese ─────────────────────────────────────────────────────────────────
 function AnamFld({ d, set, label, k, rows, placeholder }) {
@@ -4116,8 +4123,14 @@ export default function Tests() {
                   : handleChange(activeKey, data)
                 }
               />
-              {anamnesisComplete ? (
-                activeConf.isAnamnese ? (
+              {(() => {
+                if (!anamnesisComplete) return (
+                  <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
+                    <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
+                    <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha as 7 seções da anamnese para liberar o anexo de fotos e os demais testes</p>
+                  </div>
+                )
+                if (activeConf.isAnamnese) return (
                   <TestScanUpload
                     key="anamnese-scan"
                     patientId={patientId}
@@ -4125,7 +4138,15 @@ export default function Tests() {
                     existingUrls={session.session?.anamnesis?.scan_urls || []}
                     onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
                   />
-                ) : (
+                )
+                const testFilled = isTestFilled(session.getTest(activeKey))
+                if (!testFilled) return (
+                  <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
+                    <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
+                    <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha o teste <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos</p>
+                  </div>
+                )
+                return (
                   <TestScanUpload
                     key={activeKey + '-scan'}
                     patientId={patientId}
@@ -4134,12 +4155,7 @@ export default function Tests() {
                     onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
                   />
                 )
-              ) : (
-                <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
-                  <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
-                  <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>Preencha as 7 seções da anamnese para liberar o anexo de fotos e os demais testes</p>
-                </div>
-              )}
+              })()}
             </>
           ) : null}
         </div>
