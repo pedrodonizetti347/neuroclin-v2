@@ -194,6 +194,15 @@ const classify = {
     if (v >= 24) return { label: 'NORMAL', type: 'preserved' }
     return { label: 'SUGESTIVO DE COMPROMETIMENTO', type: 'impaired' }
   },
+  bams_pct: (n) => {
+    if (n === '' || n == null) return null
+    const v = Number(n)
+    if (v >= 25) return { label: 'PRESERVADO',             type: 'preserved',  interpretation: 'Normal' }
+    if (v >= 10) return { label: 'LIMÍTROFE',              type: 'borderline', interpretation: 'Limítrofe' }
+    if (v >= 5)  return { label: 'COMPROMETIMENTO LEVE',   type: 'impaired',   interpretation: 'Comprometimento leve' }
+    if (v >= 2)  return { label: 'COMPROMETIMENTO MODERADO', type: 'impaired', interpretation: 'Comprometimento moderado' }
+    return       { label: 'COMPROMETIMENTO GRAVE',         type: 'impaired',   interpretation: 'Comprometimento grave' }
+  },
 }
 
 // ─── ScoreButtons — seletor min–max por item ─────────────────────────────────
@@ -2489,11 +2498,7 @@ function BAMSForm({ data, onChange }) {
   const lexTot=ndTot+niTot, catTot=fvTot+ciTot+cvTot, concTot=cgTot+dpTot
   const global=lexTot+catTot+concTot
 
-  const cp = d.percentile != null && d.percentile !== ''
-    ? (Number(d.percentile)>=25?{label:'PRESERVADO',type:'preserved'}
-       :Number(d.percentile)>=10?{label:'LIMÍTROFE',type:'borderline'}
-       :{label:'COMPROMETIDO',type:'impaired'})
-    : null
+  const cp = classify.bams_pct(d.percentile)
 
   const ts = (a) => ({ padding:'4px 9px', borderRadius:5, border:'none', cursor:'pointer', fontSize:11,
     fontWeight:a?700:400, background:a?S.green:'rgba(255,255,255,0.06)', color:a?'#fff':S.muted })
@@ -2602,7 +2607,9 @@ function BAMSForm({ data, onChange }) {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div>
-              <NumField label="Percentil" value={d.percentile} onChange={v=>update({percentile:v})} min={1} max={99} hint="1-99" />
+              <NumField label="Percentil" value={d.percentile}
+                onChange={v => { const c = classify.bams_pct(v); update({ percentile: v, interpretation: c ? c.interpretation : (d.interpretation || '') }) }}
+                min={1} max={99} hint="1-99" />
               {cp && <div style={{ marginTop:4 }}><Badge {...cp} /></div>}
             </div>
             <div>
