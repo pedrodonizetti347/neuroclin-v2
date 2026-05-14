@@ -82,9 +82,11 @@ export async function searchPatients(termo) {
   if (!termo || termo.trim().length < 2) return []
 
   const data = await request('/api/v1/Pacientes', 'POST', {
-    nome:       termo.trim(),
-    pagina:     1,
-    quantidade: 20,
+    termo:        termo.trim(),
+    campo:        0,
+    pagina:       1,
+    somenteAtivos: true,
+    quantidade:   20,
   })
 
   const list = data?.payload?.pacientes ?? data?.pacientes ?? data ?? []
