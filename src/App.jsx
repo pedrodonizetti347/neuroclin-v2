@@ -8,6 +8,7 @@ import Patients from '@/pages/Patients'
 import Reports from '@/pages/Reports'
 import Tests from '@/pages/Tests'
 import MedicalRecords from '@/pages/MedicalRecords'
+import Agenda from '@/pages/Agenda'
 import Analytics from '@/pages/Analytics'
 import AdminSetup from '@/pages/AdminSetup'
 import Admin from '@/pages/Admin'
@@ -27,6 +28,7 @@ function AppRoutes() {
         <Route path="/laudos"        element={<Reports />} />
         <Route path="/testes"     element={<Tests />} />
         <Route path="/prontuario" element={<MedicalRecords />} />
+        <Route path="/agenda"     element={<Agenda />} />
         <Route path="/relatorios"    element={<Analytics />} />
         <Route path="/configuracoes" element={<Settings />} />
         <Route path="/admin-setup"   element={<AdminSetup />} />
