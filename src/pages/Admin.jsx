@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary } from 'firebase/auth'
-import { collection, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
   UserPlus, Users, Shield, RefreshCw, CheckCircle2,
-  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings,
+  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings, Trash2,
 } from 'lucide-react'
 
 const S = {
@@ -408,6 +408,41 @@ export default function Admin() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
 
+  const [cleaning,    setCleaning]    = useState(false)
+  const [cleanResult, setCleanResult] = useState(null)
+
+  const cleanOrphanReports = async () => {
+    setCleaning(true)
+    setCleanResult(null)
+    try {
+      const [pSnap, rSnap] = await Promise.all([
+        getDocs(collection(db, 'patients')),
+        getDocs(collection(db, 'reports')),
+      ])
+      const patientIds = new Set(pSnap.docs.map(d => d.id))
+      const orphans = rSnap.docs.filter(d => !patientIds.has(d.data().patientId))
+
+      if (orphans.length === 0) {
+        setCleanResult({ deleted: 0 })
+        return
+      }
+
+      // writeBatch suporta até 500 operações
+      const chunks = []
+      for (let i = 0; i < orphans.length; i += 499) chunks.push(orphans.slice(i, i + 499))
+      for (const chunk of chunks) {
+        const batch = writeBatch(db)
+        chunk.forEach(d => batch.delete(d.ref))
+        await batch.commit()
+      }
+      setCleanResult({ deleted: orphans.length })
+    } catch (e) {
+      setCleanResult({ error: e.message })
+    } finally {
+      setCleaning(false)
+    }
+  }
+
   const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
@@ -580,6 +615,51 @@ export default function Admin() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Manutenção */}
+      <div style={{ marginTop: 24, background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Trash2 size={15} color="#EF4444" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Manutenção de dados</span>
+        </div>
+        <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 13, color: '#fff', fontWeight: 600, marginBottom: 4 }}>Limpar laudos sem paciente</div>
+            <div style={{ fontSize: 11, color: S.muted, lineHeight: 1.6 }}>
+              Remove laudos cujo paciente foi deletado do sistema.<br />
+              Esta ação não pode ser desfeita.
+            </div>
+            {cleanResult && (
+              <div style={{
+                marginTop: 10, fontSize: 12, fontWeight: 600,
+                color: cleanResult.error ? '#EF4444' : S.greenL,
+              }}>
+                {cleanResult.error
+                  ? `Erro: ${cleanResult.error}`
+                  : cleanResult.deleted === 0
+                    ? 'Nenhum laudo órfão encontrado.'
+                    : `${cleanResult.deleted} laudo${cleanResult.deleted !== 1 ? 's' : ''} deletado${cleanResult.deleted !== 1 ? 's' : ''} com sucesso.`
+                }
+              </div>
+            )}
+          </div>
+          <button
+            onClick={cleanOrphanReports}
+            disabled={cleaning}
+            style={{
+              padding: '10px 20px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.4)',
+              background: cleaning ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.15)',
+              color: '#EF4444', fontSize: 13, fontWeight: 700, cursor: cleaning ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+            }}
+          >
+            {cleaning
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Limpando...</>
+              : <><Trash2 size={14} /> Limpar laudos</>
+            }
+          </button>
+        </div>
       </div>
 
       {/* Nota */}

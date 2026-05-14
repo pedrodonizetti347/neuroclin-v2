@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   collection, addDoc, updateDoc, deleteDoc,
-  doc, getDocs, query, orderBy, where, serverTimestamp
+  doc, getDocs, query, orderBy, where, serverTimestamp, writeBatch
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
@@ -61,7 +61,22 @@ export function usePatients() {
   }
 
   const remove = async (id) => {
-    await deleteDoc(doc(db, 'patients', id))
+    const batch = writeBatch(db)
+
+    // Deleta laudos do paciente
+    const reportsSnap = await getDocs(query(collection(db, 'reports'), where('patientId', '==', id)))
+    reportsSnap.docs.forEach(d => batch.delete(d.ref))
+
+    // Deleta sessões/testes do paciente (IDs começam com patientId_)
+    const sessionsSnap = await getDocs(collection(db, 'sessions'))
+    sessionsSnap.docs
+      .filter(d => d.id.startsWith(id + '_'))
+      .forEach(d => batch.delete(d.ref))
+
+    // Deleta o paciente
+    batch.delete(doc(db, 'patients', id))
+
+    await batch.commit()
     setPatients(prev => prev.filter(p => p.id !== id))
   }
 
