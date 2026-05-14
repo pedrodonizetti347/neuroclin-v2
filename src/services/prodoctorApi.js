@@ -115,58 +115,6 @@ export async function listProfessionals() {
 }
 
 /**
- * Busca agenda por intervalo de datas.
- * POST /api/v1/Agenda → response.payload.agendamentos[]
- */
-export async function getAgenda({ dataInicial, dataFinal, profissionalCodigo = null, pagina = 1, quantidade = 50 } = {}) {
-  const hoje = new Date().toISOString().substring(0, 10)
-  const body = {
-    dataInicial:        dataInicial || hoje,
-    dataFinal:          dataFinal   || hoje,
-    pagina,
-    quantidade,
-    somenteAtivos:      true,
-    ...(profissionalCodigo ? { profissionalCodigo } : {}),
-  }
-
-  const data = await request('/api/v1/Agenda', 'POST', body)
-
-  const list =
-    data?.payload?.agendamentos ??
-    data?.payload?.consultas     ??
-    data?.payload?.itens         ??
-    data?.agendamentos           ??
-    data?.consultas              ??
-    (Array.isArray(data?.payload) ? data.payload : null) ??
-    []
-
-  return {
-    items: Array.isArray(list) ? list.map(normalizeAppointment) : [],
-    total: data?.payload?.totalRegistros ?? data?.payload?.total ?? list.length,
-    _raw: data,
-  }
-}
-
-function normalizeAppointment(raw) {
-  const dataHora = raw.dataHora ?? raw.data ?? ''
-  const hora     = raw.hora ?? (dataHora.includes('T') ? dataHora.split('T')[1]?.substring(0, 5) : '')
-  const data     = dataHora.includes('T') ? dataHora.split('T')[0] : (dataHora.substring(0, 10) || dataHora)
-
-  return {
-    codigo:       String(raw.codigo ?? raw.id ?? ''),
-    data,
-    hora,
-    paciente:     raw.paciente?.nomeCivil ?? raw.paciente?.nome ?? raw.nomePaciente ?? '',
-    paciente_id:  String(raw.paciente?.codigo ?? raw.pacienteCodigo ?? ''),
-    profissional: raw.profissional?.nome ?? raw.nomeProfissional ?? '',
-    tipo:         raw.tipoConsulta?.nome ?? raw.procedimento?.nome ?? raw.tipo ?? '',
-    status:       raw.status?.nome ?? raw.situacao?.nome ?? raw.situacao ?? raw.status ?? '',
-    obs:          raw.observacao ?? raw.obs ?? '',
-    _raw:         raw,
-  }
-}
-
-/**
  * Detalha um usuário/profissional pelo código ProDoctor.
  * GET /api/v1/Usuarios/Detalhar/{codigo}
  */

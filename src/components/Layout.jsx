@@ -3,13 +3,12 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import {
   Brain, LayoutDashboard, Users, FileText,
-  FlaskConical, BookOpen, BarChart3, CalendarDays,
+  FlaskConical, BookOpen, BarChart3,
   LogOut, Menu, ChevronRight, Settings, ShieldCheck
 } from 'lucide-react'
 
 const NAV = [
   { label: 'Dashboard',       icon: LayoutDashboard, path: '/' },
-  { label: 'Agenda',          icon: CalendarDays,    path: '/agenda' },
   { label: 'Pacientes',       icon: Users,            path: '/pacientes' },
   { label: 'Laudos',          icon: FileText,         path: '/laudos' },
   { label: 'Testes',          icon: FlaskConical,     path: '/testes' },
