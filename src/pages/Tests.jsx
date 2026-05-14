@@ -3943,7 +3943,7 @@ const TEST_CONFIG = [
 export default function Tests() {
   const [patients,  setPatients]  = useState([])
   const [patientId, setPatientId] = useState('')
-  const [activeKey, setActiveKey] = useState('RAVLT')
+  const [activeKey, setActiveKey] = useState('ANAMNESE')
   const [justSaved, setJustSaved] = useState({})
 
   const session = useTestSession(patientId)
