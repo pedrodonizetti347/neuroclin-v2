@@ -4,25 +4,39 @@ import { storage, auth } from '@/lib/firebase'
 import { Camera, CheckCircle2, Loader2, X, ZoomIn, Plus } from 'lucide-react'
 
 function compressImage(file) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const MAX_PX = 1600
     const img = new Image()
     const url = URL.createObjectURL(file)
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      let { width, height } = img
-      if (width > MAX_PX || height > MAX_PX) {
-        if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
-        else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
-      }
-      canvas.width = width
-      canvas.height = height
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-      canvas.toBlob((blob) => {
-        URL.revokeObjectURL(url)
-        resolve(blob)
-      }, 'image/jpeg', 0.80)
+
+    const cleanup = () => URL.revokeObjectURL(url)
+
+    img.onerror = () => {
+      cleanup()
+      reject(new Error('Não foi possível carregar a imagem. Verifique o formato do arquivo.'))
     }
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        if (width > MAX_PX || height > MAX_PX) {
+          if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
+          else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
+        }
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          cleanup()
+          resolve(blob || file)
+        }, 'image/jpeg', 0.80)
+      } catch (e) {
+        cleanup()
+        reject(e)
+      }
+    }
+
     img.src = url
   })
 }
@@ -41,7 +55,7 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
   const inputRef = useRef()
 
   useEffect(() => {
-    if (existingUrls.length > 0 && previews.length === 0) {
+    if (!uploading && existingUrls.length > 0) {
       setPreviews(existingUrls)
     }
   }, [existingUrls])

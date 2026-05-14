@@ -4061,6 +4061,7 @@ export default function Tests() {
               />
               {activeConf.isAnamnese ? (
                 <TestScanUpload
+                  key="anamnese-scan"
                   patientId={patientId}
                   testKey="ANAMNESE"
                   existingUrls={session.session?.anamnesis?.scan_urls || []}
@@ -4068,6 +4069,7 @@ export default function Tests() {
                 />
               ) : (
                 <TestScanUpload
+                  key={activeKey + '-scan'}
                   patientId={patientId}
                   testKey={activeKey}
                   existingUrls={session.getTest(activeKey)?.scan_urls || []}
