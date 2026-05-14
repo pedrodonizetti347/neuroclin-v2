@@ -276,10 +276,14 @@ function RAVLTForm({ data, onChange }) {
   return (
     <div>
       {/* Metadados */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'rgba(46,125,50,0.08)', borderRadius: 8, border: '1px solid rgba(46,125,50,0.2)' }}>
         <div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Aplicação</div>
           <input type="date" value={d.application_date||''} onChange={e => update({ application_date: e.target.value })} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de Nascimento</div>
+          <input type="date" value={d.birth_date||''} onChange={e => update({ birth_date: e.target.value })} style={inputStyle} />
         </div>
         <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
         <div>
@@ -297,6 +301,10 @@ function RAVLTForm({ data, onChange }) {
         <div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Local de Nascimento</div>
           <input value={d.birth_place||''} onChange={e => update({ birth_place: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>CPF</div>
+          <input value={d.cpf||''} onChange={e => update({ cpf: e.target.value })} style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="000.000.000-00" />
         </div>
         <div>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Status</div>
@@ -317,15 +325,35 @@ function RAVLTForm({ data, onChange }) {
 
       {tab === 'tentativas' && (
         <div>
-          {/* Curva A1-A5 */}
+          {/* Lista A1-A5 */}
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lista A — Aprendizagem</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginBottom: 4 }}>
               {[1,2,3,4,5].map(i => (
-                <div key={i}>
-                  <NumField label={`A${i}`} value={d[`a${i}_score`]} onChange={v => update({ [`a${i}_score`]: v })} min={0} max={15} hint="0-15" />
-                </div>
+                <NumField key={i} label={`A${i} — Acertos`} value={d[`a${i}_score`]} onChange={v => update({ [`a${i}_score`]: v })} min={0} max={15} hint="0-15" />
               ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginBottom: 6 }}>
+              {[1,2,3,4,5].map(i => (
+                <NumField key={i} label={`A${i} — Intrusões`} value={d[`a${i}_intrusions`]} onChange={v => update({ [`a${i}_intrusions`]: v })} min={0} max={30} />
+              ))}
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 4, fontStyle: 'italic' }}>Palavras recordadas — opcional (separar por vírgula)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 }}>
+                {[1,2,3,4,5].map(i => (
+                  <div key={i}>
+                    <div style={{ fontSize: 10, color: S.muted, marginBottom: 2 }}>A{i}</div>
+                    <textarea
+                      rows={3}
+                      value={(d[`a${i}_words`] || []).join(', ')}
+                      onChange={e => update({ [`a${i}_words`]: e.target.value.split(',').map(w => w.trim()).filter(Boolean) })}
+                      style={{ ...inputStyle, textAlign: 'left', padding: '4px 6px', resize: 'vertical', fontSize: 11, lineHeight: 1.4, width: '100%', boxSizing: 'border-box' }}
+                      placeholder="p1, p2..."
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
             {a1s != null && a5s != null && (
               <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>
@@ -337,8 +365,19 @@ function RAVLTForm({ data, onChange }) {
           {/* B1 */}
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lista B — Interferência</div>
-            <div style={{ maxWidth: 120 }}>
-              <NumField label="B1" value={d.b1_score} onChange={v => update({ b1_score: v })} min={0} max={15} hint="0-15" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxWidth: 260 }}>
+              <NumField label="B1 — Acertos" value={d.b1_score} onChange={v => update({ b1_score: v })} min={0} max={15} hint="0-15" />
+              <NumField label="B1 — Intrusões" value={d.b1_intrusions} onChange={v => update({ b1_intrusions: v })} min={0} max={30} />
+            </div>
+            <div style={{ marginTop: 6, maxWidth: 260 }}>
+              <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, fontStyle: 'italic' }}>Palavras B1</div>
+              <textarea
+                rows={2}
+                value={(d.b1_words || []).join(', ')}
+                onChange={e => update({ b1_words: e.target.value.split(',').map(w => w.trim()).filter(Boolean) })}
+                style={{ ...inputStyle, textAlign: 'left', padding: '4px 6px', resize: 'vertical', fontSize: 11, lineHeight: 1.4, width: '100%', boxSizing: 'border-box' }}
+                placeholder="p1, p2..."
+              />
             </div>
           </div>
           {/* A6 + A7 */}
@@ -346,11 +385,29 @@ function RAVLTForm({ data, onChange }) {
             <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Evocação Pós-Interferência</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <NumField label="A6 — Imediata após B1" value={d.a6_score} onChange={v => update({ a6_score: v })} min={0} max={15} hint="0-15" />
+                <NumField label="A6 — Acertos (imediata)" value={d.a6_score} onChange={v => update({ a6_score: v })} min={0} max={15} hint="0-15" />
+                <NumField label="A6 — Intrusões" value={d.a6_intrusions} onChange={v => update({ a6_intrusions: v })} min={0} max={30} />
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, marginTop: 4, fontStyle: 'italic' }}>Palavras A6</div>
+                <textarea
+                  rows={2}
+                  value={(d.a6_words || []).join(', ')}
+                  onChange={e => update({ a6_words: e.target.value.split(',').map(w => w.trim()).filter(Boolean) })}
+                  style={{ ...inputStyle, textAlign: 'left', padding: '4px 6px', resize: 'vertical', fontSize: 11, lineHeight: 1.4, width: '100%', boxSizing: 'border-box' }}
+                  placeholder="p1, p2..."
+                />
               </div>
               <div>
-                <NumField label="A7 — Evocação Tardia" value={d.a7_score} onChange={v => update({ a7_score: v })} min={0} max={15} hint="0-15" />
+                <NumField label="A7 — Acertos (evocação tardia)" value={d.a7_score} onChange={v => update({ a7_score: v })} min={0} max={15} hint="0-15" />
                 {a7c && <div style={{ marginTop: 4 }}><Badge {...a7c} /></div>}
+                <NumField label="A7 — Intrusões" value={d.a7_intrusions} onChange={v => update({ a7_intrusions: v })} min={0} max={30} />
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 2, marginTop: 4, fontStyle: 'italic' }}>Palavras A7</div>
+                <textarea
+                  rows={2}
+                  value={(d.a7_words || []).join(', ')}
+                  onChange={e => update({ a7_words: e.target.value.split(',').map(w => w.trim()).filter(Boolean) })}
+                  style={{ ...inputStyle, textAlign: 'left', padding: '4px 6px', resize: 'vertical', fontSize: 11, lineHeight: 1.4, width: '100%', boxSizing: 'border-box' }}
+                  placeholder="p1, p2..."
+                />
               </div>
             </div>
           </div>
