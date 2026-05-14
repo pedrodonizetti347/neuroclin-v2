@@ -181,11 +181,12 @@ function npZtoPct(z) {
 }
 
 // ── Helpers para tabelas do laudo ────────────────────────────────────────────
-const H = '#1A3D2B'  // verde escuro cabeçalho
-const HR = '#e8f5e9' // verde claro linha alternada
+const H  = '#5B83A5'  // azul-acinzentado cabeçalho (novo template Neuroavaliação)
+const HH = '#4472C4'  // azul tabela header
+const HR = '#EEF3F8'  // azul claro linha alternada
 
-const thCell  = (txt, extra='') => `<th style="border:1px solid #a5c6a5;padding:7px 10px;background:${H};color:#fff;text-align:left;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;${extra}">${txt}</th>`
-const tdCell  = (txt, extra='') => `<td style="border:1px solid #c8dfc8;padding:6px 10px;${extra}">${txt ?? '—'}</td>`
+const thCell  = (txt, extra='') => `<th style="border:1px solid #9DB8D9;padding:7px 10px;background:${HH};color:#fff;text-align:left;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;${extra}">${txt}</th>`
+const tdCell  = (txt, extra='') => `<td style="border:1px solid #C5D9EF;padding:6px 10px;${extra}">${txt ?? '—'}</td>`
 const secHead = (title) => `<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${title}</div>`
 const tableWrap = (rows, head='') => `<table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:11pt;">${head}<tbody>${rows}</tbody></table>`
 
