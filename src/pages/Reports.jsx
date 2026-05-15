@@ -1493,27 +1493,20 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       let td = {}
       let aiBody = aiBodyState
 
-      // Carrega dados do documento do laudo salvo (td + aiBodyHtml)
-      if (savedReportId) {
-        try {
-          const repSnap = await getDoc(doc(db, 'reports', savedReportId))
-          if (repSnap.exists()) {
-            const repData = repSnap.data()
-            const t = repData.testsData
-            if (t && Object.keys(t).length > 0) td = t
-            if (!aiBody && repData.aiBodyHtml) aiBody = repData.aiBodyHtml
-          }
-        } catch (_) {}
-      }
-      // Fonte 2: sessão do usuário atual no Firestore
+      // ── Fonte A: sessão do usuário atual (já carregada no React) ──────────
+      td = session.session?.tests || {}
+
+      // ── Fonte B: sessão do usuário atual no Firestore (se React vazio) ───
       if (Object.keys(td).length === 0 && patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
           if (snap.exists()) td = snap.data().tests || {}
         } catch (_) {}
       }
-      // Fonte 3: qualquer sessão deste paciente (outros profissionais / supervisor)
-      if (Object.keys(td).length === 0 && patientId) {
+
+      // ── Fonte C: qualquer sessão do paciente (supervisor / outro prof.) ───
+      // Executada SEMPRE para complementar — não só como fallback
+      if (patientId) {
         try {
           const sessSnap = await getDocs(
             query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
@@ -1522,17 +1515,31 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
             const sorted = sessSnap.docs.sort((a, b) =>
               (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
             )
-            td = sorted[0].data().tests || {}
+            const sessionTests = sorted[0].data().tests || {}
+            // Mescla: campos novos da sessão completam td sem sobrescrever
+            td = { ...sessionTests, ...td }
           }
         } catch (_) {}
       }
-      // Fonte 4: estado React (fallback final)
-      if (Object.keys(td).length === 0) {
-        td = session.session?.tests || {}
+
+      // ── Fonte D: aiBodyHtml do documento do laudo salvo ──────────────────
+      if (savedReportId) {
+        try {
+          const repSnap = await getDoc(doc(db, 'reports', savedReportId))
+          if (repSnap.exists()) {
+            const repData = repSnap.data()
+            if (!aiBody && repData.aiBodyHtml) aiBody = repData.aiBodyHtml
+            // Se td ainda vazio, usa testsData do relatório como último recurso
+            if (Object.keys(td).length === 0 && repData.testsData)
+              td = repData.testsData
+          }
+        } catch (_) {}
       }
-      // Sempre mescla dados do formulário (têm prioridade)
+
+      // ── Fonte E: TestsDataForm (prioridade máxima — entrada manual recente) ─
       if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
-      console.log('[DOCX Export] td keys:', Object.keys(td))
+
+      console.log('[DOCX Export] td instruments:', Object.keys(td))
       await exportToDocx({
         patient,
         selectedTests,

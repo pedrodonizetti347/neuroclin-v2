@@ -3,8 +3,6 @@ import {
   Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { collection, getDocs, query, where, limit } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 
 // ── Paleta de cores do template ───────────────────────────────────────────────
 const C = {
@@ -271,29 +269,10 @@ const REFERENCES = [
   'ASSIS, L. de O. et al. O questionário de atividades funcionais de Pfeffer. Estudos Interdisciplinares sobre o Envelhecimento, v. 20, n. 1, p. 297-324, 2015.',
 ]
 
-// ── Busca dados de testes no Firestore (mesma fonte da conclusão da IA) ───────
-async function fetchPatientTests(patientId) {
-  if (!patientId) return {}
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
-    )
-    if (snap.empty) return {}
-    const sorted = snap.docs.sort((a, b) =>
-      (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
-    )
-    return sorted[0].data().tests || {}
-  } catch {
-    return {}
-  }
-}
-
 // ── FUNÇÃO PRINCIPAL ──────────────────────────────────────────────────────────
 export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = {}, aiBodyHtml = '', approvalInfo = null, appliedBy, user, dataFormatada }) {
-  // Busca dados dos testes diretamente do Firestore — mesma fonte da conclusão da IA
-  // Mescla: Firestore tem prioridade, td passado como parâmetro serve de fallback
-  const sessionTests = await fetchPatientTests(patient?.id)
-  const allTd = { ...td, ...sessionTests }
+  // td já chega completo e carregado pelo Reports.jsx (mesma fonte da conclusão da IA)
+  const allTd = td
   const age = patient?.birth_date
     ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null
