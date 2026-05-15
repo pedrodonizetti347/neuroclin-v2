@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { collection, getDocs, doc, getDoc, setDoc, query, orderBy, where, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, query, where, serverTimestamp, deleteDoc } from 'firebase/firestore'
+import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
-  BookOpen, User, FileText, FlaskConical, Clock, Save,
-  ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus
+  BookOpen, FileText, FlaskConical, Save,
+  ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus,
+  Trash2, X, Eye, EyeOff, AlertTriangle,
 } from 'lucide-react'
 
 const S = {
@@ -68,24 +70,35 @@ function TestCard({ testKey, data }) {
   )
 }
 
-function ReportCard({ report }) {
+function ReportCard({ report, canDelete, onDeleteRequest }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: `1px solid rgba(46,125,50,0.2)`, marginBottom: 6, overflow: 'hidden' }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}>
-        <div style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(46,125,50,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <FileText size={12} color={S.greenL} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Laudo Neuropsicológico</span>
-          {report.selectedTests?.length > 0 && (
-            <span style={{ fontSize: 10, color: S.muted, marginLeft: 8 }}>{report.selectedTests.join(', ')}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+        <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer', minWidth: 0 }}>
+          <div style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(46,125,50,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FileText size={12} color={S.greenL} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Laudo Neuropsicológico</span>
+            {report.selectedTests?.length > 0 && (
+              <span style={{ fontSize: 10, color: S.muted, marginLeft: 8 }}>{report.selectedTests.join(', ')}</span>
+            )}
+          </div>
+          {report.createdAt?.toDate && (
+            <span style={{ fontSize: 10, color: S.muted, flexShrink: 0 }}>{report.createdAt.toDate().toLocaleDateString('pt-BR')}</span>
           )}
+          {open ? <ChevronUp size={14} color={S.muted} /> : <ChevronDown size={14} color={S.muted} />}
         </div>
-        {report.createdAt?.toDate && (
-          <span style={{ fontSize: 10, color: S.muted }}>{report.createdAt.toDate().toLocaleDateString('pt-BR')}</span>
+        {canDelete && (
+          <button
+            onClick={e => { e.stopPropagation(); onDeleteRequest(report) }}
+            title="Excluir laudo"
+            style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+          >
+            <Trash2 size={13} color="#EF4444" />
+          </button>
         )}
-        {open ? <ChevronUp size={14} color={S.muted} /> : <ChevronDown size={14} color={S.muted} />}
       </div>
       {open && (
         <div style={{ padding: '0 14px 14px' }}>
@@ -177,12 +190,44 @@ export default function MedicalRecords() {
   const [searchParams] = useSearchParams()
   const urlId = paramId || searchParams.get('id') || ''
 
-  const [patients, setPatients] = useState([])
+  const [patients,  setPatients]  = useState([])
   const [patientId, setPatientId] = useState(urlId)
-  const [session, setSession] = useState(null)
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState('testes')
+  const [session,   setSession]   = useState(null)
+  const [reports,   setReports]   = useState([])
+  const [loading,   setLoading]   = useState(false)
+  const [tab,       setTab]       = useState('testes')
+
+  // estado para exclusão com confirmação de senha
+  const [deleteTarget,  setDeleteTarget]  = useState(null)
+  const [deletePass,    setDeletePass]    = useState('')
+  const [showDeletePass, setShowDeletePass] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteErr,     setDeleteErr]     = useState('')
+
+  const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
+
+  const handleDeleteReport = async () => {
+    if (!deleteTarget || !deletePass.trim()) return
+    setDeleteLoading(true)
+    setDeleteErr('')
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, deletePass)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+      await deleteDoc(doc(db, 'reports', deleteTarget.id))
+      setReports(prev => prev.filter(r => r.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setDeletePass('')
+    } catch (e) {
+      const msgs = {
+        'auth/wrong-password':    'Senha incorreta.',
+        'auth/invalid-credential':'Senha incorreta.',
+        'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos.',
+      }
+      setDeleteErr(msgs[e.code] || 'Erro ao autenticar. Verifique a senha.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -333,7 +378,14 @@ export default function MedicalRecords() {
                       <div style={{ fontSize: 11, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 12 }}>
                         {reports.length} LAUDO{reports.length !== 1 ? 'S' : ''} GERADO{reports.length !== 1 ? 'S' : ''}
                       </div>
-                      {reports.map(r => <ReportCard key={r.id} report={r} />)}
+                      {reports.map(r => (
+                        <ReportCard
+                          key={r.id}
+                          report={r}
+                          canDelete={isSupervisor}
+                          onDeleteRequest={rep => { setDeleteTarget(rep); setDeletePass(''); setDeleteErr('') }}
+                        />
+                      ))}
                     </div>
                   )
                 )}
@@ -343,6 +395,65 @@ export default function MedicalRecords() {
             )}
           </div>
         </>
+      )}
+
+      {/* Modal de confirmação para excluir laudo */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ background: S.card, borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)', width: '100%', maxWidth: 400, padding: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AlertTriangle size={18} color="#EF4444" />
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Excluir laudo</span>
+              </div>
+              <button onClick={() => setDeleteTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.muted }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 16, lineHeight: 1.6 }}>
+              Esta ação é <strong style={{ color: '#EF4444' }}>permanente</strong> e não pode ser desfeita. Confirme com sua senha de supervisor para excluir o laudo.
+            </p>
+
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              <input
+                type={showDeletePass ? 'text' : 'password'}
+                placeholder="Senha do supervisor"
+                value={deletePass}
+                onChange={e => { setDeletePass(e.target.value); setDeleteErr('') }}
+                onKeyDown={e => e.key === 'Enter' && handleDeleteReport()}
+                style={{ ...inputSt, paddingRight: 40 }}
+                autoFocus
+              />
+              <button
+                onClick={() => setShowDeletePass(v => !v)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: S.muted, padding: 0 }}
+              >
+                {showDeletePass ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+
+            {deleteErr && (
+              <div style={{ fontSize: 11, color: '#EF4444', marginBottom: 12 }}>{deleteErr}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                style={{ padding: '8px 18px', borderRadius: 8, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteReport}
+                disabled={deleteLoading || !deletePass.trim()}
+                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.15)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: deleteLoading || !deletePass.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                {deleteLoading ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Verificando...</> : <><Trash2 size={13} /> Excluir laudo</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
