@@ -9,7 +9,10 @@
       "Bash(firebase deploy *)",
       "Bash(Test-Path *)",
       "Bash(npm install *)",
-      "Bash(firebase functions:log --project neuroclin-f55a5 --only prodoctorProxy)"
+      "Bash(firebase functions:log --project neuroclin-f55a5 --only prodoctorProxy)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Pedro Donizetti\\\\Desktop\\\\NEUROCLIN\\\\home\\\\claude\\\\neuroclin-v2\\\\functions\" -Force | Where-Object { !$_.PSIsContainer } | Select-Object Name, Length | Format-Table -AutoSize)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
