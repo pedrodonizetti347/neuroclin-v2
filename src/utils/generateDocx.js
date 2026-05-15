@@ -419,10 +419,14 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       if (pct <= 0.50) return 'Leve'
       return 'Elevado'
     }
+    const famProspScore = mm.family_prospective_score  ?? mm.family_prospective
+    const famRetroScore = mm.family_retrospective_score ?? mm.family_retrospective
+    const patProspScore = mm.patient_prospective_score  ?? mm.patient_prospective
+    const patRetroScore = mm.patient_retrospective_score ?? mm.patient_retrospective
     const mRows = [
-      ['Memória Prospectiva',   mm.family_prospective,   memimpClass(mm.family_prospective, 32),  mm.patient_prospective,   memimpClass(mm.patient_prospective, 32)],
-      ['Memória Retrospectiva', mm.family_retrospective, memimpClass(mm.family_retrospective, 32), mm.patient_retrospective, memimpClass(mm.patient_retrospective, 32)],
-      ['Total',                 mm.family_total,          memimpClass(mm.family_total, 64),          mm.patient_total,          memimpClass(mm.patient_total, 64)],
+      ['Memória Prospectiva',   famProspScore, mm.family_prospective_classification   || memimpClass(famProspScore, 32),  patProspScore, mm.patient_prospective_classification   || memimpClass(patProspScore, 32)],
+      ['Memória Retrospectiva', famRetroScore, mm.family_retrospective_classification || memimpClass(famRetroScore, 32), patRetroScore, mm.patient_retrospective_classification || memimpClass(patRetroScore, 32)],
+      ['Total',                 mm.family_total, memimpClass(mm.family_total, 64), mm.patient_total, memimpClass(mm.patient_total, 64)],
     ]
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
