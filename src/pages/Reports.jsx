@@ -206,7 +206,7 @@ const fmtDate = (d) => {
 }
 
 // ── Tabela ESCALAS ────────────────────────────────────────────────────────────
-function buildEscalasSection(td, selectedTests) {
+function buildEscalasSection(td) {
   const rows = []
 
   const addRow = (label, score, classif, alt = false) => {
@@ -219,44 +219,44 @@ function buildEscalasSection(td, selectedTests) {
   }
 
   let i = 0
-  if (selectedTests.includes('GDS-15') && td?.['GDS-15']) {
+  if (td?.['GDS-15']?.total_score != null) {
     addRow('Escala de Depressão Geriátrica (GDS-15)', td['GDS-15'].total_score, td['GDS-15'].classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('GAI') && td?.GAI) {
+  if (td?.GAI?.total_score != null) {
     addRow('Inventário de Ansiedade Geriátrica (GAI)', td.GAI.total_score, td.GAI.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('BDI-II') && td?.['BDI-II']) {
+  if (td?.['BDI-II']?.total_score != null) {
     addRow('Inventário de Depressão de Beck II (BDI-II)', td['BDI-II'].total_score, td['BDI-II'].classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('HAD') && td?.HAD) {
+  if (td?.HAD?.anxiety_score != null) {
     addRow(`HAD — Ansiedade`, td.HAD.anxiety_score, td.HAD.anxiety_classification, i++ % 2 === 1)
     addRow(`HAD — Depressão`, td.HAD.depression_score, td.HAD.depression_classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('IQCODE') && td?.IQCODE) {
+  if (td?.IQCODE?.total_score != null) {
     addRow('IQCODE', td.IQCODE.total_score, td.IQCODE.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('B-ADL') && td?.['B-ADL']) {
+  if (td?.['B-ADL']?.total_score != null) {
     addRow('Escala Bayer (B-ADL)', td['B-ADL'].total_score, td['B-ADL'].classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('Pfeffer') && td?.Pfeffer) {
+  if (td?.Pfeffer?.total_score != null) {
     addRow('Questionário de Pfeffer', td.Pfeffer.total_score, td.Pfeffer.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('Lawton') && td?.Lawton) {
+  if (td?.Lawton?.total_score != null) {
     addRow('Escala de Lawton', td.Lawton.total_score, td.Lawton.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('BADL') && td?.BADL) {
+  if (td?.BADL?.total_score != null) {
     addRow('BADL (Índice de Katz)', td.BADL.total_score, td.BADL.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('FAB') && td?.FAB) {
+  if (td?.FAB?.total_score != null) {
     addRow('Bateria de Avaliação Frontal (FAB)', td.FAB.total_score, td.FAB.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('MoCA') && td?.MoCA) {
+  if (td?.MoCA?.total_score != null) {
     addRow('MoCA (Avaliação Cognitiva Montreal)', td.MoCA.total_score, td.MoCA.classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('IDATE-E') && td?.['IDATE-E']) {
+  if (td?.['IDATE-E']?.total_score != null) {
     addRow('IDATE — Estado', td['IDATE-E'].total_score, td['IDATE-E'].classification, i++ % 2 === 1)
   }
-  if (selectedTests.includes('IDATE-T') && td?.['IDATE-T']) {
+  if (td?.['IDATE-T']?.total_score != null) {
     addRow('IDATE — Traço', td['IDATE-T'].total_score, td['IDATE-T'].classification, i++ % 2 === 1)
   }
 
@@ -768,15 +768,15 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     .map(name => `<li style="margin-bottom:4px;">${name}</li>`)
     .join('')
 
-  // ESCALAS e TESTES
-  const escalasSection = buildEscalasSection(td, selectedTests)
-  const hasNeupsilin   = selectedTests.includes('NEUPSILIN') && td?.NEUPSILIN
-  const hasRAVLT       = selectedTests.includes('RAVLT')     && td?.RAVLT
-  const hasWASI        = (selectedTests.includes('WASI') || selectedTests.includes('WASI-III'))
-  const hasBAMS        = selectedTests.includes('BAMS')      && td?.BAMS
-  const hasWCST        = selectedTests.includes('WCST-N')    && td?.['WCST-N']
-  const hasTOKEN       = selectedTests.includes('TOKEN')     && td?.TOKEN
-  const hasDEX         = selectedTests.includes('DEX')       && td?.DEX
+  // ESCALAS e TESTES — exibe automaticamente quando há dados, sem exigir checkbox
+  const escalasSection = buildEscalasSection(td)
+  const hasNeupsilin   = !!td?.NEUPSILIN
+  const hasRAVLT       = !!td?.RAVLT
+  const hasWASI        = !!(td?.WASI || td?.['WASI-III'])
+  const hasBAMS        = !!td?.BAMS
+  const hasWCST        = !!td?.['WCST-N']
+  const hasTOKEN       = !!td?.TOKEN
+  const hasDEX         = !!td?.DEX
 
   const testesSection = (hasNeupsilin || hasRAVLT || hasWASI || hasBAMS || hasWCST || hasTOKEN || hasDEX)
     ? secHead('TABELA DE RESULTADOS – TESTES') +
@@ -909,13 +909,13 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   <div style="margin-top:50px;padding-top:16px;border-top:2px solid ${H};">
     <div style="display:flex;justify-content:space-around;align-items:flex-end;flex-wrap:wrap;gap:32px;margin-top:56px;">
 
-      <!-- Profissional aplicador -->
+      <!-- Responsável técnico -->
       <div style="text-align:center;min-width:240px;">
         <div style="border-top:2px solid #1a1a2e;padding-top:10px;margin-top:8px;">
-          <div style="font-size:13px;font-weight:700;color:#1a1a2e;">${professional}</div>
-          <div style="font-size:11px;color:#555;margin-top:2px;">Neuropsicólogo(a)</div>
-          <div style="font-size:11px;color:#555;">${user?.crp || 'CRP: ___________'}</div>
-          <div style="font-size:10px;color:#777;margin-top:2px;">Técnico Profissional — CNES: _______</div>
+          <div style="font-size:13px;font-weight:700;color:#1a1a2e;">${SUPERVISOR.name}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">Neuropsicólogo · Responsável Técnico</div>
+          <div style="font-size:11px;color:#555;">${SUPERVISOR.crp}</div>
+          <div style="font-size:10px;color:#777;margin-top:2px;">CNES 707604276735994</div>
         </div>
       </div>
 
