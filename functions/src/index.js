@@ -238,22 +238,23 @@ Regras:
 
 // ─── anthropicProxy ───────────────────────────────────────────────────────────
 exports.anthropicProxy = onRequest(
-  { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB', cors: true },
+  { region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' },
   async (req, res) => {
-    if (req.method === 'OPTIONS') { res.set(CORS).status(204).send(''); return }
+    res.set(CORS)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
 
     const decoded = await verifyToken(req)
-    if (!decoded) { res.set(CORS).status(401).json({ error: 'Não autorizado' }); return }
+    if (!decoded) { res.status(401).json({ error: 'Não autorizado' }); return }
 
-    const { model = 'claude-opus-4-5', max_tokens = 4096, messages } = req.body || {}
-    if (!messages?.length) { res.set(CORS).status(400).json({ error: 'messages obrigatório' }); return }
+    const { model = 'claude-sonnet-4-6', max_tokens = 4096, messages } = req.body || {}
+    if (!messages?.length) { res.status(400).json({ error: 'messages obrigatório' }); return }
 
     try {
       const msg = await anthropic.messages.create({ model, max_tokens, messages })
-      res.set(CORS).status(200).json(msg)
+      res.status(200).json(msg)
     } catch (e) {
       console.error('[anthropicProxy]', e)
-      res.set(CORS).status(500).json({ error: e.message })
+      res.status(500).json({ error: e.message })
     }
   }
 )
