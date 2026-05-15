@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp, limit } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
@@ -316,7 +316,7 @@ function buildNeupsilinSection(td, patient) {
   const eduG = npEduGroup(eduRaw)
 
   // Totais calculados
-  const orientTotal = (Number(d.orientation_time)||0) + (Number(d.orientation_space)||0)
+  const orientTotal = (Number(d.orientation_time_total)||0) + (Number(d.orientation_space_total)||0)
   const attTotal    = (Number(d.attention_reverse_count)||0) + (Number(d.attention_digit_sequence)||0)
   const percTotal   = (Number(d.perception_line_equality)||0) + (Number(d.perception_visual_hemineglect)||0) + (Number(d.perception_face_perception)||0) + (Number(d.perception_face_recognition)||0)
   const episTotal   = (Number(d.memory_episodic_immediate)||0) + (Number(d.memory_episodic_delayed)||0) + (Number(d.memory_episodic_recognition)||0)
@@ -361,8 +361,8 @@ function buildNeupsilinSection(td, patient) {
   let ri = 0
   const rows = [
     domHead('1 – ORIENTAÇÃO', orientTotal || null, 'orientation', ri++),
-    subRow('Orientação Temporal', d.orientation_time, 'orientation_time', ri++),
-    subRow('Orientação Espacial', d.orientation_space, 'orientation_space', ri++),
+    subRow('Orientação Temporal', d.orientation_time_total, 'orientation_time', ri++),
+    subRow('Orientação Espacial', d.orientation_space_total, 'orientation_space', ri++),
 
     domHead('2 – ATENÇÃO', attTotal || null, 'attention', ri++),
     subRow('Contagem Inversa', d.attention_reverse_count, 'attention_reverse_count', ri++),
@@ -1043,8 +1043,36 @@ export default function Reports() {
   }, [user])
 
   useEffect(() => {
-    if (patientId) session.loadSession()
-  }, [patientId])
+    if (!patientId || !user) return
+    session.loadSession()
+    // Carrega o laudo mais recente salvo para este paciente
+    ;(async () => {
+      try {
+        const q = query(
+          collection(db, 'reports'),
+          where('patientId', '==', patientId),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        )
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          const d = snap.docs[0]
+          const data = d.data()
+          setReport(data.reportHtml || '')
+          setSelectedTests(data.selectedTests || [])
+          setReportStatus(data.status || 'rascunho')
+          setSavedReportId(d.id)
+          setSaved(true)
+          if (data.aiBodyHtml)  setAiBodyState(data.aiBodyHtml)
+          if (data.appliedBy)   setAppliedBy(data.appliedBy)
+          if (data.reportDate)  setReportDate(data.reportDate)
+          if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
+        }
+      } catch (e) {
+        console.error('[loadLatestReport]', e)
+      }
+    })()
+  }, [patientId, user])
 
   const toggleTest = (key) =>
     setSelectedTests(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -1338,6 +1366,12 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
         setSavedReportId(reportId)
         setReportStatus('rascunho')
         setApprovalInfo(null)
+        // Salva campos extras para restauração futura
+        updateDoc(doc(db, 'reports', reportId), {
+          aiBodyHtml: aiBody,
+          appliedBy: professional,
+          reportDate: dataFormatada,
+        }).catch(() => {})
       }
 
     } catch (e) {
