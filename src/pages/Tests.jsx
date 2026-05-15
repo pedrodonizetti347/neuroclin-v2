@@ -4283,10 +4283,8 @@ export default function Tests() {
   const anamnesisComplete = patientId ? isAnamnesisComplete(anamnesisData) : false
 
   useEffect(() => {
-    if (patientId && !anamnesisComplete && activeKey !== 'ANAMNESE') {
-      setActiveKey('ANAMNESE')
-    }
-  }, [patientId, anamnesisComplete])
+    if (patientId && activeKey === '') setActiveKey('ANAMNESE')
+  }, [patientId])
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -4326,8 +4324,8 @@ export default function Tests() {
                 {group.group}
               </div>
               {group.items.map(item => {
-                const locked  = !!patientId && !item.isAnamnese && !anamnesisComplete
-                const hasData = !locked && patientId && (
+                const locked  = false
+                const hasData = patientId && (
                   item.isAnamnese
                     ? session.session?.anamnesis && Object.keys(session.session.anamnesis).length > 0
                     : session.getTest(item.key) && Object.keys(session.getTest(item.key)).length > 0
