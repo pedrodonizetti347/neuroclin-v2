@@ -3,6 +3,8 @@ import {
   Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
 } from 'docx'
 import { saveAs } from 'file-saver'
+import { collection, getDocs, query, where, limit } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 // ── Paleta de cores do template ───────────────────────────────────────────────
 const C = {
@@ -269,8 +271,29 @@ const REFERENCES = [
   'ASSIS, L. de O. et al. O questionário de atividades funcionais de Pfeffer. Estudos Interdisciplinares sobre o Envelhecimento, v. 20, n. 1, p. 297-324, 2015.',
 ]
 
+// ── Busca dados de testes no Firestore (mesma fonte da conclusão da IA) ───────
+async function fetchPatientTests(patientId) {
+  if (!patientId) return {}
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
+    )
+    if (snap.empty) return {}
+    const sorted = snap.docs.sort((a, b) =>
+      (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
+    )
+    return sorted[0].data().tests || {}
+  } catch {
+    return {}
+  }
+}
+
 // ── FUNÇÃO PRINCIPAL ──────────────────────────────────────────────────────────
 export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = {}, aiBodyHtml = '', approvalInfo = null, appliedBy, user, dataFormatada }) {
+  // Busca dados dos testes diretamente do Firestore — mesma fonte da conclusão da IA
+  // Mescla: Firestore tem prioridade, td passado como parâmetro serve de fallback
+  const sessionTests = await fetchPatientTests(patient?.id)
+  const allTd = { ...td, ...sessionTests }
   const age = patient?.birth_date
     ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null
@@ -377,8 +400,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   const scaleRows = []
   let si = 0
   for (const key of scaleKeys) {
-    if (!td?.[key]) continue
-    const t = td[key]
+    if (!allTd?.[key]) continue
+    const t = allTd[key]
     if (key === 'HAD') {
       scaleRows.push([`HAD — Ansiedade`, t.anxiety_score, t.anxiety_classification, si++ % 2 === 1])
       scaleRows.push([`HAD — Depressão`, t.depression_score, t.depression_classification, si++ % 2 === 1])
@@ -387,8 +410,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     }
   }
 
-  const hasMemimp    = !!(td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null))
-  const hasDexDomain = !!(td?.DEX   && (td.DEX.patient_total   != null || td.DEX.family_total   != null))
+  const hasMemimp    = !!(allTd?.MEMIMP && (allTd.MEMIMP.patient_total != null || allTd.MEMIMP.family_total != null))
+  const hasDexDomain = !!(allTd?.DEX   && (allTd.DEX.patient_total   != null || allTd.DEX.family_total   != null))
 
   if (scaleRows.length || hasMemimp || hasDexDomain) {
     body.push(secHeader('TABELA DE RESULTADOS – ESCALAS'))
@@ -411,7 +434,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // MEMIMP — Memória Prospectiva e Retrospectiva
   if (hasMemimp) {
-    const mm = td.MEMIMP
+    const mm = allTd.MEMIMP
     const memimpClass = (v, max) => {
       if (v == null) return '—'
       const pct = v / max
@@ -447,7 +470,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // DEX — por domínio (Comportamental / Cognitivo / Emoções)
   if (hasDexDomain) {
-    const dx = td.DEX
+    const dx = allTd.DEX
     const DEX_DOMAINS = [
       { lbl: 'Comportamental', items: [2, 6, 7, 11, 16, 17, 18, 19] },
       { lbl: 'Cognitivo',      items: [1, 3, 4, 8, 10, 12, 15] },
@@ -502,10 +525,10 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // ── TABELA DE RESULTADOS — TESTES ─────────────────────────────────────────
   // Mostra as tabelas para qualquer teste com dados na sessão (não exige selectedTests)
-  const hasNp   = !!td?.NEUPSILIN
-  const hasRv   = !!td?.RAVLT
-  const hasBams = !!td?.BAMS
-  const hasTok  = !!(td?.TOKEN && (td.TOKEN.total_score != null || td.TOKEN.part_a_score != null))
+  const hasNp   = !!allTd?.NEUPSILIN
+  const hasRv   = !!allTd?.RAVLT
+  const hasBams = !!allTd?.BAMS
+  const hasTok  = !!(allTd?.TOKEN && (allTd.TOKEN.total_score != null || allTd.TOKEN.part_a_score != null))
 
   if (hasNp || hasRv || hasBams || hasTok) {
     body.push(secHeader('TABELA DE RESULTADOS – TESTES'))
@@ -513,7 +536,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // TOKEN
   if (hasTok) {
-    const tok = td.TOKEN
+    const tok = allTd.TOKEN
     const tokParts = [
       { key: 'part_a', lbl: 'Parte A — Todas as peças' },
       { key: 'part_b', lbl: 'Parte B — Somente peças grandes' },
@@ -549,7 +572,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // NEUPSILIN
   if (hasNp) {
-    const np  = td.NEUPSILIN
+    const np  = allTd.NEUPSILIN
     const ag  = npAgeGroup(age)
     const eg  = npEduGroup(np.education_years || patient?.education || '9+')
     const zs  = np.zScores || {}
@@ -599,7 +622,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // RAVLT
   if (hasRv) {
-    const rv = td.RAVLT
+    const rv = allTd.RAVLT
     const rvRows = [
       { lbl: 'A1 — Aprendizagem (1ª tentativa)', v: rv.a1_score, pct: rv.a1_percentile ?? null, c: rv.a1_classification },
       { lbl: 'A2 — Aprendizagem (2ª tentativa)', v: rv.a2_score, pct: rv.a2_percentile ?? null, c: rv.a2_classification },
@@ -633,7 +656,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // BAMS
   if (hasBams) {
-    const bm = td.BAMS
+    const bm = allTd.BAMS
     const bamsRows = [
       { lbl: 'Fluência Verbal (FV)',              v: bm.fv_total,              pct: null },
       { lbl: 'Denominação de Figuras (ND)',        v: bm.nd_total,              pct: null },

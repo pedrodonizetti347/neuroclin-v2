@@ -1106,11 +1106,26 @@ export default function Reports() {
 
       const ad  = session.session?.anamnesis || {}
       let td    = session.session?.tests     || {}
-      // Se o estado React ainda não carregou a sessão, busca direto no Firestore
+      // Fonte 1: sessão do usuário atual (já carregada no React)
+      // Fonte 2: busca direta — sessão do usuário atual no Firestore
       if (Object.keys(td).length === 0 && patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
           if (snap.exists()) td = snap.data().tests || {}
+        } catch (_) {}
+      }
+      // Fonte 3: qualquer sessão deste paciente (outros profissionais)
+      if (Object.keys(td).length === 0 && patientId) {
+        try {
+          const sessSnap = await getDocs(
+            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
+          )
+          if (!sessSnap.empty) {
+            const sorted = sessSnap.docs.sort((a, b) =>
+              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
+            )
+            td = sorted[0].data().tests || {}
+          }
         } catch (_) {}
       }
       // Mescla dados inseridos manualmente no formulário (prioridade sobre sessão)
@@ -1490,14 +1505,28 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
           }
         } catch (_) {}
       }
-      // Fonte 2: sessão do Firestore do usuário atual
+      // Fonte 2: sessão do usuário atual no Firestore
       if (Object.keys(td).length === 0 && patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
           if (snap.exists()) td = snap.data().tests || {}
         } catch (_) {}
       }
-      // Fonte 3: estado React (fallback final)
+      // Fonte 3: qualquer sessão deste paciente (outros profissionais / supervisor)
+      if (Object.keys(td).length === 0 && patientId) {
+        try {
+          const sessSnap = await getDocs(
+            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
+          )
+          if (!sessSnap.empty) {
+            const sorted = sessSnap.docs.sort((a, b) =>
+              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
+            )
+            td = sorted[0].data().tests || {}
+          }
+        } catch (_) {}
+      }
+      // Fonte 4: estado React (fallback final)
       if (Object.keys(td).length === 0) {
         td = session.session?.tests || {}
       }
