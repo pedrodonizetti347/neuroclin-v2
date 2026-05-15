@@ -281,11 +281,12 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   const mesAno = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   // Carregar imagens do diretório público
-  const [logoData, sig1Data, sig2Data] = await Promise.all([
+  const [logoData, _sig1Raw, sig2Data] = await Promise.all([
     loadImage('/images/logo_header.png'),
-    loadImage('/images/sig-003.png'),
+    loadImage('/images/sig-003.png'),   // assinatura Pedro (opcional)
     loadImage('/images/sig-002.png'),
   ])
+  const sig1Data = _sig1Raw || sig2Data  // fallback para carimbo da clínica
 
   const body = []
 

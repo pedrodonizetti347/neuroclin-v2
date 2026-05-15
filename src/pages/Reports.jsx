@@ -1050,15 +1050,20 @@ export default function Reports() {
     // Carrega o laudo mais recente salvo para este paciente
     ;(async () => {
       try {
+        // Sem orderBy para evitar exigência de índice composto no Firestore
         const q = query(
           collection(db, 'reports'),
           where('patientId', '==', patientId),
-          orderBy('createdAt', 'desc'),
-          limit(1)
+          limit(10)
         )
         const snap = await getDocs(q)
         if (!snap.empty) {
-          const d = snap.docs[0]
+          const sorted = snap.docs.sort((a, b) => {
+            const aT = a.data().createdAt?.seconds ?? 0
+            const bT = b.data().createdAt?.seconds ?? 0
+            return bT - aT
+          })
+          const d = sorted[0]
           const data = d.data()
           setReport(data.reportHtml || '')
           setSelectedTests(data.selectedTests || [])
@@ -1465,20 +1470,23 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
   }
 
   const handleExportDocx = async () => {
-    if (!report) return
+    if (!report && !savedReportId) return
     setDocxExporting(true)
     try {
       const patient = patients.find(p => p.id === patientId)
       const ad = session.session?.anamnesis || {}
       let td = {}
+      let aiBody = aiBodyState
 
-      // Fonte 1: testsData do documento do laudo salvo (leitura direta no Firestore)
+      // Carrega dados do documento do laudo salvo (td + aiBodyHtml)
       if (savedReportId) {
         try {
           const repSnap = await getDoc(doc(db, 'reports', savedReportId))
           if (repSnap.exists()) {
-            const t = repSnap.data().testsData
+            const repData = repSnap.data()
+            const t = repData.testsData
             if (t && Object.keys(t).length > 0) td = t
+            if (!aiBody && repData.aiBodyHtml) aiBody = repData.aiBodyHtml
           }
         } catch (_) {}
       }
@@ -1489,7 +1497,7 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
           if (snap.exists()) td = snap.data().tests || {}
         } catch (_) {}
       }
-      // Fonte 3: estado React (fallback final, pode estar desatualizado)
+      // Fonte 3: estado React (fallback final)
       if (Object.keys(td).length === 0) {
         td = session.session?.tests || {}
       }
@@ -1501,7 +1509,7 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
         selectedTests,
         ad,
         td,
-        aiBodyHtml: aiBodyState,
+        aiBodyHtml: aiBody,
         approvalInfo,
         appliedBy,
         user,
@@ -1681,19 +1689,19 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
                 </button>
               )}
               {/* Download Word — usa exportToDocx completo */}
-              {report && (
+              {(report || savedReportId) && (
                 <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.08)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
                   {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> WORD</>}
                 </button>
               )}
               {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
-              {report && saved && !isSupervisor && reportStatus === 'rascunho' && (
+              {savedReportId && !isSupervisor && reportStatus === 'rascunho' && (
                 <button onClick={requestApproval} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', cursor: 'pointer', color: '#F59E0B' }}>
                   <Send size={12} /> SOLICITAR APROVAÇÃO
                 </button>
               )}
               {/* Aprovar — supervisor, laudo aguardando ou em rascunho */}
-              {report && isSupervisor && reportStatus !== 'aprovado' && (
+              {savedReportId && isSupervisor && reportStatus !== 'aprovado' && (
                 <button onClick={() => { setApprovalErr(''); setShowApproval(true) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(46,125,50,0.4)', background: 'rgba(46,125,50,0.1)', cursor: 'pointer', color: S.greenL }}>
                   <ShieldCheck size={13} /> APROVAR LAUDO
                 </button>
@@ -1705,12 +1713,12 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
                 </button>
               )}
               {/* Exportar Word — disponível quando laudo aprovado */}
-              {report && isSupervisor && reportStatus === 'aprovado' && (
+              {savedReportId && isSupervisor && reportStatus === 'aprovado' && (
                 <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.1)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
                   {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> EXPORTAR WORD</>}
                 </button>
               )}
-              {report && !isSupervisor && reportStatus !== 'aprovado' && (
+              {savedReportId && !isSupervisor && reportStatus !== 'aprovado' && (
                 <span style={{ fontSize: 10, color: S.muted, fontStyle: 'italic' }}>Impressão liberada após aprovação</span>
               )}
             </div>
