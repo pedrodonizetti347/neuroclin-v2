@@ -1020,6 +1020,7 @@ export default function Reports() {
   const [editMode,       setEditMode]       = useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
+  const [testsData,      setTestsData]      = useState({})
   const [docxExporting,  setDocxExporting]  = useState(false)
   const reportRef = useRef(null)
 
@@ -1067,6 +1068,7 @@ export default function Reports() {
           if (data.appliedBy)   setAppliedBy(data.appliedBy)
           if (data.reportDate)  setReportDate(data.reportDate)
           if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
+          if (data.testsData && Object.keys(data.testsData).length > 0) setTestsData(data.testsData)
         }
       } catch (e) {
         console.error('[loadLatestReport]', e)
@@ -1371,6 +1373,7 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
           aiBodyHtml: aiBody,
           appliedBy: professional,
           reportDate: dataFormatada,
+          testsData: td,
         }).catch(() => {})
       }
 
@@ -1457,11 +1460,24 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       const patient = patients.find(p => p.id === patientId)
       const ad = session.session?.anamnesis || {}
       let td = session.session?.tests || {}
+      // 1º fallback: testsData salvo no documento do laudo
+      if (Object.keys(td).length === 0 && Object.keys(testsData).length > 0) {
+        td = testsData
+      }
+      // 2º fallback: sessão própria do Firestore
       if (Object.keys(td).length === 0 && patientId && user) {
         try {
-          const sessRef = doc(db, 'sessions', `${patientId}_${user.uid}`)
+          const sessRef = doc(db, 'sessions', `${patientId}_${user.id}`)
           const sessSnap = await getDoc(sessRef)
           if (sessSnap.exists()) td = sessSnap.data().tests || {}
+        } catch (_) {}
+      }
+      // 3º fallback: qualquer sessão deste paciente (aplicado por outro profissional)
+      if (Object.keys(td).length === 0 && patientId) {
+        try {
+          const q = query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(1))
+          const snap = await getDocs(q)
+          if (!snap.empty) td = snap.docs[0].data().tests || {}
         } catch (_) {}
       }
       await exportToDocx({

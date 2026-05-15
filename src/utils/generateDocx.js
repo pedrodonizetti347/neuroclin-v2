@@ -705,7 +705,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   body.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [new TableRow({ children: [
-      makeSigCell(sig1Data, 140, 96, professional, user?.crp || 'CRP: ___________', 'Neuropsicólogo(a)', `Téc. Prof. CNES 707604276735994 | Supervisor`),
+      makeSigCell(sig1Data, 140, 96, SUPER.name, SUPER.crp, 'Neuropsicólogo · Responsável Técnico', `CNES 707604276735994`),
       // sig-002.png: 586x332 → exibir 148x84 mantendo proporção
       makeSigCell(sig2Data, 148, 84, 'NEUROAVALIAÇÃO ME', 'CRPJ 06/6481 / CNES 49795', 'CNPJ 29.313.355/0001-12', ''),
     ]})]
