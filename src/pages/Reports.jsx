@@ -658,6 +658,95 @@ function buildWCSTSection(td) {
   return tableWrap(rows, head)
 }
 
+// ── Tabela TOKEN ──────────────────────────────────────────────────────────────
+function buildTOKENSection(td) {
+  const d = td?.TOKEN
+  if (!d || (d.total_score == null && !d.classification)) return ''
+
+  const parts = [
+    { key: 'part_a', label: 'Parte A — Todas as peças', max: 7 },
+    { key: 'part_b', label: 'Parte B — Somente peças grandes', max: 4 },
+    { key: 'part_c', label: 'Parte C — Todas, sem repetir instrução', max: 4 },
+    { key: 'part_d', label: 'Parte D — Grandes, sem repetir instrução', max: 4 },
+    { key: 'part_e', label: 'Parte E — Todas, sem repetir instrução', max: 4 },
+    { key: 'part_f', label: 'Parte F — Todas, sem repetir instrução', max: 13 },
+  ]
+
+  const rows = parts.map((p, i) => {
+    const score = d[`${p.key}_score`]
+    if (score == null) return ''
+    const bg = i % 2 === 0 ? '#fff' : HR
+    return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      ${tdCell(p.label)}
+      ${tdCell(score, 'text-align:center;font-weight:bold;')}
+      ${tdCell(p.max, 'text-align:center;color:#888;')}
+    </tr>`
+  }).filter(Boolean).join('')
+
+  const total = d.total_score ?? 0
+  const cls   = d.classification || (total >= 30 ? 'Normal' : total >= 20 ? 'Limítrofe' : 'Comprometido')
+  const clsColor = total >= 30 ? '#1b5e20' : total >= 20 ? '#e65100' : '#c62828'
+
+  const summaryRow = `<tr style="background:#dce8dc;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('<strong>TOTAL</strong>')}
+    ${tdCell(`<strong>${total}/36</strong>`, 'text-align:center;font-weight:bold;')}
+    ${tdCell(`<span style="color:${clsColor};font-weight:bold;">${cls}</span>`, 'text-align:center;')}
+  </tr>`
+
+  const head = `<thead>
+    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Token Test — Linguagem Receptiva</th></tr>
+    <tr>${thCell('Parte')}${thCell('Acertos','text-align:center;')}${thCell('Máx / Classificação','text-align:center;')}</tr>
+  </thead>`
+
+  return tableWrap(rows + summaryRow, head)
+}
+
+// ── Tabela DEX ────────────────────────────────────────────────────────────────
+function buildDEXSection(td) {
+  const d = td?.DEX
+  if (!d) return ''
+  const patTotal = d.patient_total
+  const famTotal = d.family_total
+  if (patTotal == null && famTotal == null) return ''
+
+  const dexClass = (v) => {
+    if (v == null) return { label: '—', color: '#555' }
+    const n = Number(v)
+    if (n <= 20) return { label: 'Normal', color: '#1b5e20' }
+    if (n <= 35) return { label: 'Limítrofe', color: '#e65100' }
+    return { label: 'Alterado', color: '#c62828' }
+  }
+
+  const patCls = dexClass(patTotal)
+  const famCls = dexClass(famTotal)
+  const disc   = (patTotal != null && famTotal != null) ? Number(patTotal) - Number(famTotal) : null
+
+  const rows = [
+    patTotal != null ? `<tr style="background:#fff;">
+      ${tdCell('Paciente (auto-relato)')}
+      ${tdCell(patTotal, 'text-align:center;font-weight:bold;')}
+      ${tdCell(`<span style="color:${patCls.color};font-weight:bold;">${patCls.label}</span>`, 'text-align:center;')}
+    </tr>` : '',
+    famTotal != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      ${tdCell('Familiar / Informante')}
+      ${tdCell(famTotal, 'text-align:center;font-weight:bold;')}
+      ${tdCell(`<span style="color:${famCls.color};font-weight:bold;">${famCls.label}</span>`, 'text-align:center;')}
+    </tr>` : '',
+    disc != null ? `<tr style="background:#f0f4f8;">
+      ${tdCell('<em>Discrepância (paciente − familiar)</em>', 'color:#666;')}
+      ${tdCell(disc >= 0 ? '+'+disc : disc, 'text-align:center;font-weight:bold;color:#666;')}
+      ${tdCell(Math.abs(disc) > 10 ? '<span style="color:#e65100;">Discrepância significativa</span>' : '—', 'text-align:center;color:#666;')}
+    </tr>` : '',
+  ].filter(Boolean).join('')
+
+  const head = `<thead>
+    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário Disexecutivo (DEX) — Funções Executivas</th></tr>
+    <tr>${thCell('Respondente')}${thCell('Total (0–80)','text-align:center;')}${thCell('Classificação','text-align:center;')}</tr>
+  </thead>`
+
+  return tableWrap(rows, head)
+}
+
 // ── Documento completo ────────────────────────────────────────────────────────
 function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
@@ -686,14 +775,18 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   const hasWASI        = (selectedTests.includes('WASI') || selectedTests.includes('WASI-III'))
   const hasBAMS        = selectedTests.includes('BAMS')      && td?.BAMS
   const hasWCST        = selectedTests.includes('WCST-N')    && td?.['WCST-N']
+  const hasTOKEN       = selectedTests.includes('TOKEN')     && td?.TOKEN
+  const hasDEX         = selectedTests.includes('DEX')       && td?.DEX
 
-  const testesSection = (hasNeupsilin || hasRAVLT || hasWASI || hasBAMS || hasWCST)
+  const testesSection = (hasNeupsilin || hasRAVLT || hasWASI || hasBAMS || hasWCST || hasTOKEN || hasDEX)
     ? secHead('TABELA DE RESULTADOS – TESTES') +
+      buildTOKENSection(td) +
       buildNeupsilinSection(td, patient) +
       buildRAVLTSection(td) +
       buildWASISection(td, selectedTests) +
       buildBAMSSection(td) +
-      buildWCSTSection(td)
+      buildWCSTSection(td) +
+      buildDEXSection(td)
     : ''
 
   // INFORMAÇÕES GERAIS — construídas da anamnese
@@ -1166,17 +1259,17 @@ ${resultsSummary}
 
 <div style="margin-bottom:20px;">
 <div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONCLUSÃO</div>
-[REGRA ABSOLUTA: redigir em PROSA CONTÍNUA sem JAMAIS nomear os instrumentos/testes aplicados. Organizar por domínios cognitivos na ordem abaixo, usando subtítulos em negrito somente para os domínios efetivamente avaliados:
+[REGRA ABSOLUTA: redigir em PROSA CONTÍNUA sem JAMAIS nomear os instrumentos/testes aplicados. Para cada domínio avaliado, use EXATAMENTE este formato — nome do domínio em MAIÚSCULAS e negrito, seguido imediatamente da interpretação em prosa no mesmo parágrafo:
 
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Orientação Têmporo-Espacial:</span> [resultado e interpretação clínica em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Atenção:</span> [resultado por subtipo — seletiva, sustentada, dividida, alternada — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Memória:</span> [resultado por subtipo — operacional, episódica verbal imediata, evocação tardia, reconhecimento, semântica, prospectiva, retrospectiva — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Funções Executivas:</span> [planejamento, controle inibitório, fluência verbal, resolução de problemas — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Linguagem:</span> [oral e escrita: nomeação, fluência, compreensão — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Percepção:</span> [habilidades visuoespaciais — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Praxias:</span> [ideomotora, construtiva, reflexiva — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 4px;"><span style="font-weight:bold;color:${H};">Aspectos Emocionais:</span> [resultados de escalas de humor/ansiedade e sua interação com cognição — em prosa]</p>
-]
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ORIENTAÇÃO TÊMPORO-ESPACIAL:</strong> [interpretação clínica em prosa contínua]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ATENÇÃO:</strong> [interpretação por subtipo — seletiva, sustentada, dividida, alternada — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>MEMÓRIA:</strong> [interpretação por subtipo — operacional, episódica imediata, evocação tardia, reconhecimento, semântica, prospectiva — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>FUNÇÕES EXECUTIVAS:</strong> [planejamento, controle inibitório, fluência verbal, resolução de problemas — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>LINGUAGEM:</strong> [oral e escrita: nomeação, fluência, compreensão — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>PERCEPÇÃO:</strong> [habilidades visuoespaciais — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>PRAXIAS:</strong> [ideomotora, construtiva, reflexiva — em prosa]</p>
+<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ASPECTOS EMOCIONAIS:</strong> [resultados de escalas de humor/ansiedade e interação com cognição — em prosa]</p>
+Incluir SOMENTE os domínios efetivamente avaliados nos testes aplicados.]
 </div>
 
 <div style="margin-bottom:20px;">
@@ -1514,10 +1607,10 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
                   <Pencil size={12} /> {editMode ? 'EDITANDO' : 'EDITAR'}
                 </button>
               )}
-              {/* Download Word */}
+              {/* Download Word — usa exportToDocx completo */}
               {report && (
-                <button onClick={downloadWord} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.08)', cursor: 'pointer', color: '#60A5FA' }}>
-                  <FileDown size={13} /> WORD
+                <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.08)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
+                  {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> WORD</>}
                 </button>
               )}
               {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
