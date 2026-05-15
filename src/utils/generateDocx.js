@@ -376,7 +376,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   const scaleRows = []
   let si = 0
   for (const key of scaleKeys) {
-    if (!selectedTests.includes(key) || !td?.[key]) continue
+    if (!td?.[key]) continue
     const t = td[key]
     if (key === 'HAD') {
       scaleRows.push([`HAD — Ansiedade`, t.anxiety_score, t.anxiety_classification, si++ % 2 === 1])
@@ -386,8 +386,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     }
   }
 
-  const hasMemimp    = selectedTests.includes('MEMIMP') && td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null)
-  const hasDexDomain = selectedTests.includes('DEX')    && td?.DEX   && (td.DEX.patient_q1 != null || td.DEX.family_q1 != null)
+  const hasMemimp    = !!(td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null))
+  const hasDexDomain = !!(td?.DEX   && (td.DEX.patient_total   != null || td.DEX.family_total   != null))
 
   if (scaleRows.length || hasMemimp || hasDexDomain) {
     body.push(secHeader('TABELA DE RESULTADOS – ESCALAS'))
@@ -496,10 +496,11 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   }
 
   // ── TABELA DE RESULTADOS — TESTES ─────────────────────────────────────────
-  const hasNp   = selectedTests.includes('NEUPSILIN') && td?.NEUPSILIN
-  const hasRv   = selectedTests.includes('RAVLT')     && td?.RAVLT
-  const hasBams = selectedTests.includes('BAMS')      && td?.BAMS
-  const hasTok  = selectedTests.includes('TOKEN')     && td?.TOKEN
+  // Mostra as tabelas para qualquer teste com dados na sessão (não exige selectedTests)
+  const hasNp   = !!td?.NEUPSILIN
+  const hasRv   = !!td?.RAVLT
+  const hasBams = !!td?.BAMS
+  const hasTok  = !!(td?.TOKEN && (td.TOKEN.total_score != null || td.TOKEN.part_a_score != null))
 
   if (hasNp || hasRv || hasBams || hasTok) {
     body.push(secHeader('TABELA DE RESULTADOS – TESTES'))
