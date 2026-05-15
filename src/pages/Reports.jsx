@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
+import { TestsDataForm } from '@/components/TestsDataForm'
 
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
@@ -1099,7 +1100,17 @@ export default function Reports() {
       const token = await auth.currentUser?.getIdToken()
 
       const ad  = session.session?.anamnesis || {}
-      const td  = session.session?.tests     || {}
+      let td    = session.session?.tests     || {}
+      // Se o estado React ainda não carregou a sessão, busca direto no Firestore
+      if (Object.keys(td).length === 0 && patientId && user?.id) {
+        try {
+          const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
+          if (snap.exists()) td = snap.data().tests || {}
+        } catch (_) {}
+      }
+      // Mescla dados inseridos manualmente no formulário (prioridade sobre sessão)
+      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+      console.log('[generate] td keys:', Object.keys(td))
       const s   = v => v || 'N/D'
       const arr = v => Array.isArray(v) ? v.join(', ') : (v || 'N/D')
       const lbl = z => {
@@ -1459,27 +1470,32 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
     try {
       const patient = patients.find(p => p.id === patientId)
       const ad = session.session?.anamnesis || {}
-      let td = session.session?.tests || {}
-      // 1º fallback: testsData salvo no documento do laudo
-      if (Object.keys(td).length === 0 && Object.keys(testsData).length > 0) {
-        td = testsData
-      }
-      // 2º fallback: sessão própria do Firestore
-      if (Object.keys(td).length === 0 && patientId && user) {
+      let td = {}
+
+      // Fonte 1: testsData do documento do laudo salvo (leitura direta no Firestore)
+      if (savedReportId) {
         try {
-          const sessRef = doc(db, 'sessions', `${patientId}_${user.id}`)
-          const sessSnap = await getDoc(sessRef)
-          if (sessSnap.exists()) td = sessSnap.data().tests || {}
+          const repSnap = await getDoc(doc(db, 'reports', savedReportId))
+          if (repSnap.exists()) {
+            const t = repSnap.data().testsData
+            if (t && Object.keys(t).length > 0) td = t
+          }
         } catch (_) {}
       }
-      // 3º fallback: qualquer sessão deste paciente (aplicado por outro profissional)
-      if (Object.keys(td).length === 0 && patientId) {
+      // Fonte 2: sessão do Firestore do usuário atual
+      if (Object.keys(td).length === 0 && patientId && user?.id) {
         try {
-          const q = query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(1))
-          const snap = await getDocs(q)
-          if (!snap.empty) td = snap.docs[0].data().tests || {}
+          const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
+          if (snap.exists()) td = snap.data().tests || {}
         } catch (_) {}
       }
+      // Fonte 3: estado React (fallback final, pode estar desatualizado)
+      if (Object.keys(td).length === 0) {
+        td = session.session?.tests || {}
+      }
+      // Sempre mescla dados do formulário (têm prioridade)
+      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+      console.log('[DOCX Export] td keys:', Object.keys(td))
       await exportToDocx({
         patient,
         selectedTests,
@@ -1738,6 +1754,30 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
           </div>
         </div>
       </div>
+
+      {/* ── DADOS DOS TESTES — Entrada Manual ── */}
+      {patientId && (
+        <div style={{ marginTop: 16, background: S.card, borderRadius: 10, border: `1px solid ${S.border}` }}>
+          <div style={{ padding: '11px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: '0.05em' }}>4. DADOS DOS TESTES</span>
+              <span style={{ fontSize: 10, color: S.muted, marginLeft: 10 }}>Entrada manual de escores — salvo automaticamente no laudo</span>
+            </div>
+            {!savedReportId && (
+              <span style={{ fontSize: 9, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 9, border: '1px solid rgba(245,158,11,0.25)' }}>
+                Gere o laudo primeiro para salvar no Firestore
+              </span>
+            )}
+          </div>
+          <div style={{ padding: '12px 16px', maxHeight: 600, overflowY: 'auto' }}>
+            <TestsDataForm
+              savedReportId={savedReportId}
+              testsData={testsData}
+              onUpdate={(newData) => setTestsData(newData)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Modal de aprovação do supervisor */}
       {showApproval && (
