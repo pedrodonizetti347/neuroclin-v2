@@ -1492,6 +1492,7 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       const ad = session.session?.anamnesis || {}
       let td = {}
       let aiBody = aiBodyState
+      let reportHtmlForDocx = report || ''
 
       // ── Fonte A: sessão do usuário atual (já carregada no React) ──────────
       td = session.session?.tests || {}
@@ -1522,13 +1523,14 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
         } catch (_) {}
       }
 
-      // ── Fonte D: aiBodyHtml do documento do laudo salvo ──────────────────
+      // ── Fonte D: aiBodyHtml e reportHtml do documento do laudo salvo ─────
       if (savedReportId) {
         try {
           const repSnap = await getDoc(doc(db, 'reports', savedReportId))
           if (repSnap.exists()) {
             const repData = repSnap.data()
             if (!aiBody && repData.aiBodyHtml) aiBody = repData.aiBodyHtml
+            if (!reportHtmlForDocx && repData.reportHtml) reportHtmlForDocx = repData.reportHtml
             // Se td ainda vazio, usa testsData do relatório como último recurso
             if (Object.keys(td).length === 0 && repData.testsData)
               td = repData.testsData
@@ -1540,12 +1542,14 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
       if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
 
       console.log('[DOCX Export] td instruments:', Object.keys(td))
+      console.log('[DOCX Export] reportHtml length:', reportHtmlForDocx?.length || 0)
       await exportToDocx({
         patient,
         selectedTests,
         ad,
         td,
         aiBodyHtml: aiBody,
+        reportHtml: reportHtmlForDocx,
         approvalInfo,
         appliedBy,
         user,

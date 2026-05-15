@@ -227,6 +227,94 @@ function fmtDate(d) {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d
 }
 
+// ── Parse HTML tables from reportHtml (browser DOMParser) ─────────────────────
+function classColorFromHtmlSpan(cellEl) {
+  const span = cellEl.querySelector?.('span[style]')
+  if (!span) return null
+  const s = (span.getAttribute('style') || '').toLowerCase()
+  if (s.includes('1b5e20') || s.includes('15803d') || s.includes('2e7d32') || s.includes('059669')) return C.preservado
+  if (s.includes('e65100') || s.includes('d97706') || s.includes('e64a19') || s.includes('f57c00')) return C.comprometido
+  if (s.includes('c62828') || s.includes('dc2626') || s.includes('d32f2f')) return C.deficitario
+  return null
+}
+
+function convertHtmlTableToDocx(tableEl) {
+  const rows = []
+  for (const tr of Array.from(tableEl.querySelectorAll('tr'))) {
+    const trStyle = (tr.getAttribute('style') || '').toLowerCase()
+    const cells = Array.from(tr.querySelectorAll('th, td'))
+    if (!cells.length) continue
+    const docxCells = cells.map(cell => {
+      const isHeader = cell.tagName.toUpperCase() === 'TH'
+      const cellStyle = (cell.getAttribute('style') || '').toLowerCase()
+      const colspan = parseInt(cell.getAttribute('colspan') || '1')
+      const text = (cell.textContent || '').replace(/[ ]/g, ' ').trim()
+      const center = cellStyle.includes('center')
+      let fill = 'FFFFFF'
+      let textColor = C.text
+      let bold = false
+      if (isHeader) {
+        fill = cellStyle.includes('5b83a5') ? C.sectionBg : C.tableHeader
+        textColor = C.white
+        bold = true
+      } else {
+        if (trStyle.includes('eef3f8')) fill = C.altRow
+        else if (trStyle.includes('e8f5e9') || trStyle.includes('d7ede7') || trStyle.includes('dce8dc')) fill = 'E8F5E9'
+        const spanColor = classColorFromHtmlSpan(cell)
+        const tcColor = classColor(text)
+        if (spanColor) { textColor = spanColor; bold = true }
+        else if (tcColor !== C.text) { textColor = tcColor; bold = true }
+      }
+      return new TableCell({
+        children: [new Paragraph({
+          children: [new TextRun({ text, color: textColor, bold, size: 20, font: 'Arial' })],
+          alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT,
+          spacing: { before: 60, after: 60 },
+        })],
+        shading: { type: ShadingType.SOLID, fill },
+        borders: BORDERS,
+        ...(colspan > 1 ? { columnSpan: colspan } : {}),
+        margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      })
+    })
+    rows.push(new TableRow({ children: docxCells }))
+  }
+  return rows.length ? [new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows })] : []
+}
+
+function htmlResultsTablesToDocx(html) {
+  const elements = []
+  if (!html) return elements
+  try {
+    const dom = new DOMParser().parseFromString(html, 'text/html')
+    const walk = (el) => {
+      const tag = el.tagName?.toUpperCase()
+      const style = (el.getAttribute?.('style') || '').toLowerCase()
+      const text = (el.textContent || '').trim()
+      if (tag === 'DIV' && style.includes('5b83a5') && text.startsWith('TABELA')) {
+        elements.push(secHeader(text))
+        return
+      }
+      if (tag === 'TABLE') {
+        const hasBlueHeader = Array.from(el.querySelectorAll('th')).some(th => {
+          const s = (th.getAttribute('style') || '').toLowerCase()
+          return s.includes('4472c4') || s.includes('5b83a5')
+        })
+        if (hasBlueHeader) {
+          elements.push(...convertHtmlTableToDocx(el))
+          elements.push(spacer(120))
+          return
+        }
+      }
+      for (const child of el.children) walk(child)
+    }
+    walk(dom.body)
+  } catch (e) {
+    console.warn('[htmlResultsTablesToDocx]', e)
+  }
+  return elements
+}
+
 // ── Nomes completos dos testes ────────────────────────────────────────────────
 const FULL_NAMES = {
   NEUPSILIN: 'Instrumento de Avaliação Neuropsicológica Breve Adulto (NEUPSILIN)',
@@ -270,7 +358,7 @@ const REFERENCES = [
 ]
 
 // ── FUNÇÃO PRINCIPAL ──────────────────────────────────────────────────────────
-export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = {}, aiBodyHtml = '', approvalInfo = null, appliedBy, user, dataFormatada }) {
+export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = {}, aiBodyHtml = '', reportHtml = '', approvalInfo = null, appliedBy, user, dataFormatada }) {
   // td já chega completo e carregado pelo Reports.jsx (mesma fonte da conclusão da IA)
   const allTd = td
   const age = patient?.birth_date
@@ -374,7 +462,13 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   }
   body.push(spacer(120))
 
-  // ── TABELA DE RESULTADOS — ESCALAS ────────────────────────────────────────
+  // ── TABELA DE RESULTADOS ─────────────────────────────────────────────────
+  // Try parsing tables from saved reportHtml first (most reliable source)
+  const parsedTablesFromHtml = reportHtml ? htmlResultsTablesToDocx(reportHtml) : []
+  body.push(...parsedTablesFromHtml)
+
+  if (parsedTablesFromHtml.length === 0) {
+  // ── TABELA DE RESULTADOS — ESCALAS (fallback: build from td) ─────────────
   const scaleKeys = ['GDS-15','GAI','BDI-II','HAD','IQCODE','B-ADL','Pfeffer','Lawton','BADL','FAB','MoCA','IDATE-E','IDATE-T']
   const scaleRows = []
   let si = 0
@@ -667,6 +761,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(spacer(120))
     }
   }
+
+  } // end fallback tables (td-based)
 
   // ── SEÇÕES INTERPRETATIVAS (do aiBody) ────────────────────────────────────
   const sections = parseSections(aiBodyHtml)
