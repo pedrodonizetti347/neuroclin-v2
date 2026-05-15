@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp, limit } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
@@ -1456,7 +1456,14 @@ ul{margin-left:18pt;}li{margin-bottom:3pt;}
     try {
       const patient = patients.find(p => p.id === patientId)
       const ad = session.session?.anamnesis || {}
-      const td = session.session?.tests     || {}
+      let td = session.session?.tests || {}
+      if (Object.keys(td).length === 0 && patientId && user) {
+        try {
+          const sessRef = doc(db, 'sessions', `${patientId}_${user.uid}`)
+          const sessSnap = await getDoc(sessRef)
+          if (sessSnap.exists()) td = sessSnap.data().tests || {}
+        } catch (_) {}
+      }
       await exportToDocx({
         patient,
         selectedTests,

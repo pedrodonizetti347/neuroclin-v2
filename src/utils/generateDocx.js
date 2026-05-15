@@ -522,16 +522,18 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Token Test', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
-          new TableRow({ children: [hCell('Parte', { pct: 60 }), hCell('Pontos', { pct: 20, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Token Test', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [hCell('Teste', { pct: 50 }), hCell('Pontos', { pct: 15, center: true }), hCell('Percentil', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...tokRows.map((p, i) => new TableRow({ children: [
             dCell(p.lbl, { alt: i % 2 === 1 }),
             dCell(tok[`${p.key}_score`] ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
+            dCell(tok[`${p.key}_percentile`] != null ? String(tok[`${p.key}_percentile`]) : '—', { alt: i % 2 === 1, center: true }),
             dCell('—', { alt: i % 2 === 1, center: true }),
           ]})),
           ...(tok.total_score != null ? [new TableRow({ children: [
             dCell('Total', { alt: true }),
             dCell(String(tok.total_score), { alt: true, center: true, bold: true }),
+            dCell(tok.percentile != null ? String(tok.percentile) : '—', { alt: true, center: true }),
             dCell(tok.classification ?? '—', { alt: true, center: true, bold: !!tok.classification, color: classColor(tok.classification) }),
           ]})] : []),
         ]
@@ -560,29 +562,28 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     const execT   = (Number(np.executive_problem_solving)||0) + (Number(np.executive_verbal_fluency)||0)
 
     const npDomains = [
-      { lbl: '1 – Orientação',              z: calcZflat(orientT, 'orientation') },
-      { lbl: '2 – Atenção',                 z: calcZflat(attT,    'attention')   },
-      { lbl: '3 – Percepção',               z: calcZflat(percT,   'perception')  },
-      { lbl: '4 – Memória',                 z: calcZflat(memT,    'memory')      },
-      { lbl: '5 – Habilidades Aritméticas', z: calcZflat(np.arithmetic, 'arithmetic') },
-      { lbl: '6 – Linguagem',               z: calcZflat(langT,   'language')    },
-      { lbl: '7 – Praxias',                 z: calcZflat(praxT,   'praxis')      },
-      { lbl: '8 – Funções Executivas',      z: calcZflat(execT,   'executive')   },
+      { lbl: '1 – Orientação',              raw: orientT,               z: calcZflat(orientT, 'orientation') },
+      { lbl: '2 – Atenção',                 raw: attT,                  z: calcZflat(attT,    'attention')   },
+      { lbl: '3 – Percepção',               raw: percT,                 z: calcZflat(percT,   'perception')  },
+      { lbl: '4 – Memória',                 raw: memT,                  z: calcZflat(memT,    'memory')      },
+      { lbl: '5 – Habilidades Aritméticas', raw: np.arithmetic != null ? Number(np.arithmetic) : null, z: calcZflat(np.arithmetic, 'arithmetic') },
+      { lbl: '6 – Linguagem',               raw: langT,                 z: calcZflat(langT,   'language')    },
+      { lbl: '7 – Praxias',                 raw: praxT,                 z: calcZflat(praxT,   'praxis')      },
+      { lbl: '8 – Funções Executivas',      raw: execT,                 z: calcZflat(execT,   'executive')   },
     ]
 
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
         new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Instrumento de Avaliação Neuropsicológica Breve Adulto – NEUPSILIN', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
-        new TableRow({ children: [hCell('Domínio', { pct: 40 }), hCell('Z-Escore', { pct: 20, center: true }), hCell('Percentil', { pct: 20, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
-        ...npDomains.map(({ lbl, z }, i) => {
+        new TableRow({ children: [hCell('Fatores', { pct: 35 }), hCell('Escore Bruto', { pct: 20, center: true }), hCell('Z-Escore', { pct: 20, center: true }), hCell('Resultado', { pct: 25, center: true })] }),
+        ...npDomains.map(({ lbl, raw, z }, i) => {
           const zn = z != null ? parseFloat(z) : null
           const cls = classLabel(zn)
-          const pct = npZtoPct(zn)
           return new TableRow({ children: [
             dCell(lbl, { alt: i % 2 === 1 }),
+            dCell(raw != null ? String(raw) : '—', { alt: i % 2 === 1, center: true }),
             dCell(zn != null ? zn.toFixed(2) : '—', { alt: i % 2 === 1, center: true }),
-            dCell(pct != null ? `${pct}%` : '—', { alt: i % 2 === 1, center: true }),
             dCell(cls, { alt: i % 2 === 1, center: true, bold: true, color: classColor(cls) }),
           ]})
         })
@@ -595,27 +596,28 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   if (hasRv) {
     const rv = td.RAVLT
     const rvRows = [
-      { lbl: 'A1 — Aprendizagem (1ª tentativa)', v: rv.a1_score, c: rv.a1_classification },
-      { lbl: 'A2 — Aprendizagem (2ª tentativa)', v: rv.a2_score, c: rv.a2_classification },
-      { lbl: 'A3 — Aprendizagem (3ª tentativa)', v: rv.a3_score, c: rv.a3_classification },
-      { lbl: 'A4 — Aprendizagem (4ª tentativa)', v: rv.a4_score, c: rv.a4_classification },
-      { lbl: 'A5 — Aprendizagem (5ª tentativa)', v: rv.a5_score, c: rv.a5_classification },
-      { lbl: 'B1 — Lista interferência',          v: rv.b1_score, c: rv.b1_classification },
-      { lbl: 'A6 — Evocação pós-interferência',   v: rv.a6_score, c: rv.a6_classification },
-      { lbl: 'A7 — Evocação tardia',              v: rv.a7_score, c: rv.a7_classification || rv.classification },
-      { lbl: 'Reconhecimento — Acertos',          v: rv.recognition_hits,  c: null },
-      { lbl: 'Reconhecimento — Falsos Positivos', v: rv.recognition_false, c: null },
+      { lbl: 'A1 — Aprendizagem (1ª tentativa)', v: rv.a1_score, pct: rv.a1_percentile ?? null, c: rv.a1_classification },
+      { lbl: 'A2 — Aprendizagem (2ª tentativa)', v: rv.a2_score, pct: rv.a2_percentile ?? null, c: rv.a2_classification },
+      { lbl: 'A3 — Aprendizagem (3ª tentativa)', v: rv.a3_score, pct: rv.a3_percentile ?? null, c: rv.a3_classification },
+      { lbl: 'A4 — Aprendizagem (4ª tentativa)', v: rv.a4_score, pct: rv.a4_percentile ?? null, c: rv.a4_classification },
+      { lbl: 'A5 — Aprendizagem (5ª tentativa)', v: rv.a5_score, pct: rv.a5_percentile ?? null, c: rv.a5_classification },
+      { lbl: 'B1 — Lista interferência',          v: rv.b1_score, pct: rv.b1_percentile ?? null, c: rv.b1_classification },
+      { lbl: 'A6 — Evocação pós-interferência',   v: rv.a6_score, pct: rv.a6_percentile ?? null, c: rv.a6_classification },
+      { lbl: 'A7 — Evocação tardia',              v: rv.a7_score, pct: rv.percentile ?? null, c: rv.a7_classification || rv.classification },
+      { lbl: 'Reconhecimento — Acertos',          v: rv.recognition_hits,  pct: null, c: null },
+      { lbl: 'Reconhecimento — Falsos Positivos', v: rv.recognition_false, pct: null, c: null },
     ].filter(r => r.v != null)
 
     if (rvRows.length) {
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
-          new TableRow({ children: [hCell('Índice', { pct: 55 }), hCell('Escore', { pct: 20, center: true }), hCell('Classificação', { pct: 25, center: true })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [hCell('Índices', { pct: 50 }), hCell('Escore', { pct: 15, center: true }), hCell('%', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...rvRows.map((r, i) => new TableRow({ children: [
             dCell(r.lbl, { alt: i % 2 === 1 }),
             dCell(r.v != null ? String(r.v) : '—', { alt: i % 2 === 1, center: true, bold: true }),
+            dCell(r.pct != null ? String(r.pct) : '—', { alt: i % 2 === 1, center: true }),
             dCell(r.c ?? '—', { alt: i % 2 === 1, center: true, bold: !!r.c, color: classColor(r.c) }),
           ]}))
         ]
@@ -628,39 +630,33 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   if (hasBams) {
     const bm = td.BAMS
     const bamsRows = [
-      { lbl: 'Fluência Verbal (FV)',              v: bm.fv_total },
-      { lbl: 'Denominação de Figuras (ND)',        v: bm.nd_total },
-      { lbl: 'Nomeação de Imagens (NI)',           v: bm.ni_total },
-      { lbl: 'Conceitos Gerais (CG)',              v: bm.cg_total },
-      { lbl: 'Definição por Palavras (DP)',        v: bm.dp_total },
-      { lbl: 'Categorias de Imagens (CI)',         v: bm.ci_total },
-      { lbl: 'Contexto Visual (CV)',               v: bm.cv_total },
-      { lbl: 'Memória Léxica (ND + NI)',           v: bm.lexico_score },
-      { lbl: 'Categorização (FV + CI + CV)',        v: bm.categorization_score },
-      { lbl: 'Conceituação (CG + DP)',             v: bm.conceptualization_score },
-      { lbl: 'Total Global',                        v: bm.global_score, cls: bm.classification },
+      { lbl: 'Fluência Verbal (FV)',              v: bm.fv_total,              pct: null },
+      { lbl: 'Denominação de Figuras (ND)',        v: bm.nd_total,              pct: null },
+      { lbl: 'Nomeação de Imagens (NI)',           v: bm.ni_total,              pct: null },
+      { lbl: 'Conceitos Gerais (CG)',              v: bm.cg_total,              pct: null },
+      { lbl: 'Definição por Palavras (DP)',        v: bm.dp_total,              pct: null },
+      { lbl: 'Categorias de Imagens (CI)',         v: bm.ci_total,              pct: null },
+      { lbl: 'Contexto Visual (CV)',               v: bm.cv_total,              pct: null },
+      { lbl: 'Memória Léxica (ND + NI)',           v: bm.lexico_score,          pct: null },
+      { lbl: 'Categorização (FV + CI + CV)',       v: bm.categorization_score,  pct: null },
+      { lbl: 'Conceituação (CG + DP)',             v: bm.conceptualization_score, pct: null },
+      { lbl: 'Total Global',                       v: bm.global_score, pct: bm.percentile ?? null, cls: bm.classification },
     ].filter(r => r.v != null)
 
     if (bamsRows.length) {
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Bateria de Avaliação da Memória Semântica – BAMS', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
-          new TableRow({ children: [hCell('Subteste / Domínio', { pct: 55 }), hCell('Pontos', { pct: 20, center: true }), hCell('Classificação', { pct: 25, center: true })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Bateria de Avaliação da Memória Semântica – BAMS', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [hCell('Fatores', { pct: 50 }), hCell('Pontos', { pct: 15, center: true }), hCell('Percentil', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...bamsRows.map((r, i) => new TableRow({ children: [
             dCell(r.lbl, { alt: i % 2 === 1 }),
             dCell(String(r.v ?? '—'), { alt: i % 2 === 1, center: true, bold: true }),
+            dCell(r.pct != null ? String(r.pct) : '—', { alt: i % 2 === 1, center: true }),
             dCell(r.cls ?? '—', { alt: i % 2 === 1, center: true, bold: !!r.cls, color: classColor(r.cls) }),
           ]}))
         ]
       }))
-      if (bm.percentile != null) {
-        body.push(new Paragraph({
-          children: [new TextRun({ text: `Percentil: ${bm.percentile}${bm.classification ? ` — ${bm.classification}` : ''}`, font: 'Arial', size: 20, color: C.gray, italics: true })],
-          spacing: { before: 40, after: 40 },
-          indent: { left: 120 },
-        }))
-      }
       body.push(spacer(120))
     }
   }
