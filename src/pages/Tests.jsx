@@ -51,7 +51,7 @@ const classify = {
     if (n === '' || n == null) return null
     const v = Number(n)
     if (v >= 15) return { label: 'PRESERVADO', type: 'preserved' }
-    if (v >= 13) return { label: 'LIMÍTROFE', type: 'borderline' }
+    if (v >= 12) return { label: 'LIMÍTROFE', type: 'borderline' }
     return { label: 'COMPROMETIDO', type: 'impaired' }
   },
   gds15: (n) => {
@@ -73,7 +73,7 @@ const classify = {
     if (n === '' || n == null) return null
     const v = Number(n)
     if (v <= 7)  return { label: 'NORMAL', type: 'preserved' }
-    if (v <= 10) return { label: 'LIMÍTROFE', type: 'borderline' }
+    if (v <= 10) return { label: 'LEVE', type: 'borderline' }
     if (v <= 14) return { label: 'MODERADO', type: 'impaired' }
     return { label: 'GRAVE', type: 'impaired' }
   },
@@ -93,8 +93,8 @@ const classify = {
   iqcode: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v < 3.31) return { label: 'SEM DECLÍNIO', type: 'preserved' }
-    if (v <= 3.6) return { label: 'INDETERMINADO', type: 'borderline' }
+    if (v <= 3.38) return { label: 'SEM DECLÍNIO', type: 'preserved' }
+    if (v <= 3.6)  return { label: 'INDETERMINADO', type: 'borderline' }
     return { label: 'SUGESTIVO DE DECLÍNIO', type: 'impaired' }
   },
   badl: (n) => {
@@ -108,8 +108,7 @@ const classify = {
   pfeffer: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v <= 5)  return { label: 'NORMAL', type: 'preserved' }
-    if (v <= 10) return { label: 'LIMÍTROFE', type: 'borderline' }
+    if (v <= 4) return { label: 'NORMAL', type: 'preserved' }
     return { label: 'COMPROMETIMENTO FUNCIONAL', type: 'impaired' }
   },
   lawton: (n) => {
@@ -1527,6 +1526,23 @@ const IDATE_LABELS = {
   ],
 }
 
+// Itens invertidos IDATE (escala 1-4 → score = 5 - valor): padrão Spielberger/Biaggio
+const IDATE_REV_ESTADO = new Set([1, 2, 5, 8, 10, 11, 15, 16, 19, 20])
+const IDATE_REV_TRACO  = new Set([1, 6, 7, 10, 13, 16, 19])
+
+function idateTotal(n, isTraco) {
+  const revSet = isTraco ? IDATE_REV_TRACO : IDATE_REV_ESTADO
+  const keys   = Array.from({ length: 20 }, (_, i) => `q${i + 1}`)
+  const answered = keys.filter(k => n[k] != null && n[k] !== '').length
+  if (answered === 0) return null
+  return keys.reduce((s, k, i) => {
+    const raw = n[k]
+    if (raw == null || raw === '') return s
+    const v   = Number(raw)
+    return s + (revSet.has(i + 1) ? (5 - v) : v)
+  }, 0)
+}
+
 function IDATEForm({ data, onChange, label }) {
   const d = data || {}
   const isTraco   = label?.toLowerCase().includes('traço') || label?.toLowerCase().includes('traco') || label?.toLowerCase().includes('-t')
@@ -1536,16 +1552,13 @@ function IDATEForm({ data, onChange, label }) {
     : '1 = Absolutamente não · 2 = Um pouco · 3 = Bastante · 4 = Muitíssimo'
 
   const update = (changes) => {
-    const n = { ...d, ...changes }
-    const keys = Array.from({ length: 20 }, (_, i) => `q${i + 1}`)
-    const answered = keys.filter(k => n[k] != null).length
-    const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
+    const n     = { ...d, ...changes }
+    const total = idateTotal(n, isTraco)
     onChange({ ...n, total_score: total, classification: total != null ? (classify.idate(total)?.label || '') : '' })
   }
 
-  const keys     = Array.from({ length: 20 }, (_, i) => `q${i + 1}`)
-  const answered = keys.filter(k => d[k] != null).length
-  const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(d[k]) || 0), 0) : null
+  const total    = idateTotal(d, isTraco)
+  const answered = Array.from({ length: 20 }, (_, i) => `q${i + 1}`).filter(k => d[k] != null && d[k] !== '').length
   const c        = total != null ? classify.idate(total) : null
 
   return (
