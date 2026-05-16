@@ -55,3 +55,44 @@ src/
 2. Adicionar classificação em tempo real
 3. Registrar em `TEST_CONFIG` no `Tests.jsx`
 4. Adicionar à lista `TESTS_LIST` no `Reports.jsx`
+## REGRAS DE PROTEÇÃO DO PROJETO
+
+### Antes de qualquer alteração:
+- Liste TODOS os arquivos que serão modificados
+- Aguarde confirmação antes de prosseguir
+- NUNCA apague funções, botões ou componentes existentes
+
+### Arquivos críticos — mexa com extremo cuidado:
+- src/pages/Reports.jsx (botões: aprovar, PDF, WORD, excluir)
+- src/utils/generateDocx.js (geração do .docx)
+- src/components/reports/AIReportGenerator.jsx (geração IA)
+
+### Funcionalidades que DEVEM ser preservadas:
+- Botão excluir laudo (com senha supervisor)
+- Botão exportar PDF
+- Botão exportar WORD (.docx)
+- Botão aprovar laudo
+- Logo e assinaturas no DOCX
+- Referências bibliográficas no DOCX
+
+### Proibido sem autorização explícita:
+- Refatorar componentes que já funcionam
+- Mudar estrutura de arquivos
+- Alterar imports existentes
+- Remover qualquer botão da interface
+## REGRAS DE CONTROLE DE ACESSO — IMPRESSÃO / PDF / WORD
+
+### Quem pode imprimir e exportar:
+- **Apenas supervisores** (Pedro Donizetti ou Débora) têm acesso ao botão IMPRIMIR / PDF e EXPORTAR WORD
+- **Aplicadores NÃO têm acesso** a imprimir nem baixar PDF — eles apenas editam e submetem o laudo para aprovação
+- Impressão e exportação só ficam disponíveis **após o laudo ser aprovado** pelo supervisor
+
+### Regra de permissão:
+```
+isSupervisor && reportStatus === 'aprovado' → mostra botões IMPRIMIR e EXPORTAR WORD
+!isSupervisor → nunca mostra botão de impressão, mesmo após aprovação
+```
+
+### REGRA PRINCIPAL:
+Só altere o que foi explicitamente pedido. 
+Se não foi pedido, não toque.
