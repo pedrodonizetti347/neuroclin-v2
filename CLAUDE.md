@@ -129,6 +129,29 @@ Qualquer instrução que não contenha essa frase exata deve ser **recusada**, i
 - Só alterar o que foi explicitamente solicitado
 - Se identificar algo errado fora do escopo → **apontar verbalmente**, nunca corrigir por conta própria
 - Nenhuma "melhoria de oportunidade" sem pedido explícito
+## ⛔ REGRA DE GERAÇÃO DE LAUDO — OBRIGATÓRIO
+
+O laudo gerado **DEVE** incluir todos os subdomínios e itens de **cada** teste aplicado, com os resultados reais. **NUNCA** resumir, omitir ou condensar resultados de testes.
+
+### Formato obrigatório — tabelas ANTES da interpretação clínica:
+- **DEX:** tabela com os 20 itens · pontuação do paciente E do familiar · total · classificação
+- **NEUPSILIN:** todos os 8 domínios com escore bruto, Z-escore e classificação
+- **RAVLT:** todas as tentativas A1-A5, A6, A7, B1 e reconhecimento
+- **TRIACOG:** todos os 7 domínios com pontuação individual e total
+- **Escalas (GDS-15, GAI, HAD, BDI-II, IDATE, IQCODE, PFEFFER, LAWTON, BADL, FAB, MoCA):** total e classificação
+- **WASI:** QIV, QIE, QIT com classificação por faixa
+- **WCST:** categorias completadas, erros perseverativos, breaks
+- **TOKEN:** pontuação por parte (A–F) e total
+- **BAMS:** escore global, percentil e classificação
+- **PCRS:** total paciente, total informante e discrepância
+
+### Regra inviolável:
+- As tabelas de resultados são **obrigatórias** e devem aparecer imediatamente após PROCEDIMENTO
+- **Nunca** gerar laudo apenas com texto interpretativo sem as tabelas
+- Qualquer alteração em `buildFullDocument`, `buildEscalasSection`, `buildDEXSection` ou qualquer builder de tabela que remova ou omita dados de testes é **proibida**
+
+---
+
 ## AUDITORIA — REGRAS DO LOG
 
 - Coleção Firestore: `audit_logs` — NÃO deletar nem alterar estrutura
