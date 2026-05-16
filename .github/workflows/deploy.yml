@@ -27,13 +27,16 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_FIREBASE_API_KEY:              ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN:          ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID:           ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET:       ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID:  ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID:               ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_ANTHROPIC_API_KEY:             ${{ secrets.VITE_ANTHROPIC_API_KEY }}
+          # Firebase config — valores públicos, segurança controlada pelas Firestore Rules
+          VITE_FIREBASE_API_KEY:             AIzaSyDf8HwaCXPwY_lldz84fp14x2rddarvKfE
+          VITE_FIREBASE_AUTH_DOMAIN:         neuroclin-f55a5.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID:          neuroclin-f55a5
+          VITE_FIREBASE_STORAGE_BUCKET:      neuroclin-f55a5.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "1030643229452"
+          VITE_FIREBASE_APP_ID:              "1:1030643229452:web:8940ff2406ee3ca5a65f29"
+          VITE_FUNCTIONS_URL:                https://us-central1-neuroclin-f55a5.cloudfunctions.net
+          # Chave sensível — deve estar em Settings > Secrets > Actions
+          VITE_ANTHROPIC_API_KEY:            ${{ secrets.VITE_ANTHROPIC_API_KEY }}
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
