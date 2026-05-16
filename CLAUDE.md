@@ -80,6 +80,28 @@ src/
 - Mudar estrutura de arquivos
 - Alterar imports existentes
 - Remover qualquer botão da interface
+
+## REGRAS ABSOLUTAS — NUNCA VIOLAR
+
+### Comandos que afetam produção — NUNCA executar sem ordem explícita:
+- `firebase deploy` (qualquer variação)
+- `firebase login`
+- `git push`
+- `git push --force`
+- Qualquer comando que publique, envie ou altere ambiente de produção
+
+### Arquivos de configuração — NUNCA modificar sem ordem explícita:
+- `.env` / `.env.local` / qualquer variante de variáveis de ambiente
+- `firebase.json`
+- `.firebaserc`
+- `.github/workflows/**`
+- `vite.config.js`
+- `package.json` / `package-lock.json`
+
+### Regra de escopo — NUNCA tocar no que não foi pedido:
+- Só alterar o que foi explicitamente solicitado
+- Se identificar algo errado fora do escopo → **apontar verbalmente**, nunca corrigir por conta própria
+- Nenhuma "melhoria de oportunidade" sem pedido explícito
 ## AUDITORIA — REGRAS DO LOG
 
 - Coleção Firestore: `audit_logs` — NÃO deletar nem alterar estrutura
