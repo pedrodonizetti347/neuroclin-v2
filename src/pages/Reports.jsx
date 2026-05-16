@@ -1104,7 +1104,14 @@ export default function Reports() {
       const fnUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-neuroclin-f55a5.cloudfunctions.net'
       const token = await auth.currentUser?.getIdToken()
 
-      const ad  = session.session?.anamnesis || {}
+      // Lê anamnese da nova coleção anamneses/{patientId} (prioritário) ou da sessão legada
+      let ad = session.session?.anamnesis || {}
+      if (patientId) {
+        try {
+          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
+        } catch (_) {}
+      }
       let td    = session.session?.tests     || {}
       // Fonte 1: sessão do usuário atual (já carregada no React)
       // Fonte 2: busca direta — sessão do usuário atual no Firestore

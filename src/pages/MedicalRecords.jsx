@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { exportToDocx } from '@/utils/generateDocx'
+import AnamneseForm from '@/components/AnamneseForm'
 import {
   BookOpen, FileText, FlaskConical, Save,
   ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus,
@@ -258,7 +259,7 @@ export default function MedicalRecords() {
   const [session,   setSession]   = useState(null)
   const [reports,   setReports]   = useState([])
   const [loading,   setLoading]   = useState(false)
-  const [tab,       setTab]       = useState('testes')
+  const [tab,       setTab]       = useState('anamnese')
 
   // estado para exclusão com confirmação de senha
   const [deleteTarget,  setDeleteTarget]  = useState(null)
@@ -391,6 +392,7 @@ export default function MedicalRecords() {
           {/* Abas */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.04)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
             {[
+              { key: 'anamnese', label: 'Anamnese', icon: BookOpen },
               { key: 'testes', label: 'Testes', icon: FlaskConical },
               { key: 'laudos', label: 'Laudos', icon: FileText },
               { key: 'notas', label: 'Notas clínicas', icon: BookOpen },
@@ -414,6 +416,8 @@ export default function MedicalRecords() {
               </div>
             ) : (
               <>
+                {tab === 'anamnese' && <AnamneseForm patientId={patientId} />}
+
                 {tab === 'testes' && (
                   testEntries.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 40, color: S.muted, fontSize: 13 }}>
