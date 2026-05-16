@@ -65,7 +65,7 @@ function PatientRow({ patient }) {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const [counts, setCounts]   = useState({ patients: 0, reports: 0, tests: 0 })
+  const [counts, setCounts]   = useState({ patients: 0, reports: 0, reportsToday: 0, tests: 0 })
   const [recent, setRecent]   = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -81,7 +81,13 @@ export default function Dashboard() {
     }, e => { console.error(e); setLoading(false) })
 
     const unsubR = onSnapshot(collection(db, 'reports'), snap => {
-      setCounts(c => ({ ...c, reports: snap.size }))
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const reportsToday = snap.docs.filter(d => {
+        const ts = d.data().createdAt
+        return ts && ts.toDate() >= todayStart
+      }).length
+      setCounts(c => ({ ...c, reports: snap.size, reportsToday }))
     }, console.error)
 
     const unsubS = onSnapshot(collection(db, 'sessions'), snap => {
@@ -130,7 +136,7 @@ export default function Dashboard() {
               AO VIVO
             </span>
           </div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#fff' }}>{loading ? '—' : counts.reports}</div>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#fff' }}>{loading ? '—' : counts.reportsToday}</div>
           <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>laudos gerados hoje</div>
         </div>
 
