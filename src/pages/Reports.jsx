@@ -1394,8 +1394,9 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
         throw new Error(err?.error?.message || `Erro ${res.status}`)
       }
 
-      const data   = await res.json()
-      const aiBody = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
+      const data      = await res.json()
+      const rawAiBody = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
+      const aiBody    = rawAiBody.replace(/^```html\s*/i, '').replace(/\s*```\s*$/i, '').trim()
       setAiBodyState(aiBody)
       setReportDate(dataFormatada)
 
@@ -1562,7 +1563,37 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
       // Rebuild document HTML with approval stamp embedded
       const patient   = patients.find(p => p.id === patientId)
       const ad        = session.session?.anamnesis || {}
-      const td        = session.session?.tests     || {}
+
+      // Carrega td de múltiplas fontes (igual ao export) para garantir tabelas
+      let td = session.session?.tests || {}
+      if (Object.keys(td).length === 0 && patientId && user?.id) {
+        try {
+          const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
+          if (snap.exists()) td = snap.data().tests || {}
+        } catch (_) {}
+      }
+      if (patientId) {
+        try {
+          const sessSnap = await getDocs(
+            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
+          )
+          if (!sessSnap.empty) {
+            const sorted = sessSnap.docs.sort((a, b) =>
+              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
+            )
+            td = { ...sorted[0].data().tests || {}, ...td }
+          }
+        } catch (_) {}
+      }
+      if (savedReportId) {
+        try {
+          const repSnap = await getDoc(doc(db, 'reports', savedReportId))
+          if (repSnap.exists() && repSnap.data().testsData && Object.keys(td).length === 0)
+            td = repSnap.data().testsData
+        } catch (_) {}
+      }
+      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+
       const updatedDoc = buildFullDocument({
         patient, selectedTests, appliedBy, user, ad, td,
         aiBody: aiBodyState,
