@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useTestSession } from '@/hooks/useTestSession'
@@ -4031,22 +4031,6 @@ function PCRSForm({ data, onChange }) {
   )
 }
 
-// ─── Regras de conclusão da Anamnese ─────────────────────────────────────────
-const TAB_FIELDS = {
-  queixas:   ['objetivo_avaliacao', 'queixas', 'inicio_sintomas_data', 'forma_inicio', 'desenvolvimento_sintomas', 'queixa_informante'],
-  clinico:   ['doencas_preexistentes', 'medicamentos', 'cirurgias_internacoes', 'tce_historico', 'avc_historico', 'epilepsia', 'tontura_desmaio', 'fono_dificuldade_fala', 'alteracao_humor_comportamento', 'alcool_frequencia_quantidade', 'drogas_frequencia_quantidade'],
-  memoria:   ['memoria_esquece_objetos', 'memoria_esquece_nomes', 'memoria_dificuldade_palavras', 'memoria_esquece_hoje', 'memoria_conta_repetido', 'memoria_recursos_lembrar', 'memoria_perdeu_lugar_conhecido', 'memoria_troca_objetos', 'memoria_familia_acha_esquecido', 'memoria_relato_dia'],
-  funcional: ['executa_atividades_externas', 'cuida_proprio_dinheiro', 'administra_casa_adulto', 'dirige', 'dificuldade_avds', 'comprometimento_trabalho_social', 'atividade_fisica_lazer', 'flutuacoes_estado_geral'],
-  sono:      ['sono_como_e', 'sono_duracao_adulto', 'sono_continuo_adulto', 'sono_ronco_apneia', 'sono_sonambulismo', 'apetite_como_e', 'apetite_voraz_perda', 'apetite_mudanca_habitos', 'audicao_dificuldade', 'visao_usa_oculos', 'motricidade_dificuldade'],
-  exames:    ['exame_tomografia', 'exame_ressonancia', 'exame_eeg', 'exame_outros', 'exames', 'medico_responsavel', 'hipotese_diagnostica_previa', 'observacoes_avaliador'],
-  familia:   ['historia_familiar_demencia', 'historia_familiar_neurologica', 'como_envelheceram_pais_adulto', 'estado_civil', 'profissao', 'escolaridade_detalhada', 'lateralidade'],
-}
-function isTabComplete(tabId, d) {
-  return (TAB_FIELDS[tabId] || []).some(k => (d[k] || '').toString().trim().length > 0)
-}
-function isAnamnesisComplete(d) {
-  return Object.keys(TAB_FIELDS).every(tabId => isTabComplete(tabId, d))
-}
 function isTestFilled(testData) {
   if (!testData) return false
   const SKIP = new Set(['scan_urls', '_savedAt'])
@@ -4055,207 +4039,8 @@ function isTestFilled(testData) {
     .some(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
 }
 
-// ─── Anamnese ─────────────────────────────────────────────────────────────────
-function AnamFld({ d, set, label, k, rows, placeholder }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>{label}</div>
-      {rows
-        ? <textarea rows={rows} value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
-            style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', width: '100%', lineHeight: 1.5 }} />
-        : <input type="text" value={d[k]||''} onChange={e => set(k, e.target.value)} placeholder={placeholder||''}
-            style={{ ...inputStyle, textAlign: 'left', padding: '7px 10px', width: '100%' }} />
-      }
-    </div>
-  )
-}
-
-function AnamGrid2({ children }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{children}</div>
-}
-
-function ANAMNESEForm({ data, onChange, uploadSlot }) {
-  const d = data || {}
-  const set = (k, v) => onChange({ ...d, [k]: v })
-  const [tab, setTab] = React.useState('queixas')
-
-  const tabStyle = (active) => ({
-    padding: '4px 9px', borderRadius: 5, border: 'none', cursor: 'pointer',
-    fontSize: 11, fontWeight: active ? 700 : 400,
-    background: active ? S.green : 'rgba(255,255,255,0.06)',
-    color: active ? '#fff' : S.muted,
-  })
-  const box = { background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
-  const sub = (txt) => <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '10px 0 5px', borderTop: `1px solid ${S.border}`, paddingTop: 8 }}>{txt}</div>
-
-  const tabList = [
-    { id: 'queixas',   label: '1.Queixas'   },
-    { id: 'clinico',   label: '2.Clínico'   },
-    { id: 'memoria',   label: '3.Memória'   },
-    { id: 'funcional', label: '4.Funcional' },
-    { id: 'sono',      label: '5.Sono/Ap.'  },
-    { id: 'exames',    label: '6.Exames'    },
-    { id: 'familia',   label: '7.Família'   },
-  ]
-
-  return (
-    <div>
-      <div style={{ ...box, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <AnamFld d={d} set={set} label="Informante / Acompanhante" k="acompanhante" placeholder="Nome completo" />
-        <AnamFld d={d} set={set} label="Parentesco / Relação" k="parentesco_acompanhante" placeholder="Ex: filha, cônjuge..." />
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-        {tabList.map(t => {
-          const done = isTabComplete(t.id, d)
-          return (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ ...tabStyle(tab === t.id), display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              {t.label}
-              {done && <CheckCircle2 size={9} color={tab === t.id ? 'rgba(255,255,255,0.8)' : S.greenL} />}
-            </button>
-          )
-        })}
-      </div>
-      {(() => {
-        const n    = Object.keys(TAB_FIELDS).filter(id => isTabComplete(id, d)).length
-        const done = n === 7
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '6px 10px', borderRadius: 7, background: done ? 'rgba(46,125,50,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${done ? 'rgba(46,125,50,0.3)' : S.border}` }}>
-            <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${(n / 7) * 100}%`, height: '100%', background: done ? S.greenL : '#F59E0B', borderRadius: 2, transition: 'width 0.3s' }} />
-            </div>
-            <span style={{ fontSize: 11, color: done ? S.greenL : S.muted, whiteSpace: 'nowrap' }}>
-              {n}/7 {done ? '— Anamnese completa ✓' : 'seções preenchidas'}
-            </span>
-          </div>
-        )
-      })()}
-
-      {tab === 'queixas' && <div style={box}>
-        <AnamFld d={d} set={set} label="Objetivo da avaliação / Motivo do encaminhamento" k="objetivo_avaliacao" rows={2} />
-        <AnamFld d={d} set={set} label="Queixas principais (cognitivas, emocionais, comportamentais)" k="queixas" rows={3} />
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Início dos sintomas (data aproximada)" k="inicio_sintomas_data" placeholder="Ex: 2022, há 2 anos..." />
-          <AnamFld d={d} set={set} label="Forma de início" k="forma_inicio" placeholder="Agudo / Gradual / Insidioso" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Evolução / Desenvolvimento dos sintomas" k="desenvolvimento_sintomas" rows={3} />
-        <AnamFld d={d} set={set} label="Queixa principal do informante / cuidador" k="queixa_informante" rows={2} />
-      </div>}
-
-      {tab === 'clinico' && <div style={box}>
-        <AnamFld d={d} set={set} label="Doenças preexistentes (HAS, DM, cardiopatia, AVC, TCE, depressão...)" k="doencas_preexistentes" rows={3} />
-        <AnamFld d={d} set={set} label="Medicamentos em uso (nome, dose, motivo)" k="medicamentos" rows={3} />
-        <AnamFld d={d} set={set} label="Cirurgias / Internações (tipo, data, sequelas)" k="cirurgias_internacoes" rows={2} />
-        {sub('Neurológico')}
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Já bateu a cabeça / TCE? Como?" k="tce_historico" />
-          <AnamFld d={d} set={set} label="AVC / AIT? Quando? Sequelas?" k="avc_historico" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Epilepsia / Crises convulsivas?" k="epilepsia" />
-          <AnamFld d={d} set={set} label="Tontura / Desmaio / Síncope?" k="tontura_desmaio" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Dificuldade na fala / linguagem?" k="fono_dificuldade_fala" />
-        <AnamFld d={d} set={set} label="Alteração de humor / comportamento?" k="alteracao_humor_comportamento" rows={2} />
-        <AnamFld d={d} set={set} label="Uso de álcool (frequência, quantidade)" k="alcool_frequencia_quantidade" />
-        <AnamFld d={d} set={set} label="Uso de drogas (tipo, frequência, tratamento)" k="drogas_frequencia_quantidade" />
-      </div>}
-
-      {tab === 'memoria' && <div style={box}>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Esquece onde coloca objetos? Frequência?" k="memoria_esquece_objetos" />
-          <AnamFld d={d} set={set} label="Esquece nome de pessoas conhecidas?" k="memoria_esquece_nomes" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Dificuldade para encontrar palavras?" k="memoria_dificuldade_palavras" />
-          <AnamFld d={d} set={set} label="Esquece fatos recentes? Frequência?" k="memoria_esquece_hoje" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Conta casos repetidamente?" k="memoria_conta_repetido" />
-          <AnamFld d={d} set={set} label="Usa recursos para lembrar? Quais?" k="memoria_recursos_lembrar" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Já se perdeu em lugar conhecido?" k="memoria_perdeu_lugar_conhecido" />
-        <AnamFld d={d} set={set} label="Troca de objetos / coloca coisas em lugar errado?" k="memoria_troca_objetos" rows={2} />
-        <AnamFld d={d} set={set} label="Família nota que está esquecendo?" k="memoria_familia_acha_esquecido" />
-        <AnamFld d={d} set={set} label="Relato de um dia típico" k="memoria_relato_dia" rows={3} />
-      </div>}
-
-      {tab === 'funcional' && <div style={box}>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Executa atividades externas sozinho? (supermercado, banco)" k="executa_atividades_externas" />
-          <AnamFld d={d} set={set} label="Cuida do próprio dinheiro / finanças?" k="cuida_proprio_dinheiro" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Administra a casa / atividades domésticas?" k="administra_casa_adulto" />
-          <AnamFld d={d} set={set} label="Dirige? Se não, por quê?" k="dirige" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Dificuldade nas AVDs (alimentação, higiene, vestuário)?" k="dificuldade_avds" rows={2} />
-        <AnamFld d={d} set={set} label="Comprometimento do trabalho e vida social?" k="comprometimento_trabalho_social" rows={2} />
-        <AnamFld d={d} set={set} label="Atividade física / lazer / hobbies?" k="atividade_fisica_lazer" />
-        <AnamFld d={d} set={set} label="Flutuações do estado geral / agitação noturna?" k="flutuacoes_estado_geral" />
-      </div>}
-
-      {tab === 'sono' && <div style={box}>
-        {sub('Sono')}
-        <AnamFld d={d} set={set} label="Como é o sono?" k="sono_como_e" />
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Duração (horas/noite)" k="sono_duracao_adulto" placeholder="Ex: 6-7 horas" />
-          <AnamFld d={d} set={set} label="Contínuo ou com interrupções?" k="sono_continuo_adulto" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Ronco / Apneia?" k="sono_ronco_apneia" />
-          <AnamFld d={d} set={set} label="Sonambulismo / Pesadelos?" k="sono_sonambulismo" />
-        </AnamGrid2>
-        {sub('Apetite')}
-        <AnamFld d={d} set={set} label="Como está o apetite?" k="apetite_como_e" />
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Voracidade ou perda de apetite?" k="apetite_voraz_perda" />
-          <AnamFld d={d} set={set} label="Mudança de hábitos alimentares?" k="apetite_mudanca_habitos" />
-        </AnamGrid2>
-        {sub('Sensorial')}
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Dificuldade de audição?" k="audicao_dificuldade" />
-          <AnamFld d={d} set={set} label="Dificuldade de visão / usa óculos?" k="visao_usa_oculos" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Dificuldade de motricidade / equilíbrio / quedas?" k="motricidade_dificuldade" />
-      </div>}
-
-      {tab === 'exames' && <div style={box}>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="Tomografia (quando e resultado)" k="exame_tomografia" />
-          <AnamFld d={d} set={set} label="Ressonância magnética (quando e resultado)" k="exame_ressonancia" />
-        </AnamGrid2>
-        <AnamGrid2>
-          <AnamFld d={d} set={set} label="EEG (quando e resultado)" k="exame_eeg" />
-          <AnamFld d={d} set={set} label="Outros exames laboratoriais / complementares" k="exame_outros" />
-        </AnamGrid2>
-        <AnamFld d={d} set={set} label="Resumo dos exames imagiológicos para o laudo" k="exames" rows={3} placeholder="Ex: Ressonância de 03/2024 sem alterações estruturais significativas..." />
-        {sub('Acompanhamento')}
-        <AnamFld d={d} set={set} label="Neurologista / psiquiatra que acompanha" k="medico_responsavel" />
-        <AnamFld d={d} set={set} label="Hipótese diagnóstica prévia (se houver)" k="hipotese_diagnostica_previa" />
-        <AnamFld d={d} set={set} label="Observações adicionais do avaliador" k="observacoes_avaliador" rows={3} />
-      </div>}
-
-      {tab === 'familia' && <div style={box}>
-        <AnamFld d={d} set={set} label="Histórico familiar de demência / Alzheimer?" k="historia_familiar_demencia" />
-        <AnamFld d={d} set={set} label="Histórico familiar de doenças neurológicas" k="historia_familiar_neurologica" />
-        <AnamFld d={d} set={set} label="Como envelheceram os pais?" k="como_envelheceram_pais_adulto" rows={2} />
-        <AnamFld d={d} set={set} label="Estado civil" k="estado_civil" placeholder="Casado, divorciado, viúvo..." />
-        <AnamFld d={d} set={set} label="Profissão / ocupação atual" k="profissao" />
-        <AnamFld d={d} set={set} label="Escolaridade detalhada (escola pública/particular, repetências)" k="escolaridade_detalhada" rows={2} />
-        <AnamFld d={d} set={set} label="Lateralidade dominante" k="lateralidade" placeholder="Destro / Canhoto / Ambidestro" />
-        {uploadSlot && <div style={{ marginTop: 16 }}>{uploadSlot}</div>}
-      </div>}
-    </div>
-  )
-}
-
 // ─── Configuração dos testes ──────────────────────────────────────────────────
 const TEST_CONFIG = [
-  { group: 'Anamnese', items: [
-    { key: 'ANAMNESE',  label: 'Anamnese',  Form: ANAMNESEForm, isAnamnese: true },
-  ]},
   { group: 'Rastreio Cognitivo', items: [
     { key: 'MoCA',      label: 'MoCA',      Form: MoCAForm },
   ]},
@@ -4304,7 +4089,7 @@ const TEST_CONFIG = [
 export default function Tests() {
   const [patients,  setPatients]  = useState([])
   const [patientId, setPatientId] = useState('')
-  const [activeKey, setActiveKey] = useState('ANAMNESE')
+  const [activeKey, setActiveKey] = useState('')
   const [justSaved, setJustSaved] = useState({})
 
   const session = useTestSession(patientId)
@@ -4333,12 +4118,6 @@ export default function Tests() {
     setTimeout(() => setJustSaved(prev => ({ ...prev, [key]: false })), 2000)
   }
 
-  const anamnesisData     = session.session?.anamnesis || {}
-  const anamnesisComplete = patientId ? isAnamnesisComplete(anamnesisData) : false
-
-  useEffect(() => {
-    if (patientId && activeKey === '') setActiveKey('ANAMNESE')
-  }, [patientId])
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -4379,11 +4158,7 @@ export default function Tests() {
               </div>
               {group.items.map(item => {
                 const locked  = false
-                const hasData = patientId && (
-                  item.isAnamnese
-                    ? session.session?.anamnesis && Object.keys(session.session.anamnesis).length > 0
-                    : session.getTest(item.key) && Object.keys(session.getTest(item.key)).length > 0
-                )
+                const hasData = patientId && session.getTest(item.key) && Object.keys(session.getTest(item.key)).length > 0
                 return (
                   <button
                     key={item.key}
@@ -4424,7 +4199,7 @@ export default function Tests() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
                   <h2 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>{activeConf.label}</h2>
-                  <p style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>{activeConf.isAnamnese ? 'Salvo automaticamente' : 'Classificação automática ao digitar'}</p>
+                  <p style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>Classificação automática ao digitar</p>
                 </div>
                 {justSaved[activeKey] && (
                   <span style={{ fontSize: 11, color: S.greenL, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -4432,43 +4207,25 @@ export default function Tests() {
                   </span>
                 )}
               </div>
-              {activeConf.isAnamnese ? (
-                <ANAMNESEForm
-                  data={session.session?.anamnesis || {}}
-                  onChange={session.updateAnamnesis}
-                  uploadSlot={
-                    <TestScanUpload
-                      key="anamnese-scan"
-                      patientId={patientId}
-                      testKey="ANAMNESE"
-                      existingUrls={session.session?.anamnesis?.scan_urls || []}
-                      onUrlsChange={(urls) => session.updateAnamnesis({ ...(session.session?.anamnesis || {}), scan_urls: urls })}
-                    />
-                  }
+              <activeConf.Form
+                data={session.getTest(activeKey)}
+                onChange={(data) => handleChange(activeKey, data)}
+              />
+              {isTestFilled(session.getTest(activeKey)) ? (
+                <TestScanUpload
+                  key={activeKey + '-scan'}
+                  patientId={patientId}
+                  testKey={activeKey}
+                  existingUrls={session.getTest(activeKey)?.scan_urls || []}
+                  onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
                 />
               ) : (
-                <>
-                  <activeConf.Form
-                    data={session.getTest(activeKey)}
-                    onChange={(data) => handleChange(activeKey, data)}
-                  />
-                  {isTestFilled(session.getTest(activeKey)) ? (
-                    <TestScanUpload
-                      key={activeKey + '-scan'}
-                      patientId={patientId}
-                      testKey={activeKey}
-                      existingUrls={session.getTest(activeKey)?.scan_urls || []}
-                      onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
-                    />
-                  ) : (
-                    <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
-                      <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
-                      <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>
-                        Preencha o teste <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos
-                      </p>
-                    </div>
-                  )}
-                </>
+                <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
+                  <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
+                  <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>
+                    Preencha o teste <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos
+                  </p>
+                </div>
               )}
             </>
           ) : null}

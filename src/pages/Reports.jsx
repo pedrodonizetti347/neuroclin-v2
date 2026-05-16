@@ -200,6 +200,27 @@ const classZ = (z) => {
   return              { label: 'COMPROMETIDO',  color: '#c62828' }
 }
 
+// Remove markdown code fences that Claude sometimes wraps around HTML output
+const stripMdFences = (text) => {
+  if (!text) return text
+  const m = text.match(/^```(?:html)?\s*\n?([\s\S]*?)\n?```\s*$/i)
+  if (m) return m[1].trim()
+  return text.replace(/```html\s*/gi, '').replace(/```/g, '').trim()
+}
+
+// Deep merge at test-key level: individual fields from base are preserved when override lacks them
+const mergeTests = (base, override) => {
+  const result = { ...base }
+  for (const key of Object.keys(override)) {
+    if (result[key] && typeof result[key] === 'object' && typeof override[key] === 'object') {
+      result[key] = { ...result[key], ...override[key] }
+    } else {
+      result[key] = override[key]
+    }
+  }
+  return result
+}
+
 const fmtDate = (d) => {
   if (!d) return '—'
   const parts = d.split('-')
@@ -911,7 +932,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     Análise elaborada pelo supervisor: ${SUPERVISOR.name} — ${SUPERVISOR.crp}
   </p>
   <div style="font-size:11pt;line-height:1.8;color:#1a1a2e;">
-    ${aiBody}
+    ${stripMdFences(aiBody)}
   </div>
 
   <!-- DATA + NOTA LEGAL -->
@@ -1087,7 +1108,7 @@ export default function Reports() {
           setReportStatus(data.status || 'rascunho')
           setSavedReportId(d.id)
           setSaved(true)
-          if (data.aiBodyHtml)  setAiBodyState(data.aiBodyHtml)
+          if (data.aiBodyHtml)  setAiBodyState(stripMdFences(data.aiBodyHtml))
           if (data.appliedBy)   setAppliedBy(data.appliedBy)
           if (data.reportDate)  setReportDate(data.reportDate)
           if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
@@ -1130,11 +1151,11 @@ export default function Reports() {
         } catch (_) {}
       }
       let td = session.session?.tests || {}
-      // Fonte 2: sessão do usuário atual no Firestore (sempre mescla)
+      // Fonte 2: sessão do usuário atual no Firestore (sempre mescla — deep merge por teste)
       if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = { ...snap.data().tests || {}, ...td }
+          if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
         } catch (_) {}
       }
       // Fonte 3: qualquer sessão deste paciente (sempre mescla — captura dados de outro aplicador)
@@ -1147,12 +1168,12 @@ export default function Reports() {
             const sorted = sessSnap.docs.sort((a, b) =>
               (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
             )
-            td = { ...sorted[0].data().tests || {}, ...td }
+            td = mergeTests(sorted[0].data().tests || {}, td)
           }
         } catch (_) {}
       }
       // Fonte 4: dados manuais do formulário (prioridade máxima)
-      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
       console.log('[generate] td keys:', Object.keys(td))
       const s   = v => v || 'N/D'
       const arr = v => Array.isArray(v) ? v.join(', ') : (v || 'N/D')
@@ -1411,7 +1432,7 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
 
       const data      = await res.json()
       const rawAiBody = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
-      const aiBody    = rawAiBody.replace(/^```html\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+      const aiBody    = stripMdFences(rawAiBody)
       setAiBodyState(aiBody)
       setReportDate(dataFormatada)
 
@@ -1488,7 +1509,13 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
     setDocxExporting(true)
     try {
       const patient = patients.find(p => p.id === patientId)
-      const ad = session.session?.anamnesis || {}
+      let ad = session.session?.anamnesis || {}
+      if (patientId) {
+        try {
+          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
+        } catch (_) {}
+      }
       let td = {}
       let aiBody = aiBodyState
       let reportHtmlForDocx = report || ''
@@ -1496,16 +1523,15 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
       // ── Fonte A: sessão do usuário atual (já carregada no React) ──────────
       td = session.session?.tests || {}
 
-      // ── Fonte B: sessão do usuário atual no Firestore (se React vazio) ───
-      if (Object.keys(td).length === 0 && patientId && user?.id) {
+      // ── Fonte B: sessão do usuário atual no Firestore (sempre mescla) ────
+      if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = snap.data().tests || {}
+          if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
         } catch (_) {}
       }
 
       // ── Fonte C: qualquer sessão do paciente (supervisor / outro prof.) ───
-      // Executada SEMPRE para complementar — não só como fallback
       if (patientId) {
         try {
           const sessSnap = await getDocs(
@@ -1516,8 +1542,7 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
               (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
             )
             const sessionTests = sorted[0].data().tests || {}
-            // Mescla: campos novos da sessão completam td sem sobrescrever
-            td = { ...sessionTests, ...td }
+            td = mergeTests(sessionTests, td)
           }
         } catch (_) {}
       }
@@ -1528,17 +1553,16 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
           const repSnap = await getDoc(doc(db, 'reports', savedReportId))
           if (repSnap.exists()) {
             const repData = repSnap.data()
-            if (!aiBody && repData.aiBodyHtml) aiBody = repData.aiBodyHtml
+            if (!aiBody && repData.aiBodyHtml) aiBody = stripMdFences(repData.aiBodyHtml)
             if (!reportHtmlForDocx && repData.reportHtml) reportHtmlForDocx = repData.reportHtml
-            // Se td ainda vazio, usa testsData do relatório como último recurso
-            if (Object.keys(td).length === 0 && repData.testsData)
-              td = repData.testsData
+            // Mescla testsData do relatório como base (menor prioridade)
+            if (repData.testsData) td = mergeTests(repData.testsData, td)
           }
         } catch (_) {}
       }
 
       // ── Fonte E: TestsDataForm (prioridade máxima — entrada manual recente) ─
-      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
 
       console.log('[DOCX Export] td instruments:', Object.keys(td))
       console.log('[DOCX Export] reportHtml length:', reportHtmlForDocx?.length || 0)
@@ -1577,14 +1601,20 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
 
       // Rebuild document HTML with approval stamp embedded
       const patient   = patients.find(p => p.id === patientId)
-      const ad        = session.session?.anamnesis || {}
+      let ad          = session.session?.anamnesis || {}
+      if (patientId) {
+        try {
+          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
+        } catch (_) {}
+      }
 
-      // Carrega td de múltiplas fontes (igual ao export) para garantir tabelas
+      // Carrega td de múltiplas fontes com deep merge por teste (preserva itens individuais)
       let td = session.session?.tests || {}
-      if (Object.keys(td).length === 0 && patientId && user?.id) {
+      if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = snap.data().tests || {}
+          if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
         } catch (_) {}
       }
       if (patientId) {
@@ -1596,18 +1626,18 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
             const sorted = sessSnap.docs.sort((a, b) =>
               (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
             )
-            td = { ...sorted[0].data().tests || {}, ...td }
+            td = mergeTests(sorted[0].data().tests || {}, td)
           }
         } catch (_) {}
       }
       if (savedReportId) {
         try {
           const repSnap = await getDoc(doc(db, 'reports', savedReportId))
-          if (repSnap.exists() && repSnap.data().testsData && Object.keys(td).length === 0)
-            td = repSnap.data().testsData
+          if (repSnap.exists() && repSnap.data().testsData)
+            td = mergeTests(repSnap.data().testsData, td)
         } catch (_) {}
       }
-      if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
+      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
 
       const updatedDoc = buildFullDocument({
         patient, selectedTests, appliedBy, user, ad, td,
