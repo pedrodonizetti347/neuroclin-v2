@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary } from 'firebase/auth'
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
   UserPlus, Users, Shield, RefreshCw, CheckCircle2,
-  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings, Trash2,
+  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings, Trash2, ClipboardList,
 } from 'lucide-react'
 
 const S = {
@@ -397,6 +397,13 @@ function ResetPasswordModal({ user: u, onClose }) {
 }
 
 
+const ACTION_LABELS = {
+  login:            { label: 'Login',             color: '#4CAF50' },
+  laudo_gerado:     { label: 'Laudo gerado',      color: '#60A5FA' },
+  laudo_aprovado:   { label: 'Laudo aprovado',    color: '#A78BFA' },
+  paciente_excluido:{ label: 'Paciente excluído', color: '#EF4444' },
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [users,       setUsers]       = useState([])
@@ -410,6 +417,21 @@ export default function Admin() {
 
   const [cleaning,    setCleaning]    = useState(false)
   const [cleanResult, setCleanResult] = useState(null)
+
+  const [auditLogs,     setAuditLogs]     = useState([])
+  const [auditLoading,  setAuditLoading]  = useState(false)
+
+  const loadAuditLogs = useCallback(async () => {
+    setAuditLoading(true)
+    try {
+      const snap = await getDocs(query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(80)))
+      setAuditLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error('[auditLogs]', e)
+    } finally {
+      setAuditLoading(false)
+    }
+  }, [])
 
   const cleanOrphanReports = async () => {
     setCleaning(true)
@@ -458,6 +480,7 @@ export default function Admin() {
   }, [])
 
   useEffect(() => { loadUsers() }, [loadUsers])
+  useEffect(() => { if (isAdmin) loadAuditLogs() }, [loadAuditLogs, isAdmin])
 
   if (!isAdmin) {
     return (
@@ -660,6 +683,75 @@ export default function Admin() {
             }
           </button>
         </div>
+      </div>
+
+      {/* Log de Auditoria */}
+      <div style={{ marginTop: 24, background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ClipboardList size={15} color="#60A5FA" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Log de Auditoria</span>
+            <span style={{ fontSize: 10, color: S.muted }}>— últimas 80 ações</span>
+          </div>
+          <button onClick={loadAuditLogs} disabled={auditLoading} style={{
+            padding: '5px 10px', borderRadius: 7, border: `1px solid ${S.border}`,
+            background: 'transparent', color: S.muted, fontSize: 11, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            <RefreshCw size={11} /> Atualizar
+          </button>
+        </div>
+
+        {auditLoading ? (
+          <div style={{ padding: 30, textAlign: 'center' }}>
+            <Loader2 size={20} color={S.green} style={{ animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 8px' }} />
+            <div style={{ fontSize: 12, color: S.muted }}>Carregando logs...</div>
+          </div>
+        ) : auditLogs.length === 0 ? (
+          <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: S.muted }}>
+            Nenhum registro ainda. Os logs aparecem após logins e ações no sistema.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            {/* Cabeçalho */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '140px 1fr 100px 120px',
+              padding: '8px 18px', borderBottom: `1px solid ${S.border}`,
+              fontSize: 10, fontWeight: 700, color: S.muted, letterSpacing: '0.07em', textTransform: 'uppercase',
+            }}>
+              <div>Data/Hora</div>
+              <div>Usuário</div>
+              <div>Perfil</div>
+              <div>Ação</div>
+            </div>
+            {auditLogs.map((log, i) => {
+              const ts = log.timestamp?.toDate ? log.timestamp.toDate() : log.timestamp ? new Date(log.timestamp) : null
+              const dateStr = ts ? ts.toLocaleDateString('pt-BR') + ' ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'
+              const act = ACTION_LABELS[log.action] || { label: log.action, color: S.muted }
+              return (
+                <div key={log.id} style={{
+                  display: 'grid', gridTemplateColumns: '140px 1fr 100px 120px',
+                  padding: '10px 18px',
+                  borderBottom: i < auditLogs.length - 1 ? `1px solid ${S.border}` : 'none',
+                  alignItems: 'center', gap: 8,
+                  background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                }}>
+                  <div style={{ fontSize: 11, color: S.muted, fontVariantNumeric: 'tabular-nums' }}>{dateStr}</div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{log.userName}</div>
+                    <div style={{ fontSize: 10, color: S.muted }}>{log.userEmail}</div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: roleColor(log.userRole), background: `${roleColor(log.userRole)}22`, padding: '2px 7px', borderRadius: 4, display: 'inline-block' }}>
+                    {roleLabel(log.userRole)}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: act.color }}>
+                    {act.label}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Nota */}

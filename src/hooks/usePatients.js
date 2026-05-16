@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
+import { logAction } from '@/lib/auditLog'
 
 export function usePatients() {
   const { user }                = useAuth()
@@ -83,8 +84,10 @@ export function usePatients() {
     // Deleta o paciente
     batch.delete(doc(db, 'patients', id))
 
+    const patientName = patients.find(p => p.id === id)?.full_name || id
     await batch.commit()
     setPatients(prev => prev.filter(p => p.id !== id))
+    logAction(user, 'paciente_excluido', { patientId: id, patientName })
   }
 
   return { patients, loading, error, create, update, remove, reload: load }

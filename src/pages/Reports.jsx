@@ -6,6 +6,7 @@ import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
 import { TestsDataForm } from '@/components/TestsDataForm'
+import { logAction } from '@/lib/auditLog'
 
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
@@ -1406,13 +1407,13 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
         setSavedReportId(reportId)
         setReportStatus('rascunho')
         setApprovalInfo(null)
-        // Salva campos extras para restauração futura
         updateDoc(doc(db, 'reports', reportId), {
           aiBodyHtml: aiBody,
           appliedBy: professional,
           reportDate: dataFormatada,
           testsData: td,
         }).catch(() => {})
+        logAction(user, 'laudo_gerado', { patientId, reportId, testes: selectedTests })
       }
 
     } catch (e) {
@@ -1581,6 +1582,7 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
       setApprovalInfo(approval)
       setReportStatus('aprovado')
       setShowApproval(false)
+      logAction(user, 'laudo_aprovado', { patientId, reportId: savedReportId })
     } catch (e) {
       setApprovalErr('Erro ao aprovar: ' + e.message)
     } finally {

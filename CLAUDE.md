@@ -80,6 +80,14 @@ src/
 - Mudar estrutura de arquivos
 - Alterar imports existentes
 - Remover qualquer botão da interface
+## AUDITORIA — REGRAS DO LOG
+
+- Coleção Firestore: `audit_logs` — NÃO deletar nem alterar estrutura
+- Utilitário: `src/lib/auditLog.js` → função `logAction(user, action, details)`
+- Ações registradas: `login`, `laudo_gerado`, `laudo_aprovado`, `paciente_excluido`
+- O log nunca bloqueia a ação principal (erros são silenciosos via `console.warn`)
+- Ao adicionar novas ações importantes, SEMPRE chamar `logAction` com o user e a ação
+
 ## REGRA DE EXCLUSÃO DE PACIENTE
 
 - **Nunca excluir paciente que tenha laudo com status `aprovado`**

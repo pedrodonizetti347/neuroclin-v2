@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
+import { logAction } from './auditLog'
 import { Brain, Eye, EyeOff } from 'lucide-react'
 
 const AuthContext = createContext(null)
@@ -177,7 +178,12 @@ export function AuthProvider({ children }) {
             } else {
               await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
             }
-            setUser({ id: fu.uid, ...data, role })
+            const resolvedUser = { id: fu.uid, ...data, role }
+            setUser(resolvedUser)
+            if (sessionStorage.getItem('neuroclin_login_pending')) {
+              sessionStorage.removeItem('neuroclin_login_pending')
+              logAction(resolvedUser, 'login')
+            }
           } else {
             const isAdmin = ADMIN_UIDS.includes(fu.uid)
             const profile = {
@@ -207,8 +213,10 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     try {
       setLoginErr(null)
+      sessionStorage.setItem('neuroclin_login_pending', 'true')
       await signInWithPopup(auth, googleProvider)
     } catch {
+      sessionStorage.removeItem('neuroclin_login_pending')
       setLoginErr('Não foi possível fazer login com Google. Tente novamente.')
     }
   }
@@ -219,8 +227,10 @@ export function AuthProvider({ children }) {
     try {
       setLoginErr(null)
       setEmailLoading(true)
+      sessionStorage.setItem('neuroclin_login_pending', 'true')
       await signInWithEmailAndPassword(auth, email, password)
     } catch (err) {
+      sessionStorage.removeItem('neuroclin_login_pending')
       const msg = {
         'auth/user-not-found':     'E-mail não encontrado.',
         'auth/wrong-password':     'Senha incorreta.',
