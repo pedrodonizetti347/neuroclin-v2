@@ -461,13 +461,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   }
   body.push(spacer(120))
 
-  // ── TABELA DE RESULTADOS ─────────────────────────────────────────────────
-  // Try parsing tables from saved reportHtml first (most reliable source)
-  const parsedTablesFromHtml = reportHtml ? htmlResultsTablesToDocx(reportHtml) : []
-  body.push(...parsedTablesFromHtml)
-
-  if (parsedTablesFromHtml.length === 0) {
-  // ── TABELA DE RESULTADOS — ESCALAS (fallback: build from td) ─────────────
+  // ── TABELA DE RESULTADOS — sempre construído a partir de td ─────────────
+  // ── ESCALAS ───────────────────────────────────────────────────────────────
   const scaleKeys = ['GDS-15','GAI','BDI-II','HAD','IQCODE','B-ADL','Pfeffer','Lawton','BADL','FAB','MoCA','IDATE-E','IDATE-T']
   const scaleRows = []
   let si = 0
@@ -760,8 +755,6 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(spacer(120))
     }
   }
-
-  } // end fallback tables (td-based)
 
   // ── SEÇÕES INTERPRETATIVAS (do aiBody) ────────────────────────────────────
   const sections = parseSections(aiBodyHtml)
