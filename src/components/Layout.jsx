@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { auth } from '@/lib/firebase'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
+import { BUILD_TIME } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3,
@@ -303,6 +304,11 @@ export default function Layout({ children }) {
             <LogOut size={14} />
             {!collapsed && 'Sair'}
           </button>
+          {!collapsed && (
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
+              build {BUILD_TIME}
+            </div>
+          )}
         </div>
       </aside>
 
