@@ -535,56 +535,53 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     body.push(spacer(100))
   }
 
-  // DEX — por domínio (Comportamental / Cognitivo / Emoções)
+  // DEX — itens individuais (20 itens × 2 respondentes)
   if (hasDexDomain) {
     const dx = allTd.DEX
-    const DEX_DOMAINS = [
-      { lbl: 'Comportamental', items: [2, 6, 7, 11, 16, 17, 18, 19] },
-      { lbl: 'Cognitivo',      items: [1, 3, 4, 8, 10, 12, 15] },
-      { lbl: 'Emoções',        items: [5, 9, 13, 14, 20] },
+    const DEX_LABELS_DOCX = [
+      'Planejamento','Impulsividade','Confabulação','Cognição Social','Desinibição',
+      'Autocrítica','Dissociação','Memória de Intenções','Distratibilidade','Euforia',
+      'Perseveração','Apatia','Descontrole Emocional','Inquietação','Concentração',
+      'Juízo Crítico','Embotamento Afetivo','Sequência Temporal','Linguagem Espontânea','Tomada de Decisão',
     ]
-    const dexDomainClass = (v, max) => {
-      if (v == null) return '—'
-      const cutNorm = Math.round(max * 0.25)
-      const cutLim  = Math.round(max * 0.4375)
-      if (v <= cutNorm) return 'Normal'
-      if (v <= cutLim)  return 'Limítrofe'
-      return 'Alterado'
-    }
-    const dexColorMap = (c) => c === 'Alterado' ? C.comprometido : c === 'Limítrofe' ? C.comprometido : c === 'Normal' ? C.preservado : C.text
-
-    const domainRows = DEX_DOMAINS.map(({ lbl, items }) => {
-      const max    = items.length * 4
-      const patHas = items.some(n => dx[`patient_q${n}`] != null)
-      const famHas = items.some(n => dx[`family_q${n}`]  != null)
-      const patScore = patHas ? items.reduce((s, n) => s + (Number(dx[`patient_q${n}`]) || 0), 0) : null
-      const famScore = famHas ? items.reduce((s, n) => s + (Number(dx[`family_q${n}`])  || 0), 0) : null
-      return { lbl, patScore, patClass: patHas ? dexDomainClass(patScore, max) : null, famScore, famClass: famHas ? dexDomainClass(famScore, max) : null }
-    })
     const patTot = dx.patient_total
     const famTot = dx.family_total
-    const patCls = dx.patient_classification
-    const famCls = dx.family_classification
+    const dexCls = (v) => {
+      if (v == null) return '—'
+      const n = Number(v)
+      if (n <= 20) return 'Normal'
+      if (n <= 35) return 'Limítrofe'
+      return 'Alterado'
+    }
+    const patCls = dexCls(patTot)
+    const famCls = dexCls(famTot)
+    const disc   = (patTot != null && famTot != null) ? Number(patTot) - Number(famTot) : null
 
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
-        new TableRow({ children: [new TableCell({ columnSpan: 5, children: [new Paragraph({ children: [new TextRun({ text: 'Questionário Disexecutivo (DEX) — por Domínio', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
-        new TableRow({ children: [hCell('Domínio', { pct: 30 }), hCell('Familiar', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true }), hCell('Paciente', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true })] }),
-        ...domainRows.map(({ lbl, famScore, famClass, patScore, patClass }, i) => new TableRow({ children: [
-          dCell(lbl, { alt: i % 2 === 1 }),
-          dCell(famScore ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
-          dCell(famClass ?? '—', { alt: i % 2 === 1, center: true, bold: !!famClass, color: famClass ? dexColorMap(famClass) : C.text }),
-          dCell(patScore ?? '—', { alt: i % 2 === 1, center: true, bold: true }),
-          dCell(patClass ?? '—', { alt: i % 2 === 1, center: true, bold: !!patClass, color: patClass ? dexColorMap(patClass) : C.text }),
-        ]})),
+        new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Questionário Disexecutivo (DEX) — Funções Executivas', color: C.white, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [hCell('Item (0 = nunca  ·  4 = sempre)', { pct: 60 }), hCell('Paciente', { pct: 20, center: true }), hCell('Familiar', { pct: 20, center: true })] }),
+        ...DEX_LABELS_DOCX.map((label, i) => {
+          const n  = i + 1
+          const pV = dx[`patient_q${n}`]
+          const fV = dx[`family_q${n}`]
+          return new TableRow({ children: [
+            dCell(`${n}. ${label}`, { alt: i % 2 === 1 }),
+            dCell(pV != null && pV !== '' ? String(pV) : '—', { alt: i % 2 === 1, center: true }),
+            dCell(fV != null && fV !== '' ? String(fV) : '—', { alt: i % 2 === 1, center: true }),
+          ]})
+        }),
         new TableRow({ children: [
-          dCell('Total', { alt: true }),
-          dCell(famTot ?? '—', { alt: true, center: true, bold: true }),
-          dCell(famCls ?? '—', { alt: true, center: true, bold: !!famCls, color: classColor(famCls) }),
-          dCell(patTot ?? '—', { alt: true, center: true, bold: true }),
-          dCell(patCls ?? '—', { alt: true, center: true, bold: !!patCls, color: classColor(patCls) }),
+          dCell('TOTAL (0–80)', { alt: true, bold: true }),
+          dCell(patTot != null ? `${patTot}  (${patCls})` : '—', { alt: true, center: true, bold: true, color: classColor(patCls) }),
+          dCell(famTot != null ? `${famTot}  (${famCls})` : '—', { alt: true, center: true, bold: true, color: classColor(famCls) }),
         ]}),
+        ...(disc != null ? [new TableRow({ children: [
+          dCell('Discrepância (paciente − familiar)', { bold: false }),
+          dCell(disc >= 0 ? `+${disc}` : String(disc), { center: true, bold: true }),
+          dCell(Math.abs(disc) > 10 ? 'Discrepância significativa' : '—', { center: true }),
+        ]})] : []),
       ]
     }))
     body.push(spacer(160))

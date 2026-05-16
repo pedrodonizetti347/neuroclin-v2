@@ -704,12 +704,22 @@ function buildTOKENSection(td) {
 }
 
 // ── Tabela DEX ────────────────────────────────────────────────────────────────
+const DEX_REPORT_LABELS = [
+  'Planejamento','Impulsividade','Confabulação','Cognição Social','Desinibição',
+  'Autocrítica','Dissociação','Memória de Intenções','Distratibilidade','Euforia',
+  'Perseveração','Apatia','Descontrole Emocional','Inquietação','Concentração',
+  'Juízo Crítico','Embotamento Afetivo','Sequência Temporal','Linguagem Espontânea','Tomada de Decisão',
+]
+
 function buildDEXSection(td) {
   const d = td?.DEX
   if (!d) return ''
   const patTotal = d.patient_total
   const famTotal = d.family_total
-  if (patTotal == null && famTotal == null) return ''
+  const hasItems = DEX_REPORT_LABELS.some((_, i) =>
+    d[`patient_q${i+1}`] != null || d[`family_q${i+1}`] != null
+  )
+  if (!hasItems && patTotal == null && famTotal == null) return ''
 
   const dexClass = (v) => {
     if (v == null) return { label: '—', color: '#555' }
@@ -719,34 +729,40 @@ function buildDEXSection(td) {
     return { label: 'Alterado', color: '#c62828' }
   }
 
+  const head = `<thead>
+    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário Disexecutivo (DEX) — Funções Executivas</th></tr>
+    <tr>${thCell('Item (0 = nunca · 4 = sempre)')}${thCell('Paciente','text-align:center;')}${thCell('Familiar','text-align:center;')}</tr>
+  </thead>`
+
+  const itemRows = DEX_REPORT_LABELS.map((label, i) => {
+    const n   = i + 1
+    const pV  = d[`patient_q${n}`]
+    const fV  = d[`family_q${n}`]
+    const bg  = i % 2 === 0 ? '#fff' : HR
+    return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      ${tdCell(`${n}. ${label}`)}
+      ${tdCell(pV != null && pV !== '' ? pV : '—', 'text-align:center;')}
+      ${tdCell(fV != null && fV !== '' ? fV : '—', 'text-align:center;')}
+    </tr>`
+  }).join('')
+
   const patCls = dexClass(patTotal)
   const famCls = dexClass(famTotal)
   const disc   = (patTotal != null && famTotal != null) ? Number(patTotal) - Number(famTotal) : null
 
-  const rows = [
-    patTotal != null ? `<tr style="background:#fff;">
-      ${tdCell('Paciente (auto-relato)')}
-      ${tdCell(patTotal, 'text-align:center;font-weight:bold;')}
-      ${tdCell(`<span style="color:${patCls.color};font-weight:bold;">${patCls.label}</span>`, 'text-align:center;')}
-    </tr>` : '',
-    famTotal != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      ${tdCell('Familiar / Informante')}
-      ${tdCell(famTotal, 'text-align:center;font-weight:bold;')}
-      ${tdCell(`<span style="color:${famCls.color};font-weight:bold;">${famCls.label}</span>`, 'text-align:center;')}
-    </tr>` : '',
-    disc != null ? `<tr style="background:#f0f4f8;">
-      ${tdCell('<em>Discrepância (paciente − familiar)</em>', 'color:#666;')}
-      ${tdCell(disc >= 0 ? '+'+disc : disc, 'text-align:center;font-weight:bold;color:#666;')}
-      ${tdCell(Math.abs(disc) > 10 ? '<span style="color:#e65100;">Discrepância significativa</span>' : '—', 'text-align:center;color:#666;')}
-    </tr>` : '',
-  ].filter(Boolean).join('')
+  const totalRow = `<tr style="background:#e8f5e9;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('<strong>TOTAL (0–80)</strong>', 'font-weight:bold;')}
+    ${tdCell(patTotal != null ? `<strong>${patTotal}</strong>&nbsp;<span style="font-size:9pt;color:${patCls.color};">(${patCls.label})</span>` : '—', 'text-align:center;')}
+    ${tdCell(famTotal != null ? `<strong>${famTotal}</strong>&nbsp;<span style="font-size:9pt;color:${famCls.color};">(${famCls.label})</span>` : '—', 'text-align:center;')}
+  </tr>`
 
-  const head = `<thead>
-    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário Disexecutivo (DEX) — Funções Executivas</th></tr>
-    <tr>${thCell('Respondente')}${thCell('Total (0–80)','text-align:center;')}${thCell('Classificação','text-align:center;')}</tr>
-  </thead>`
+  const discRow = disc != null ? `<tr style="background:#f0f4f8;">
+    ${tdCell('<em>Discrepância (paciente − familiar)</em>', 'color:#666;')}
+    ${tdCell(`<strong>${disc >= 0 ? '+'+disc : disc}</strong>`, 'text-align:center;color:#666;')}
+    ${tdCell(Math.abs(disc) > 10 ? '<span style="color:#e65100;">Discrepância significativa</span>' : '—', 'text-align:center;color:#666;')}
+  </tr>` : ''
 
-  return tableWrap(rows, head)
+  return tableWrap(itemRows + totalRow + discRow, head)
 }
 
 // ── Documento completo ────────────────────────────────────────────────────────
@@ -1113,17 +1129,16 @@ export default function Reports() {
           if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
         } catch (_) {}
       }
-      let td    = session.session?.tests     || {}
-      // Fonte 1: sessão do usuário atual (já carregada no React)
-      // Fonte 2: busca direta — sessão do usuário atual no Firestore
-      if (Object.keys(td).length === 0 && patientId && user?.id) {
+      let td = session.session?.tests || {}
+      // Fonte 2: sessão do usuário atual no Firestore (sempre mescla)
+      if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = snap.data().tests || {}
+          if (snap.exists()) td = { ...snap.data().tests || {}, ...td }
         } catch (_) {}
       }
-      // Fonte 3: qualquer sessão deste paciente (outros profissionais)
-      if (Object.keys(td).length === 0 && patientId) {
+      // Fonte 3: qualquer sessão deste paciente (sempre mescla — captura dados de outro aplicador)
+      if (patientId) {
         try {
           const sessSnap = await getDocs(
             query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
@@ -1132,11 +1147,11 @@ export default function Reports() {
             const sorted = sessSnap.docs.sort((a, b) =>
               (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
             )
-            td = sorted[0].data().tests || {}
+            td = { ...sorted[0].data().tests || {}, ...td }
           }
         } catch (_) {}
       }
-      // Mescla dados inseridos manualmente no formulário (prioridade sobre sessão)
+      // Fonte 4: dados manuais do formulário (prioridade máxima)
       if (Object.keys(testsData).length > 0) td = { ...td, ...testsData }
       console.log('[generate] td keys:', Object.keys(td))
       const s   = v => v || 'N/D'
