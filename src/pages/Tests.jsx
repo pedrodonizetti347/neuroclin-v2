@@ -3189,6 +3189,30 @@ function TRIACOGForm({ data, onChange }) {
     n.processamento_numerico_total = num('processamento_numerico_a') + num('processamento_numerico_b_27') +
       num('processamento_numerico_b_menos') + num('processamento_numerico_b_18') + num('processamento_numerico_c')
 
+    // Total TRIACOG — soma dos domínios com pontuação fixa (fluência verbal excluída)
+    // Só computa se pelo menos um campo primário foi preenchido
+    const hasData = [
+      n.orientacao_idade, n.orientacao_ano,
+      n.atencao_span_direto, n.atencao_span_inverso,
+      n.memoria_evocacao_imediata, n.memoria_evocacao_tardia,
+    ].some(v => v != null && v !== '')
+    const raw = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : 0
+    n.total_score = hasData ? (
+      num('orientacao_total') +
+      raw('memoria_evocacao_imediata') +
+      raw('memoria_evocacao_tardia') +
+      num('atencao_total') +
+      raw('memoria_visual_total') +
+      num('praxia_copia_figura_total') +
+      num('praxia_relogio_total') +
+      num('fe_nsr_total_acertos') +
+      num('processamento_numerico_total') +
+      num('linguagem_nomeacao_total') +
+      num('linguagem_repeticao_total') +
+      num('linguagem_escrita_total')
+    ) : null
+    n.classification = n.total_score != null ? (classify.triacog(n.total_score)?.label || '') : ''
+
     onChange(n)
   }
 
@@ -3477,6 +3501,23 @@ function TRIACOGForm({ data, onChange }) {
             {scoreRow('Lgg — Nomeação', d.linguagem_nomeacao_total, 4)}
             {scoreRow('Lgg — Repetição', d.linguagem_repeticao_total, 8)}
             {scoreRow('Lgg — Escrita', d.linguagem_escrita_total, 4)}
+            {/* Total geral */}
+            {d.total_score != null && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>TOTAL TRIACOG</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: S.greenL }}>{d.total_score}</span>
+                  {d.classification && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
+                      background: d.classification === 'NORMAL' ? 'rgba(46,125,50,0.2)' : 'rgba(198,40,40,0.2)',
+                      color: d.classification === 'NORMAL' ? S.greenL : '#ef9a9a',
+                      border: `1px solid ${d.classification === 'NORMAL' ? 'rgba(46,125,50,0.4)' : 'rgba(198,40,40,0.4)'}`,
+                    }}>{d.classification}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Observações */}
