@@ -53,6 +53,7 @@ const TESTS_LIST = [
   { key: 'BAMS',      label: 'BAMS',       group: 'Memória Semântica' },
   { key: 'WASI',      label: 'WASI',       group: 'Inteligência' },
   { key: 'WASI-III',  label: 'WASI-III',   group: 'Inteligência' },
+  { key: 'WCST',      label: 'WCST',       group: 'Funções Executivas' },
   { key: 'WCST-N',    label: 'WCST-N',     group: 'Funções Executivas' },
   { key: 'DEX',       label: 'DEX',        group: 'Funções Executivas' },
   { key: 'FAB',       label: 'FAB',        group: 'Funções Executivas' },
