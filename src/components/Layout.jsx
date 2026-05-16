@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
+import { auth } from '@/lib/firebase'
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3,
-  LogOut, Menu, ChevronRight, Settings, ShieldCheck
+  LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff
 } from 'lucide-react'
 
 const NAV = [
@@ -31,11 +33,135 @@ const S = {
   muted:   'rgba(255,255,255,0.4)',
 }
 
+function ChangePasswordModal({ onClose }) {
+  const [currentPass,  setCurrentPass]  = useState('')
+  const [newPass,      setNewPass]      = useState('')
+  const [confirmPass,  setConfirmPass]  = useState('')
+  const [showCurrent,  setShowCurrent]  = useState(false)
+  const [showNew,      setShowNew]      = useState(false)
+  const [loading,      setLoading]      = useState(false)
+  const [err,          setErr]          = useState('')
+  const [ok,           setOk]           = useState(false)
+
+  const isEmailUser = auth.currentUser?.providerData?.some(p => p.providerId === 'password')
+
+  async function handleSubmit() {
+    setErr('')
+    if (!currentPass || !newPass || !confirmPass) { setErr('Preencha todos os campos.'); return }
+    if (newPass.length < 6) { setErr('Nova senha deve ter no mínimo 6 caracteres.'); return }
+    if (newPass !== confirmPass) { setErr('As novas senhas não coincidem.'); return }
+    setLoading(true)
+    try {
+      const u    = auth.currentUser
+      const cred = EmailAuthProvider.credential(u.email, currentPass)
+      await reauthenticateWithCredential(u, cred)
+      await updatePassword(u, newPass)
+      setOk(true)
+    } catch (e) {
+      const msgs = {
+        'auth/wrong-password':      'Senha atual incorreta.',
+        'auth/invalid-credential':  'Senha atual incorreta.',
+        'auth/too-many-requests':   'Muitas tentativas. Aguarde e tente novamente.',
+        'auth/weak-password':       'Nova senha muito fraca (mínimo 6 caracteres).',
+        'auth/requires-recent-login': 'Sessão expirada. Faça logout e login novamente.',
+      }
+      setErr(msgs[e.code] || 'Erro ao alterar senha. Tente novamente.')
+    } finally { setLoading(false) }
+  }
+
+  const inp = {
+    width: '100%', padding: '10px 40px 10px 12px', borderRadius: 8, fontSize: 13,
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+    color: '#fff', outline: 'none', boxSizing: 'border-box',
+  }
+
+  function PassField({ label, value, onChange, show, setShow }) {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>
+          {label}
+        </label>
+        <div style={{ position: 'relative' }}>
+          <input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} style={inp} />
+          <button type="button" onClick={() => setShow(v => !v)} style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 0,
+          }}>
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+    }}>
+      <div style={{
+        background: '#1A2744', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380,
+        border: '1px solid rgba(255,255,255,0.1)', position: 'relative',
+      }}>
+        <button onClick={onClose} style={{
+          position: 'absolute', top: 14, right: 14, background: 'none', border: 'none',
+          cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 4,
+        }}>
+          <X size={18} />
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <KeyRound size={18} color="#4CAF50" />
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Alterar Minha Senha</span>
+        </div>
+
+        {!isEmailUser ? (
+          <div style={{
+            background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)',
+            borderRadius: 8, padding: '12px 14px', fontSize: 12, color: '#FBBF24', lineHeight: 1.6,
+          }}>
+            Sua conta usa login via Google. A senha é gerenciada pelo Google e não pode ser alterada aqui.
+          </div>
+        ) : ok ? (
+          <div style={{
+            background: 'rgba(46,125,50,0.15)', border: '1px solid rgba(76,175,80,0.4)',
+            borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#4CAF50', textAlign: 'center',
+          }}>
+            Senha alterada com sucesso!
+          </div>
+        ) : (
+          <>
+            {err && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 14,
+              }}>
+                {err}
+              </div>
+            )}
+            <PassField label="SENHA ATUAL" value={currentPass} onChange={setCurrentPass} show={showCurrent} setShow={setShowCurrent} />
+            <PassField label="NOVA SENHA" value={newPass} onChange={setNewPass} show={showNew} setShow={setShowNew} />
+            <PassField label="CONFIRMAR NOVA SENHA" value={confirmPass} onChange={setConfirmPass} show={showNew} setShow={setShowNew} />
+            <button onClick={handleSubmit} disabled={loading} style={{
+              width: '100%', padding: '11px', borderRadius: 9, border: 'none',
+              background: loading ? 'rgba(46,125,50,0.5)' : '#2E7D32',
+              color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', marginTop: 4,
+            }}>
+              {loading ? 'Alterando...' : 'ALTERAR SENHA'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed,       setCollapsed]       = useState(false)
+  const [showChangePass,  setShowChangePass]  = useState(false)
 
   const initials = user?.full_name
     ?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || 'NC'
@@ -157,6 +283,16 @@ export default function Layout({ children }) {
               </div>
             </div>
           )}
+          <button onClick={() => setShowChangePass(true)} style={{
+            width: '100%', display: 'flex', alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 8, padding: '8px 10px', borderRadius: 7, border: 'none',
+            background: 'rgba(255,255,255,0.05)', color: S.muted,
+            fontSize: 11, cursor: 'pointer', marginBottom: 4,
+          }}>
+            <KeyRound size={14} />
+            {!collapsed && 'Minha Senha'}
+          </button>
           <button onClick={logout} style={{
             width: '100%', display: 'flex', alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
@@ -216,6 +352,8 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
+
+      {showChangePass && <ChangePasswordModal onClose={() => setShowChangePass(false)} />}
     </div>
   )
 }
