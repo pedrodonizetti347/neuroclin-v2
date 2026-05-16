@@ -120,16 +120,10 @@ src/
 
 ## REGRAS DE CONTROLE DE ACESSO — IMPRESSÃO / PDF / WORD
 
-### Quem pode imprimir e exportar:
-- **Apenas supervisores** (Pedro Donizetti ou Débora) têm acesso ao botão IMPRIMIR / PDF e EXPORTAR WORD
-- **Aplicadores NÃO têm acesso** a imprimir nem baixar PDF — eles apenas editam e submetem o laudo para aprovação
-- Impressão e exportação só ficam disponíveis **após o laudo ser aprovado** pelo supervisor
-
-### Regra de permissão:
-```
-isSupervisor && reportStatus === 'aprovado' → mostra botões IMPRIMIR e EXPORTAR WORD
-!isSupervisor → nunca mostra botão de impressão, mesmo após aprovação
-```
+### Estado atual (simplificado):
+- **Qualquer usuário autenticado** pode usar os botões IMPRIMIR / PDF e WORD
+- Sem restrição por perfil (supervisor/aplicador) ou status do laudo
+- Botões ficam visíveis assim que o laudo é gerado (`report` existe)
 
 ### REGRA PRINCIPAL:
 Só altere o que foi explicitamente pedido. 

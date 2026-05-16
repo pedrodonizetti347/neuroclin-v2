@@ -1761,20 +1761,11 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
                   <ShieldCheck size={13} /> APROVAR LAUDO
                 </button>
               )}
-              {/* Imprimir — apenas supervisor em laudo aprovado */}
-              {report && isSupervisor && reportStatus === 'aprovado' && (
+              {/* Imprimir — disponível para qualquer usuário autenticado */}
+              {report && (
                 <button onClick={print} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   <Download size={13} /> IMPRIMIR / PDF
                 </button>
-              )}
-              {/* Exportar Word — disponível quando laudo aprovado */}
-              {savedReportId && isSupervisor && reportStatus === 'aprovado' && (
-                <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.1)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
-                  {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> EXPORTAR WORD</>}
-                </button>
-              )}
-              {savedReportId && !isSupervisor && reportStatus !== 'aprovado' && (
-                <span style={{ fontSize: 10, color: S.muted, fontStyle: 'italic' }}>Impressão liberada após aprovação</span>
               )}
             </div>
           </div>
