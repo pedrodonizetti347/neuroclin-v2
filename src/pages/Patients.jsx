@@ -277,7 +277,7 @@ export default function Patients() {
       await remove(deleteTarget.id)
       setDeleteTarget(null)
     } catch (e) {
-      setDeleteError('Erro ao deletar: ' + e.message)
+      setDeleteError(e.message)
     } finally {
       setDeleting(false)
     }

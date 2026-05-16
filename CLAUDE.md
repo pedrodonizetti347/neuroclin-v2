@@ -80,6 +80,14 @@ src/
 - Mudar estrutura de arquivos
 - Alterar imports existentes
 - Remover qualquer botão da interface
+## REGRA DE EXCLUSÃO DE PACIENTE
+
+- **Nunca excluir paciente que tenha laudo com status `aprovado`**
+- O sistema deve checar todos os laudos vinculados (`patientId`) antes de deletar
+- Se houver ≥1 laudo aprovado → lançar erro e bloquear a exclusão
+- Só permite excluir se **todos** os laudos forem `rascunho` ou `teste`
+- Implementado em: `src/hooks/usePatients.js` → função `remove()`
+
 ## REGRAS DE CONTROLE DE ACESSO — IMPRESSÃO / PDF / WORD
 
 ### Quem pode imprimir e exportar:

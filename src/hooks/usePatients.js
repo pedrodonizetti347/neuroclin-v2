@@ -63,8 +63,15 @@ export function usePatients() {
   const remove = async (id) => {
     const batch = writeBatch(db)
 
-    // Deleta laudos do paciente
+    // Busca laudos do paciente e bloqueia se houver qualquer laudo aprovado
     const reportsSnap = await getDocs(query(collection(db, 'reports'), where('patientId', '==', id)))
+    const aprovados = reportsSnap.docs.filter(d => d.data().status === 'aprovado')
+    if (aprovados.length > 0) {
+      throw new Error(
+        `Exclusão bloqueada: este paciente possui ${aprovados.length} laudo(s) aprovado(s). ` +
+        `Só é possível excluir pacientes cujos laudos estejam em rascunho ou teste.`
+      )
+    }
     reportsSnap.docs.forEach(d => batch.delete(d.ref))
 
     // Deleta sessões/testes do paciente (IDs começam com patientId_)
