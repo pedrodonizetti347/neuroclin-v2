@@ -49,6 +49,7 @@ const TESTS_LIST = [
   { key: 'TRIACOG',   label: 'TRIACOG',    group: 'Bateria Cognitiva' },
   { key: 'MoCA',      label: 'MoCA',       group: 'Bateria Cognitiva' },
   { key: 'RAVLT',     label: 'RAVLT',      group: 'Memória' },
+  { key: 'MEMIMP',    label: 'MEMIMP',     group: 'Memória' },
   { key: 'BAMS',      label: 'BAMS',       group: 'Memória Semântica' },
   { key: 'WASI',      label: 'WASI',       group: 'Inteligência' },
   { key: 'WASI-III',  label: 'WASI-III',   group: 'Inteligência' },
