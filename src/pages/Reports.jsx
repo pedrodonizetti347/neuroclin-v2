@@ -1453,31 +1453,6 @@ Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaud
     setTimeout(() => w.print(), 600)
   }
 
-  const downloadWord = () => {
-    const content = getReportContent()
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><style>
-body{font-family:'Times New Roman',serif;font-size:12pt;margin:2.5cm 2cm;line-height:1.7;}
-h2{font-size:14pt;margin-top:18pt;margin-bottom:6pt;}
-h3{font-size:12pt;margin-top:12pt;}
-table{border-collapse:collapse;width:100%;margin-bottom:12pt;}
-td,th{border:1px solid #999;padding:5pt;font-size:10pt;}
-th{background:#f0f0f0;font-weight:bold;}
-p{font-size:11pt;margin-bottom:6pt;text-align:justify;}
-ul{margin-left:18pt;}li{margin-bottom:3pt;}
-</style></head><body>`
-    const blob = new Blob(['﻿', header + content + '</body></html>'], {
-      type: 'application/msword',
-    })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `laudo-${patient?.full_name?.replace(/\s+/g, '-') || 'paciente'}.doc`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
   const requestApproval = async () => {
     if (!savedReportId) return
     try {
