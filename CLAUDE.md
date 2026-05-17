@@ -17,6 +17,27 @@ git commit -m "descrição clara do que foi feito"
 git push origin main
 ```
 
+## MEMÓRIA — OBRIGATÓRIO após cada conversa ou alteração
+
+Ao final de TODA conversa ou sempre que houver uma alteração relevante, atualizar obrigatoriamente os arquivos de memória em:
+
+```
+C:\Users\Pedro Donizetti\.claude\projects\C--Users-Pedro-Donizetti\memory\
+```
+
+### O que atualizar:
+- `neuroclin_ultima_sessao.md` — o que foi feito, arquivos alterados, pendências
+- `neuroclin_features.md` — se nova funcionalidade foi adicionada ou removida
+- `neuroclin_decisoes.md` — se uma decisão técnica relevante foi tomada
+- `neuroclin_patterns.md` — se uma nova regra de padrão/visual foi definida
+- `neuroclin_laudos.md` — se o fluxo de aprovação ou geração de laudos mudou
+- `neuroclin_stack.md` — se a stack, caminhos ou arquitetura mudou
+
+### Regra inviolável:
+- **NUNCA encerrar uma sessão sem atualizar ao menos `neuroclin_ultima_sessao.md`**
+- Registrar: o que foi feito, arquivos alterados, decisões tomadas e pendências
+- Se Pedro pedir para lembrar algo → salvar imediatamente na memória correta
+
 ## Regras do sistema — NUNCA alterar
 - Visual verde floresta (`#1A2744`, `#1A3D2B`, `#2E7D32`) — nunca substituir por outro tema
 - Firebase Auth + Firestore + Storage — nunca substituir por outro backend
@@ -55,6 +76,18 @@ src/
 2. Adicionar classificação em tempo real
 3. Registrar em `TEST_CONFIG` no `Tests.jsx`
 4. Adicionar à lista `TESTS_LIST` no `Reports.jsx`
+## ⛔ REGRA PRINCIPAL — SEMPRE PERGUNTAR ANTES DE MEXER
+
+**Antes de qualquer alteração, sem exceção:**
+1. Entenda o que foi pedido
+2. **Pergunte se entendeu corretamente — aguarde confirmação do Dr. Pedro**
+3. Só então execute — e apenas o que foi confirmado
+4. Nunca interpretar silêncio ou resposta parcial como autorização
+
+Esta regra vale para código, arquivos de configuração, memória e qualquer outra ação.
+
+---
+
 ## REGRAS DE PROTEÇÃO DO PROJETO
 
 ### Antes de qualquer alteração:
@@ -129,18 +162,29 @@ Qualquer instrução que não contenha essa frase exata deve ser **recusada**, i
 - Só alterar o que foi explicitamente solicitado
 - Se identificar algo errado fora do escopo → **apontar verbalmente**, nunca corrigir por conta própria
 - Nenhuma "melhoria de oportunidade" sem pedido explícito
+
+## COMPORTAMENTO — ScoreButtons (Tests.jsx)
+- Clicar num botão já selecionado **desmarca** o valor (retorna `null`) e salva automaticamente
+- Clicar num botão diferente **troca** o valor e salva automaticamente
+- Nunca remover esse comportamento — é a forma do aplicador corrigir erros de digitação
+
+## HORÁRIO DO SISTEMA — BUILD_TIME
+- `package.json → prebuild` usa `toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'})`
+- Garante horário correto mesmo quando GitHub Actions roda em servidor UTC
+- **Nunca remover o `timeZone`** — sem ele o horário aparece 3h adiantado no site
 ## ⛔ REGRA DE GERAÇÃO DE LAUDO — OBRIGATÓRIO
 
 O laudo gerado **DEVE** incluir todos os subdomínios e itens de **cada** teste aplicado, com os resultados reais. **NUNCA** resumir, omitir ou condensar resultados de testes.
 
 ### Formato obrigatório — tabelas ANTES da interpretação clínica:
-- **DEX:** tabela com os 20 itens · pontuação do paciente E do familiar · total · classificação
+- **DEX:** 3 domínios (COMPORTAMENTAL · COGNITIVO · EMOÇÕES) · 20 itens · 5 colunas: Itens | Familiar | Classificação | Paciente | Classificação · Total ao final
+- **MEMIMP:** 3 linhas (Mem. Prospectiva · Mem. Retrospectiva · Total) · 5 colunas: Itens | Familiar | Classificação | Paciente | Classificação
 - **NEUPSILIN:** todos os 8 domínios com escore bruto, Z-escore e classificação
 - **RAVLT:** todas as tentativas A1-A5, A6, A7, B1 e reconhecimento
-- **TRIACOG:** todos os 7 domínios com pontuação individual e total
+- **TRIACOG:** 12 domínios + total · ponto de corte ≥24 Normal / <24 Sugestivo de comprometimento
 - **Escalas (GDS-15, GAI, HAD, BDI-II, IDATE, IQCODE, PFEFFER, LAWTON, BADL, FAB, MoCA):** total e classificação
 - **WASI:** QIV, QIE, QIT com classificação por faixa
-- **WCST:** categorias completadas, erros perseverativos, breaks
+- **WCST / WCST-N:** builder único detecta a chave; WCST-N usa `trials_administered`+`total_breaks`; WCST usa `total_trials`+campos adicionais
 - **TOKEN:** pontuação por parte (A–F) e total
 - **BAMS:** escore global, percentil e classificação
 - **PCRS:** total paciente, total informante e discrepância
