@@ -27,6 +27,7 @@ export function useTestSession(patientId) {
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
   const saveTimer = useRef(null)
+  const pendingSave = useRef(null) // { testName, data } — para flushSave
 
   // ─── Atualiza UM teste sem tocar nos outros ───────────────────────────────
   const updateTest = useCallback((testName, data) => {
@@ -41,10 +42,12 @@ export function useTestSession(patientId) {
       }
     }))
 
-    // Auto-save com debounce de 2s (não salva a cada keystroke)
+    // Armazena save pendente e agenda debounce de 2s
+    pendingSave.current = { testName, data }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       saveTestToFirestore(testName, data)
+      pendingSave.current = null
     }, 2000)
   }, [patientId])
 
@@ -113,6 +116,19 @@ export function useTestSession(patientId) {
     }
   }, [patientId, user])
 
+  // ─── Salva imediatamente (sem esperar debounce) ───────────────────────────
+  const flushSave = useCallback(async () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    if (pendingSave.current) {
+      const { testName, data } = pendingSave.current
+      pendingSave.current = null
+      await saveTestToFirestore(testName, data)
+    }
+  }, [saveTestToFirestore])
+
   // ─── Salva o laudo finalizado ─────────────────────────────────────────────
   const saveReport = useCallback(async (reportHtml, selectedTests) => {
     if (!patientId || !user) return null
@@ -141,6 +157,7 @@ export function useTestSession(patientId) {
     updateTest,
     updateAnamnesis,
     loadSession,
+    flushSave,
     saveReport,
     // atalho para ler dados de um teste específico
     getTest: (name) => session.tests[name] || {},

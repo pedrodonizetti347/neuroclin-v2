@@ -878,9 +878,9 @@ function buildMEMIMPSection(td) {
   const clsMEMIMP = (v, max) => {
     if (v == null) return { label: '—', color: '#555' }
     const pct = Number(v) / max
-    if (pct <= 0.25) return { label: 'BAIXA QUEIXA',    color: '#1F3864' }
-    if (pct <= 0.50) return { label: 'QUEIXA MODERADA', color: '#E8821A' }
-    return              { label: 'QUEIXA ELEVADA',   color: '#C00000' }
+    if (pct <= 0.25) return { label: 'PRESERVADO',  color: '#1F3864' }
+    if (pct <= 0.50) return { label: 'LIMÍTROFE',   color: '#E8821A' }
+    return              { label: 'COMPROMETIDO', color: '#C00000' }
   }
 
   const rows_data = [

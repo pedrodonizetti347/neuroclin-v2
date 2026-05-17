@@ -701,6 +701,7 @@ function NEUPSILINForm({ data, onChange }) {
     { id: 'linguagem',  label: '6.Ling.',    tot: langTotal             },
     { id: 'praxias',    label: '7.Praxias',  tot: praxTotal,   max: 20 },
     { id: 'executivas', label: '8.Exec.',    tot: execTotal             },
+    { id: 'resultado',  label: 'Resultado'                              },
   ]
 
   const secBox  = { background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
@@ -866,6 +867,29 @@ function NEUPSILINForm({ data, onChange }) {
         <NumField label="Fluência Verbal (nº vocábulos)" value={d.executive_verbal_fluency}  onChange={v => update({ executive_verbal_fluency:  v })} min={0} hint="nº palavras" />
         {totLine(execTotal)}
       </div>}
+
+      {tab === 'resultado' && (
+        <div style={secBox}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Resumo dos Domínios</div>
+          {[
+            ['Orientação', orientTotal, 8],
+            ['Atenção', attTotal, 27],
+            ['Percepção', percTotal, 12],
+            ['Memória', memTotal, null],
+            ['Aritmética', Number(d.arithmetic)||0, 8],
+            ['Linguagem Oral', langOral, null],
+            ['Linguagem Escrita', langEsc, null],
+            ['Praxias', praxTotal, 20],
+            ['Funções Executivas', execTotal, null],
+          ].map(([lbl, val, max]) => (
+            <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: S.greenL }}>{val}{max != null ? `/${max}` : ''}</span>
+            </div>
+          ))}
+          {d.age && <div style={{ marginTop: 8, fontSize: 10, color: S.muted }}>Normatização: {d.age} anos · {d.education_years || '—'} esc. · {d.sex || '—'}</div>}
+        </div>
+      )}
     </div>
   )
 }
@@ -2220,6 +2244,7 @@ function WASIForm({ data, onChange, version }) {
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
         <button style={tabStyle('subtestes')} onClick={() => setTab('subtestes')}>Subtestes</button>
         <button style={tabStyle('qis')} onClick={() => setTab('qis')}>QIs Compostos</button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
         <button style={tabStyle('obs')} onClick={() => setTab('obs')}>Observações</button>
       </div>
 
@@ -2336,6 +2361,30 @@ function WASIForm({ data, onChange, version }) {
         </div>
       )}
 
+      {/* ── Tab: Resultado ─────────────────────────────────────────────────────── */}
+      {tab === 'resultado' && (
+        <div style={{ padding: '12px 0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Resumo WASI</div>
+          {[
+            ['QIV (Verbal)', d.qiv, cqiv],
+            ['QIE (Execução)', d.qie, cqie],
+            ['QIT-2 (2 subtestes)', d.qit_2, cqit2],
+            ['QIT-4 (4 subtestes)', d.qit_4, cqit4],
+          ].map(([lbl, val, cls]) => val != null && (
+            <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${S.border}` }}>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: S.greenL }}>{val}</span>
+                {cls && <Badge {...cls} />}
+              </div>
+            </div>
+          ))}
+          {!d.qiv && !d.qie && !d.qit_2 && !d.qit_4 && (
+            <p style={{ fontSize: 12, color: S.muted }}>Nenhum QI preenchido ainda.</p>
+          )}
+        </div>
+      )}
+
       {/* ── Tab: Observações ───────────────────────────────────────────────────── */}
       {tab === 'obs' && (
         <div>
@@ -2437,10 +2486,9 @@ function WCSTForm({ data, onChange }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
-        <button style={tabStyle('tentativas')} onClick={() => setTab('tentativas')}>
-          Tentativas ({answered}/48)
-        </button>
+        <button style={tabStyle('tentativas')} onClick={() => setTab('tentativas')}>Tentativas ({answered}/48)</button>
         <button style={tabStyle('pontuacao')} onClick={() => setTab('pontuacao')}>Pontuação</button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
       </div>
 
       {/* ── Tab: Tentativas ────────────────────────────────────────────────────── */}
@@ -2522,6 +2570,32 @@ function WCSTForm({ data, onChange }) {
           </p>
         </div>
       )}
+
+      {tab === 'resultado' && (
+        <div style={{ padding: '12px 0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Resumo WCST-N</div>
+          {[
+            ['Ensaios administrados', d.trials_administered, null, null],
+            ['Categorias completadas', d.categories_completed, '/6', cc],
+            ['Total de acertos', d.total_correct, null, null],
+            ['Total de erros', d.total_errors, null, null],
+            ['Erros perseverativos', d.perseverative_errors, null, cPe],
+            ['Erros não-perseverativos', d.non_perseverative_errors, null, null],
+            ['Rupturas de set', d.total_breaks, null, cBreak],
+          ].map(([lbl, val, suffix, cls]) => val != null && (
+            <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: S.greenL }}>{val}{suffix || ''}</span>
+                {cls && <Badge {...cls} />}
+              </div>
+            </div>
+          ))}
+          {!d.categories_completed && !d.trials_administered && (
+            <p style={{ fontSize: 12, color: S.muted }}>Nenhum dado preenchido ainda.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -2591,6 +2665,7 @@ function WCSTFullForm({ data, onChange }) {
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
         <button style={tabStyle('escores')} onClick={() => setTab('escores')}>Escores</button>
         <button style={tabStyle('percentis')} onClick={() => setTab('percentis')}>Percentis</button>
+        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
         <button style={tabStyle('interpretacao')} onClick={() => setTab('interpretacao')}>Interpretação</button>
       </div>
 
@@ -2646,6 +2721,33 @@ function WCSTFullForm({ data, onChange }) {
       )}
 
       {/* ── Tab: Interpretação ─────────────────────────────────────────────────── */}
+      {tab === 'resultado' && (
+        <div style={{ padding: '12px 0' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Resumo WCST</div>
+          {[
+            ['Total de ensaios', d.total_trials, '/128', null],
+            ['Categorias completadas', d.categories_completed, '/6', cc],
+            ['Total de acertos', d.total_correct, null, null],
+            ['Total de erros', d.total_errors, null, null],
+            ['Erros perseverativos', d.perseverative_errors, null, null],
+            ['Erros não-perseverativos', d.non_perseverative_errors, null, null],
+            ['Respostas nível conceitual', d.conceptual_level_responses, null, null],
+            ['Falha em manter contexto', d.failure_to_maintain_set, null, null],
+          ].map(([lbl, val, suffix, cls]) => val != null && (
+            <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: S.greenL }}>{val}{suffix || ''}</span>
+                {cls && <Badge {...cls} />}
+              </div>
+            </div>
+          ))}
+          {!d.categories_completed && !d.total_trials && (
+            <p style={{ fontSize: 12, color: S.muted }}>Nenhum dado preenchido ainda.</p>
+          )}
+        </div>
+      )}
+
       {tab === 'interpretacao' && (
         <div>
           <div style={{ marginBottom: 8 }}>
@@ -2953,6 +3055,19 @@ function MoCAForm({ data, onChange }) {
         min={0} max={30} hint="0-30" />
       {c && <div style={{ marginTop: 8 }}><Badge {...c} /></div>}
       <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: ≥26 Normal · 18-25 CCL · {'<'}18 Sugestivo de demência</p>
+      {/* Resultado */}
+      {d.total_score != null && (
+        <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Resultado</div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: S.muted }}>Total</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: S.greenL }}>{d.total_score}<span style={{ fontSize: 12 }}>/30</span></div>
+            </div>
+            {c && <Badge {...c} />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2981,9 +3096,10 @@ const DEX_ITEMS = [
   { n: 20, label: 'Regulação Emocional' },
 ]
 
-function DEXForm({ data, onChange }) {
+function DEXForm({ data, onChange, onSave }) {
   const d = data || {}
   const [tab, setTab] = React.useState('patient')
+  const switchTab = (t) => { if (onSave) onSave(); setTab(t) }
 
   const update = (changes) => {
     const next = { ...d, ...changes }
@@ -3039,16 +3155,16 @@ function DEXForm({ data, onChange }) {
     <div>
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
-        <button type="button" onClick={()=>setTab('patient')} style={ts(tab==='patient')}>
+        <button type="button" onClick={()=>switchTab('patient')} style={ts(tab==='patient')}>
           Paciente ({patAns}/20)
         </button>
-        <button type="button" onClick={()=>setTab('family')} style={ts(tab==='family')}>
+        <button type="button" onClick={()=>switchTab('family')} style={ts(tab==='family')}>
           Familiar/Informante ({famAns}/20)
         </button>
-        <button type="button" onClick={()=>setTab('result')} style={ts(tab==='result')}>
+        <button type="button" onClick={()=>switchTab('result')} style={ts(tab==='result')}>
           Resultado
         </button>
-        <button type="button" onClick={()=>setTab('dados')} style={ts(tab==='dados')}>
+        <button type="button" onClick={()=>switchTab('dados')} style={ts(tab==='dados')}>
           Dados
         </button>
       </div>
@@ -3698,9 +3814,10 @@ function computeMemimp(n, prefix) {
   return { prospective, retrospective, total, mean, sd }
 }
 
-function MEMIMPForm({ data, onChange }) {
+function MEMIMPForm({ data, onChange, onSave }) {
   const d = data || {}
   const [tab, setTab] = React.useState('paciente')
+  const switchTab = (t) => { if (onSave) onSave(); setTab(t) }
 
   const update = (changes) => {
     const n = { ...d, ...changes }
@@ -3789,13 +3906,13 @@ function MEMIMPForm({ data, onChange }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        <button style={tabStyle('paciente')} onClick={() => setTab('paciente')}>
+        <button style={tabStyle('paciente')} onClick={() => switchTab('paciente')}>
           Paciente {p.total != null ? `(${p.total}/64)` : ''}
         </button>
-        <button style={tabStyle('familiar')} onClick={() => setTab('familiar')}>
+        <button style={tabStyle('familiar')} onClick={() => switchTab('familiar')}>
           Familiar {f.total != null ? `(${f.total}/64)` : ''}
         </button>
-        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+        <button style={tabStyle('resultado')} onClick={() => switchTab('resultado')}>Resultado</button>
       </div>
 
       {tab === 'paciente' && <div>{itemList('patient')}</div>}
@@ -3860,9 +3977,10 @@ const PCRS_ITEMS = [
   'Manter bons relacionamentos com amigos e família',
 ]
 
-function PCRSForm({ data, onChange }) {
+function PCRSForm({ data, onChange, onSave }) {
   const d = data || {}
   const [tab, setTab] = React.useState('paciente')
+  const switchTab = (t) => { if (onSave) onSave(); setTab(t) }
 
   const update = (changes) => {
     const n = { ...d, ...changes }
@@ -3937,13 +4055,13 @@ function PCRSForm({ data, onChange }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        <button style={tabStyle('paciente')} onClick={() => setTab('paciente')}>
+        <button style={tabStyle('paciente')} onClick={() => switchTab('paciente')}>
           Paciente {pTotal != null ? `(${pTotal}/85)` : ''}
         </button>
-        <button style={tabStyle('informante')} onClick={() => setTab('informante')}>
+        <button style={tabStyle('informante')} onClick={() => switchTab('informante')}>
           Informante {iTotal != null ? `(${iTotal}/85)` : ''}
         </button>
-        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+        <button style={tabStyle('resultado')} onClick={() => switchTab('resultado')}>Resultado</button>
       </div>
 
       {tab === 'paciente'   && <div>{itemList('patient')}</div>}
@@ -4107,6 +4225,11 @@ export default function Tests() {
     if (patientId) session.loadSession()
   }, [patientId])
 
+  // Salva imediatamente ao desmontar a página (ex: navegar para Reports)
+  useEffect(() => {
+    return () => { session.flushSave() }
+  }, [])
+
   const activeConf = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
   const patient    = patients.find(p => p.id === patientId)
 
@@ -4164,7 +4287,7 @@ export default function Tests() {
                 return (
                   <button
                     key={item.key}
-                    onClick={() => { if (!locked) setActiveKey(item.key) }}
+                    onClick={() => { if (!locked) { session.flushSave(); setActiveKey(item.key) } }}
                     title={locked ? 'Conclua todas as seções da Anamnese primeiro' : ''}
                     style={{
                       width: '100%', textAlign: 'left', padding: '7px 10px',
@@ -4212,6 +4335,7 @@ export default function Tests() {
               <activeConf.Form
                 data={session.getTest(activeKey)}
                 onChange={(data) => handleChange(activeKey, data)}
+                onSave={() => session.flushSave()}
               />
               {isTestFilled(session.getTest(activeKey)) ? (
                 <TestScanUpload
