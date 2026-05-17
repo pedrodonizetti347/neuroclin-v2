@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node -e \"require('fs').writeFileSync('src/version.js', 'export const BUILD_TIME = \\\"' + new Date().toLocaleString('pt-BR') + '\\\";')\"",
+    "prebuild": "node -e \"require('fs').writeFileSync('src/version.js', 'export const BUILD_TIME = \\\"' + new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) + '\\\";')\"",
     "build": "vite build",
     "preview": "vite preview"
   },
