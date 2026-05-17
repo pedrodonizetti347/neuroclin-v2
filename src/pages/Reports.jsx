@@ -745,11 +745,42 @@ function buildTOKENSection(td) {
 }
 
 // ── Tabela DEX ────────────────────────────────────────────────────────────────
-const DEX_REPORT_LABELS = [
-  'Planejamento','Impulsividade','Confabulação','Cognição Social','Desinibição',
-  'Autocrítica','Dissociação','Memória de Intenções','Distratibilidade','Euforia',
-  'Perseveração','Apatia','Descontrole Emocional','Inquietação','Concentração',
-  'Juízo Crítico','Embotamento Afetivo','Sequência Temporal','Linguagem Espontânea','Tomada de Decisão',
+const DEX_DOMAINS = [
+  {
+    label: 'DOMÍNIO COMPORTAMENTAL',
+    items: [
+      { idx: 1,  label: 'Planejamento' },
+      { idx: 2,  label: 'Impulsividade' },
+      { idx: 6,  label: 'Autocrítica' },
+      { idx: 5,  label: 'Desinibição' },
+      { idx: 13, label: 'Descontrole Emocional' },
+      { idx: 16, label: 'Juízo Crítico' },
+      { idx: 14, label: 'Inquietação' },
+      { idx: 7,  label: 'Dissociação' },
+      { idx: 4,  label: 'Cognição Social' },
+    ],
+  },
+  {
+    label: 'DOMÍNIO COGNITIVO',
+    items: [
+      { idx: 3,  label: 'Confabulação' },
+      { idx: 18, label: 'Sequência Temporal' },
+      { idx: 11, label: 'Perseveração' },
+      { idx: 15, label: 'Concentração' },
+      { idx: 20, label: 'Tomada de Decisão' },
+      { idx: 8,  label: 'Memória de Intenções' },
+      { idx: 9,  label: 'Distratibilidade' },
+      { idx: 19, label: 'Linguagem Espontânea' },
+    ],
+  },
+  {
+    label: 'DOMÍNIO EMOÇÕES',
+    items: [
+      { idx: 10, label: 'Euforia' },
+      { idx: 12, label: 'Apatia' },
+      { idx: 17, label: 'Embotamento Afetivo' },
+    ],
+  },
 ]
 
 function buildDEXSection(td) {
@@ -757,53 +788,85 @@ function buildDEXSection(td) {
   if (!d) return ''
   const patTotal = d.patient_total
   const famTotal = d.family_total
-  const hasItems = DEX_REPORT_LABELS.some((_, i) =>
-    d[`patient_q${i+1}`] != null || d[`family_q${i+1}`] != null
+  const hasItems = DEX_DOMAINS.flatMap(dom => dom.items).some(item =>
+    d[`patient_q${item.idx}`] != null || d[`family_q${item.idx}`] != null
   )
   if (!hasItems && patTotal == null && famTotal == null) return ''
 
-  const dexClass = (v) => {
+  const dexItemCls = (v) => {
+    if (v == null || v === '') return { label: '—', color: '#555' }
+    const n = Number(v)
+    if (n <= 1) return { label: 'PRESERVADO',  color: '#1F3864' }
+    if (n <= 2) return { label: 'LIMÍTROFE',    color: '#E8821A' }
+    return           { label: 'COMPROMETIDO', color: '#C00000' }
+  }
+
+  const dexTotalCls = (v) => {
     if (v == null) return { label: '—', color: '#555' }
     const n = Number(v)
-    if (n <= 20) return { label: 'Normal', color: '#1b5e20' }
-    if (n <= 35) return { label: 'Limítrofe', color: '#e65100' }
-    return { label: 'Alterado', color: '#c62828' }
+    if (n <= 20) return { label: 'Normal',    color: '#1F3864' }
+    if (n <= 35) return { label: 'Limítrofe', color: '#E8821A' }
+    return            { label: 'Alterado',  color: '#C00000' }
   }
 
   const head = `<thead>
-    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário Disexecutivo (DEX) — Funções Executivas</th></tr>
-    <tr>${thCell('Item (0 = nunca · 4 = sempre)')}${thCell('Paciente','text-align:center;')}${thCell('Familiar','text-align:center;')}</tr>
+    <tr><th colspan="5" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário Disexecutivo (DEX) — Funções Executivas</th></tr>
+    <tr>
+      ${thCell('Itens')}
+      ${thCell('Familiar', 'text-align:center;')}
+      ${thCell('Classificação', 'text-align:center;')}
+      ${thCell('Paciente', 'text-align:center;')}
+      ${thCell('Classificação', 'text-align:center;')}
+    </tr>
   </thead>`
 
-  const itemRows = DEX_REPORT_LABELS.map((label, i) => {
-    const n   = i + 1
-    const pV  = d[`patient_q${n}`]
-    const fV  = d[`family_q${n}`]
-    const bg  = i % 2 === 0 ? '#fff' : HR
-    return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      ${tdCell(`${n}. ${label}`)}
-      ${tdCell(pV != null && pV !== '' ? pV : '—', 'text-align:center;')}
-      ${tdCell(fV != null && fV !== '' ? fV : '—', 'text-align:center;')}
-    </tr>`
-  }).join('')
+  let ri = 0
+  let allRows = ''
 
-  const patCls = dexClass(patTotal)
-  const famCls = dexClass(famTotal)
+  DEX_DOMAINS.forEach(dom => {
+    allRows += `<tr style="-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <td colspan="5" style="border:1px solid #9DB8D9;padding:6px 10px;background:${HH};color:#fff;font-weight:bold;font-size:10pt;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${dom.label}</td>
+    </tr>`
+
+    dom.items.forEach(item => {
+      const pV = d[`patient_q${item.idx}`]
+      const fV = d[`family_q${item.idx}`]
+      if (pV == null && fV == null) return
+      const bg   = ri++ % 2 === 0 ? '#fff' : HR
+      const pCls = dexItemCls(pV)
+      const fCls = dexItemCls(fV)
+      allRows += `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        ${tdCell(item.label)}
+        ${tdCell(fV != null && fV !== '' ? fV : '—', 'text-align:center;font-weight:bold;')}
+        ${tdCell(fV != null && fV !== '' ? `<span style="color:${fCls.color};font-weight:bold;">${fCls.label}</span>` : '—', 'text-align:center;')}
+        ${tdCell(pV != null && pV !== '' ? pV : '—', 'text-align:center;font-weight:bold;')}
+        ${tdCell(pV != null && pV !== '' ? `<span style="color:${pCls.color};font-weight:bold;">${pCls.label}</span>` : '—', 'text-align:center;')}
+      </tr>`
+    })
+  })
+
+  const patCls = dexTotalCls(patTotal)
+  const famCls = dexTotalCls(famTotal)
   const disc   = (patTotal != null && famTotal != null) ? Number(patTotal) - Number(famTotal) : null
 
-  const totalRow = `<tr style="background:#e8f5e9;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+  allRows += `<tr style="background:#e8f5e9;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('<strong>TOTAL (0–80)</strong>', 'font-weight:bold;')}
-    ${tdCell(patTotal != null ? `<strong>${patTotal}</strong>&nbsp;<span style="font-size:9pt;color:${patCls.color};">(${patCls.label})</span>` : '—', 'text-align:center;')}
-    ${tdCell(famTotal != null ? `<strong>${famTotal}</strong>&nbsp;<span style="font-size:9pt;color:${famCls.color};">(${famCls.label})</span>` : '—', 'text-align:center;')}
+    ${tdCell(famTotal != null ? `<strong>${famTotal}</strong>` : '—', 'text-align:center;font-weight:bold;')}
+    ${tdCell(famTotal != null ? `<span style="color:${famCls.color};font-weight:bold;">${famCls.label}</span>` : '—', 'text-align:center;')}
+    ${tdCell(patTotal != null ? `<strong>${patTotal}</strong>` : '—', 'text-align:center;font-weight:bold;')}
+    ${tdCell(patTotal != null ? `<span style="color:${patCls.color};font-weight:bold;">${patCls.label}</span>` : '—', 'text-align:center;')}
   </tr>`
 
-  const discRow = disc != null ? `<tr style="background:#f0f4f8;">
-    ${tdCell('<em>Discrepância (paciente − familiar)</em>', 'color:#666;')}
-    ${tdCell(`<strong>${disc >= 0 ? '+'+disc : disc}</strong>`, 'text-align:center;color:#666;')}
-    ${tdCell(Math.abs(disc) > 10 ? '<span style="color:#e65100;">Discrepância significativa</span>' : '—', 'text-align:center;color:#666;')}
-  </tr>` : ''
+  if (disc != null) {
+    allRows += `<tr style="background:#f0f4f8;">
+      <td colspan="5" style="border:1px solid #C5D9EF;padding:6px 10px;color:#666;font-style:italic;">
+        Discrepância (paciente − familiar): <strong>${disc >= 0 ? '+'+disc : disc}</strong>
+        ${Math.abs(disc) > 10 ? ' — <span style="color:#E8821A;">Discrepância significativa</span>' : ''}
+      </td>
+    </tr>`
+  }
 
-  return tableWrap(itemRows + totalRow + discRow, head)
+  return tableWrap(allRows, head)
 }
 
 // ── Tabela MEMIMP ─────────────────────────────────────────────────────────────
