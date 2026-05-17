@@ -22,7 +22,9 @@ const FULL_TEST_NAMES = {
   'BAMS':      'Bateria de Avaliação da Memória Semântica (BAMS)',
   'WASI':      'Escala de Inteligência de Wechsler Abreviada (WASI)',
   'WASI-III':  'Escala de Inteligência de Wechsler Abreviada III (WASI-III)',
+  'WCST':      'Teste Wisconsin de Classificação de Cartas (WCST)',
   'WCST-N':    'Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)',
+  'MEMIMP':    'Inventário de Memória Prospectiva e Retrospectiva (MEMIMP)',
   'DEX':       'Questionário Disexecutivo (DEX)',
   'FAB':       'Bateria de Avaliação Frontal (FAB)',
   'GDS-15':    'Escala de Depressão Geriátrica (GDS-15)',
@@ -42,7 +44,7 @@ const FULL_TEST_NAMES = {
 
 // Quais testes vão para a Tabela de Escalas vs Tabela de Testes
 const SCALE_TESTS = ['GDS-15','GAI','BDI-II','HAD','IQCODE','B-ADL','Pfeffer','Lawton','IDATE-E','IDATE-T','BADL','FAB','MoCA']
-const COGNITIVE_TESTS = ['NEUPSILIN','TRIACOG','RAVLT','BAMS','WASI','WASI-III','WCST-N','DEX','TOKEN']
+const COGNITIVE_TESTS = ['NEUPSILIN','TRIACOG','RAVLT','MEMIMP','BAMS','WASI','WASI-III','WCST','WCST-N','DEX','TOKEN']
 
 const TESTS_LIST = [
   { key: 'NEUPSILIN', label: 'Neupsilin',  group: 'Bateria Cognitiva' },
@@ -185,7 +187,7 @@ function npZtoPct(z) {
 }
 
 // ── Helpers para tabelas do laudo ────────────────────────────────────────────
-const H  = '#5B83A5'  // azul-acinzentado cabeçalho (novo template Neuroavaliação)
+const H  = '#4472C4'  // azul cabeçalho (novo template Neuroavaliação)
 const HH = '#4472C4'  // azul tabela header
 const HR = '#EEF3F8'  // azul claro linha alternada
 
@@ -197,9 +199,9 @@ const tableWrap = (rows, head='') => `<table style="width:100%;border-collapse:c
 const classZ = (z) => {
   if (z == null) return { label: '—', color: '#555' }
   const n = parseFloat(z)
-  if (n >= -1.0)  return { label: 'PRESERVADO',   color: '#1b5e20' }
-  if (n >= -1.5)  return { label: 'LIMÍTROFE',     color: '#e65100' }
-  return              { label: 'COMPROMETIDO',  color: '#c62828' }
+  if (n >= -1.0)  return { label: 'PRESERVADO',   color: '#1F3864' }
+  if (n >= -1.5)  return { label: 'LIMÍTROFE',     color: '#E8821A' }
+  return              { label: 'COMPROMETIDO',  color: '#C00000' }
 }
 
 // Remove markdown code fences that Claude sometimes wraps around HTML output
@@ -631,31 +633,47 @@ function buildBAMSSection(td) {
 
 // ── Tabela WCST-N ─────────────────────────────────────────────────────────────
 const clsWCST_pct = (pct) => {
-  if (pct <  5) return { label: 'LIMÍTROFE',      color: '#D32F2F' }
-  if (pct < 10) return { label: 'ABAIXO DA MÉDIA',color: '#E64A19' }
-  if (pct < 25) return { label: 'MÉDIA INFERIOR', color: '#F57C00' }
-  if (pct < 75) return { label: 'MÉDIA',          color: '#1b5e20' }
-  if (pct < 90) return { label: 'MÉDIA SUPERIOR', color: '#2E7D32' }
-  return              { label: 'SUPERIOR',        color: '#1B5E20' }
+  if (pct <  5) return { label: 'LIMÍTROFE',      color: '#C00000' }
+  if (pct < 10) return { label: 'ABAIXO DA MÉDIA',color: '#E8821A' }
+  if (pct < 25) return { label: 'MÉDIA INFERIOR', color: '#E8821A' }
+  if (pct < 75) return { label: 'MÉDIA',          color: '#1F3864' }
+  if (pct < 90) return { label: 'MÉDIA SUPERIOR', color: '#1F3864' }
+  return              { label: 'SUPERIOR',        color: '#1F3864' }
 }
 const wcstCatPct   = (n) => n >= 6 ? 95 : n >= 5 ? 75 : n >= 4 ? 50 : n >= 3 ? 25 : n >= 2 ? 10 : n >= 1 ? 5 : 2
 const wcstPersPct  = (n) => n <= 5 ? 95 : n <= 10 ? 75 : n <= 16 ? 50 : n <= 22 ? 25 : n <= 30 ? 10 : n <= 41 ? 5 : 2
 const wcstRespPct  = (n) => n <= 6 ? 95 : n <= 12 ? 75 : n <= 18 ? 50 : n <= 24 ? 25 : n <= 32 ? 10 : 5
 
 function buildWCSTSection(td) {
-  const d = td?.['WCST-N']
+  const dN = td?.['WCST-N']
+  const dF = td?.WCST
+  const d  = dN || dF
   if (!d) return ''
+
+  const isNelson   = !!dN
+  const tableLabel = isNelson
+    ? 'Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)'
+    : 'Teste Wisconsin de Classificação de Cartas (WCST)'
 
   const wcstBreakPct = (n) => n === 0 ? 95 : n <= 1 ? 75 : n <= 2 ? 50 : n <= 4 ? 25 : 10
 
+  const ensaiosVal = isNelson ? d.trials_administered : d.total_trials
+
   const rows_data = [
-    { label: 'Ensaios administrados',           val: d.trials_administered,      pctFn: null,          note: '(máx 48)' },
+    { label: 'Ensaios administrados',           val: ensaiosVal,                 pctFn: null,          note: isNelson ? '(máx 48)' : '(máx 128)' },
     { label: 'Categorias completadas',          val: d.categories_completed,     pctFn: wcstCatPct,    note: '(0–6, maior = melhor)' },
     { label: 'Total de acertos',                val: d.total_correct,            pctFn: null,          note: '' },
     { label: 'Total de erros',                  val: d.total_errors,             pctFn: null,          note: '' },
     { label: 'Erros perseverativos',            val: d.perseverative_errors,     pctFn: wcstPersPct,   note: '(menor = melhor)' },
     { label: 'Erros não-perseverativos',        val: d.non_perseverative_errors, pctFn: null,          note: '' },
-    { label: 'Total de rupturas',               val: d.total_breaks,             pctFn: wcstBreakPct,  note: '(menor = melhor)' },
+    ...( isNelson
+      ? [{ label: 'Total de rupturas', val: d.total_breaks, pctFn: wcstBreakPct, note: '(menor = melhor)' }]
+      : [
+          { label: 'Respostas perseverativas',       val: d.perseverative_responses,     pctFn: wcstRespPct, note: '(menor = melhor)' },
+          { label: 'Respostas nível conceitual',     val: d.conceptual_level_responses,  pctFn: null,        note: '' },
+          { label: 'Falha em manter contexto',       val: d.failure_to_maintain_set,     pctFn: null,        note: '' },
+        ]
+    ),
   ].filter(r => r.val != null && r.val !== '')
 
   if (rows_data.length === 0) return ''
@@ -672,7 +690,7 @@ function buildWCSTSection(td) {
   }).join('')
 
   const head = `<thead>
-    <tr><th colspan="3" style="border:1px solid #a5c6a5;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)</th></tr>
+    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${tableLabel}</th></tr>
     <tr>
       ${thCell('Fator')}
       ${thCell('Escore', 'text-align:center;')}
@@ -788,6 +806,112 @@ function buildDEXSection(td) {
   return tableWrap(itemRows + totalRow + discRow, head)
 }
 
+// ── Tabela MEMIMP ─────────────────────────────────────────────────────────────
+function buildMEMIMPSection(td) {
+  const d = td?.MEMIMP
+  if (!d) return ''
+  if (d.patient_total == null && d.family_total == null) return ''
+
+  const clsMEMIMP = (v, max) => {
+    if (v == null) return { label: '—', color: '#555' }
+    const pct = Number(v) / max
+    if (pct <= 0.25) return { label: 'BAIXA QUEIXA',    color: '#1F3864' }
+    if (pct <= 0.50) return { label: 'QUEIXA MODERADA', color: '#E8821A' }
+    return              { label: 'QUEIXA ELEVADA',   color: '#C00000' }
+  }
+
+  const rows_data = [
+    { label: 'Memória Prospectiva (itens 1–8)', fam: d.family_prospective,   pat: d.patient_prospective,   max: 32 },
+    { label: 'Memória Retrospectiva (itens 9–16)', fam: d.family_retrospective, pat: d.patient_retrospective, max: 32 },
+    { label: 'TOTAL',                             fam: d.family_total,         pat: d.patient_total,         max: 64 },
+  ]
+
+  const rows = rows_data.map((r, i) => {
+    const clsFam = clsMEMIMP(r.fam, r.max)
+    const clsPat = clsMEMIMP(r.pat, r.max)
+    const bg = i % 2 === 0 ? '#fff' : HR
+    const isTot = i === rows_data.length - 1
+    return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;${isTot ? 'font-weight:bold;' : ''}">
+      ${tdCell(isTot ? `<strong>${r.label}</strong>` : r.label, 'font-weight:' + (isTot ? 'bold' : 'normal') + ';')}
+      ${tdCell(r.fam != null ? r.fam + '/' + r.max : '—', 'text-align:center;font-weight:bold;')}
+      ${tdCell(`<span style="color:${clsFam.color};font-weight:bold;">${clsFam.label}</span>`, 'text-align:center;')}
+      ${tdCell(r.pat != null ? r.pat + '/' + r.max : '—', 'text-align:center;font-weight:bold;')}
+      ${tdCell(`<span style="color:${clsPat.color};font-weight:bold;">${clsPat.label}</span>`, 'text-align:center;')}
+    </tr>`
+  }).join('')
+
+  const head = `<thead>
+    <tr><th colspan="5" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Inventário de Memória Prospectiva e Retrospectiva (MEMIMP)</th></tr>
+    <tr>
+      ${thCell('Domínio')}
+      ${thCell('Familiar (0–' + '32)', 'text-align:center;')}
+      ${thCell('Classificação', 'text-align:center;')}
+      ${thCell('Paciente (0–' + '32)', 'text-align:center;')}
+      ${thCell('Classificação', 'text-align:center;')}
+    </tr>
+  </thead>`
+
+  return tableWrap(rows, head)
+}
+
+// ── Tabela TRIACOG ────────────────────────────────────────────────────────────
+function buildTRIACOGSection(td) {
+  const d = td?.TRIACOG
+  if (!d) return ''
+  if (d.total_score == null) return ''
+
+  const clsTRIACOG = (total) => {
+    if (total == null) return { label: '—', color: '#555' }
+    return Number(total) >= 24
+      ? { label: 'NORMAL',                        color: '#1F3864' }
+      : { label: 'SUGESTIVO DE COMPROMETIMENTO',  color: '#C00000' }
+  }
+
+  const domains = [
+    { label: 'Orientação',                         val: d.orientacao_total,              max: 2   },
+    { label: 'Memória Imediata (lista de palavras)',val: d.memoria_evocacao_imediata,     max: 6   },
+    { label: 'Memória Tardia (lista de palavras)', val: d.memoria_evocacao_tardia,       max: 6   },
+    { label: 'Atenção — Span de Dígitos',          val: d.atencao_total,                 max: 10  },
+    { label: 'Memória Visual',                     val: d.memoria_visual_total,          max: 24  },
+    { label: 'Praxia — Cópia de Figura',           val: d.praxia_copia_figura_total,     max: 24  },
+    { label: 'Praxia — Relógio',                   val: d.praxia_relogio_total,          max: 9   },
+    { label: 'Funções Executivas — NSR (acertos)', val: d.fe_nsr_total_acertos,          max: 24  },
+    { label: 'Processamento Numérico',             val: d.processamento_numerico_total,  max: 7   },
+    { label: 'Linguagem — Nomeação',               val: d.linguagem_nomeacao_total,      max: 4   },
+    { label: 'Linguagem — Repetição',              val: d.linguagem_repeticao_total,     max: 8   },
+    { label: 'Linguagem — Escrita',                val: d.linguagem_escrita_total,       max: 4   },
+  ].filter(r => r.val != null && r.val !== '')
+
+  if (domains.length === 0) return ''
+
+  const domainRows = domains.map((r, i) => {
+    const bg = i % 2 === 0 ? '#fff' : HR
+    return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      ${tdCell(r.label)}
+      ${tdCell(r.val + '/' + r.max, 'text-align:center;font-weight:bold;')}
+      ${tdCell('—', 'text-align:center;')}
+    </tr>`
+  }).join('')
+
+  const totalCls = clsTRIACOG(d.total_score)
+  const totalRow = `<tr style="background:#dce8f0;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell('<strong>TOTAL TRIACOG</strong>', 'font-weight:bold;')}
+    ${tdCell(`<strong>${d.total_score}</strong>`, 'text-align:center;font-weight:bold;')}
+    ${tdCell(`<span style="color:${totalCls.color};font-weight:bold;">${totalCls.label}</span>`, 'text-align:center;')}
+  </tr>`
+
+  const head = `<thead>
+    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Triagem Cognitiva — TRIACOG<br/><span style="font-size:9pt;font-weight:400;">Ponto de corte: ≥24 Normal · &lt;24 Sugestivo de comprometimento</span></th></tr>
+    <tr>
+      ${thCell('Domínio')}
+      ${thCell('Escore', 'text-align:center;')}
+      ${thCell('Classificação', 'text-align:center;')}
+    </tr>
+  </thead>`
+
+  return tableWrap(domainRows + totalRow, head)
+}
+
 // ── Documento completo ────────────────────────────────────────────────────────
 function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
@@ -812,18 +936,22 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   // ESCALAS e TESTES — exibe automaticamente quando há dados, sem exigir checkbox
   const escalasSection = buildEscalasSection(td)
   const hasNeupsilin   = !!td?.NEUPSILIN
+  const hasTRIACOG     = !!td?.TRIACOG && td.TRIACOG.total_score != null
   const hasRAVLT       = !!td?.RAVLT
+  const hasMEMIMP      = !!td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null)
   const hasWASI        = !!(td?.WASI || td?.['WASI-III'])
   const hasBAMS        = !!td?.BAMS
-  const hasWCST        = !!td?.['WCST-N']
+  const hasWCST        = !!(td?.['WCST-N'] || td?.WCST)
   const hasTOKEN       = !!td?.TOKEN
   const hasDEX         = !!td?.DEX
 
-  const testesSection = (hasNeupsilin || hasRAVLT || hasWASI || hasBAMS || hasWCST || hasTOKEN || hasDEX)
+  const testesSection = (hasNeupsilin || hasTRIACOG || hasRAVLT || hasMEMIMP || hasWASI || hasBAMS || hasWCST || hasTOKEN || hasDEX)
     ? secHead('TABELA DE RESULTADOS – TESTES') +
       buildTOKENSection(td) +
+      buildTRIACOGSection(td) +
       buildNeupsilinSection(td, patient) +
       buildRAVLTSection(td) +
+      buildMEMIMPSection(td) +
       buildWASISection(td, selectedTests) +
       buildBAMSSection(td) +
       buildWCSTSection(td) +
@@ -849,7 +977,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   }
 
   return `
-<div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;line-height:1.7;max-width:760px;margin:0 auto;">
+<div style="font-family:Arial,sans-serif;color:#1a1a2e;line-height:1.7;max-width:760px;margin:0 auto;">
 
   <!-- CABEÇALHO -->
   <div style="border-bottom:3px solid ${H};padding-bottom:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
