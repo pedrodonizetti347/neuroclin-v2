@@ -209,7 +209,9 @@ function ScoreButtons({ value, onChange, max = 3, min = 0 }) {
   return (
     <div style={{ display: 'flex', gap: 3 }}>
       {Array.from({ length: max - min + 1 }, (_, i) => i + min).map(v => (
-        <button key={v} type="button" onClick={() => onChange(v)} style={{
+        <button key={v} type="button"
+          onClick={() => onChange(value != null && Number(value) === v ? null : v)}
+          style={{
           width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
           fontSize: 12, fontWeight: 700,
           background: (value != null && Number(value) === v) ? S.green : 'rgba(255,255,255,0.08)',
