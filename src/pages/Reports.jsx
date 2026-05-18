@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
@@ -7,6 +7,7 @@ import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Se
 import { exportToDocx } from '@/utils/generateDocx'
 import { TestsDataForm } from '@/components/TestsDataForm'
 import { logAction } from '@/lib/auditLog'
+import { generateTextoConclusao } from '../utils/generateTextoConclusao'
 
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
@@ -975,6 +976,238 @@ function buildTRIACOGSection(td) {
   return tableWrap(domainRows + totalRow, head)
 }
 
+// ── Mapeamento de dados do Firebase para generateTextoConclusao ───────────────
+function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
+  const toFem = (val) => {
+    if (!val || val === 'N/A' || val === 'N/D') return 'PRESERVADA'
+    const v = String(val).toUpperCase()
+    if (v === 'PRESERVADO') return 'PRESERVADA'
+    if (v === 'COMPROMETIDO') return 'COMPROMETIDA'
+    return val
+  }
+  const toDesc  = (val) => (!val || String(val).toUpperCase().includes('PRESERV')) ? 'CAPACIDADE' : 'DIFICULDADE'
+  const toRateD = (val) => (!val || String(val).toUpperCase().includes('PRESERV')) ? 'DENTRO DO ESPERADO' : 'ABAIXO DO ESPERADO'
+
+  const sex  = (patient?.sex || '').toUpperCase()
+  const sexo = sex.includes('FEM') ? 'FEMININO' : 'MASCULINO'
+
+  const npOri  = toFem(lbl(npZscores?.orientation))
+  const npAtt  = toFem(lbl(npZscores?.attention))
+  const npPerc = toFem(lbl(npZscores?.perception))
+  const npMem  = toFem(lbl(npZscores?.memory))
+  const npPrax = toFem(lbl(npZscores?.praxis))
+  const npExec = toFem(lbl(npZscores?.executive))
+
+  // RAVLT — classifica escore bruto igual à função classify.ravlt_a7
+  const classRvlt = (score) => {
+    if (score == null || score === '') return 'PRESERVADA'
+    const v = Number(score)
+    if (v >= 9) return 'PRESERVADA'
+    if (v >= 6) return 'LIMÍTROFE'
+    return 'COMPROMETIDA'
+  }
+  const rv = td?.RAVLT
+  const ravltA1 = rv ? classRvlt(rv.a1_score) : 'PRESERVADA'
+  const ravltB1 = rv ? classRvlt(rv.b1_score) : 'PRESERVADA'
+  const ravltA6 = rv ? classRvlt(rv.a6_score) : 'PRESERVADA'
+  const ravltA7 = rv ? (toFem(rv.classification) || classRvlt(rv.a7_score)) : 'PRESERVADA'
+
+  let velEsq = 'PRESERVADA'
+  if (rv?.forgetting_speed != null) {
+    const fs = Number(rv.forgetting_speed)
+    if (fs < 0.6) velEsq = 'COMPROMETIDA'
+    else if (fs < 0.8) velEsq = 'LIMÍTROFE'
+  }
+
+  let recogn = 'PRESERVADA'
+  if (rv?.recognition_score != null) {
+    const rs = Number(rv.recognition_score)
+    if (rs < 10) recogn = 'COMPROMETIDA'
+    else if (rs < 13) recogn = 'LIMÍTROFE'
+  }
+
+  // WCST / WCST-N
+  const wcst = td?.['WCST-N'] || td?.WCST
+  const wcstCat = wcst?.categories_completed != null
+    ? (() => { const n = Number(wcst.categories_completed); return n >= 5 ? 'PRESERVADA' : n >= 3 ? 'LIMÍTROFE' : 'COMPROMETIDA' })()
+    : 'PRESERVADA'
+  const wcstPE = wcst?.perseverative_errors != null
+    ? (() => { const n = Number(wcst.perseverative_errors); return n <= 10 ? 'PRESERVADA' : n <= 16 ? 'LIMÍTROFE' : 'COMPROMETIDA' })()
+    : 'PRESERVADA'
+  const wcstNPE = wcst?.non_perseverative_errors != null
+    ? (() => { const n = Number(wcst.non_perseverative_errors); return n <= 10 ? 'PRESERVADA' : n <= 16 ? 'LIMÍTROFE' : 'COMPROMETIDA' })()
+    : 'PRESERVADA'
+  const beneficioFeedback = (wcst?.total_breaks ?? 0) > 2 ? 'NÃO SE BENEFICIAR' : 'SE BENEFICIAR'
+
+  // TOKEN
+  const tokenScore = td?.TOKEN?.total_score
+  const tokenLabel = tokenScore != null
+    ? (() => { const v = Number(tokenScore); return v >= 29 ? 'NORMAL' : v >= 25 ? 'LEVE' : v >= 20 ? 'MODERADO' : 'GRAVE' })()
+    : 'NORMAL'
+  const tokenDesc = tokenLabel === 'NORMAL' ? 'CAPACIDADE' : 'DIFICULDADE'
+
+  // BAMS
+  const bams = td?.BAMS
+  const bamsClass = (bams?.classification || bams?.interpretation || 'PRESERVADO').toUpperCase()
+  const bamsGlobal = toFem(bamsClass.includes('PRESERV') ? 'PRESERVADO' : bamsClass.includes('LIMIT') ? 'LIMÍTROFE' : 'COMPROMETIDO')
+  const bamsGlobalDesc = bamsClass.includes('PRESERV') ? 'DENTRO DO ESPERADO' : 'ABAIXO DO ESPERADO'
+  const bamsSubCls = (raw, max) => {
+    if (raw == null || max == null) return bamsGlobal
+    const pct = Number(raw) / max
+    return pct >= 0.5 ? 'PRESERVADA' : pct >= 0.25 ? 'LIMÍTROFE' : 'COMPROMETIDA'
+  }
+
+  // GDS / GAI
+  const gdsClass = (td?.['GDS-15']?.classification || '').toUpperCase()
+  const depressao = (gdsClass.includes('DEPRESS') || gdsClass.includes('SUGEST') || Number(td?.['GDS-15']?.total_score) >= 6)
+    ? 'SUGERE QUADRO DE DEPRESSÃO'
+    : 'NÃO APRESENTA SINTOMATOLOGIA DE DEPRESSÃO'
+  const gaiClass = (td?.GAI?.classification || '').toUpperCase()
+  const ansiedade = (gaiClass.includes('ANSIED') || gaiClass.includes('SUGEST') || Number(td?.GAI?.total_score) >= 10)
+    ? 'SUGERE QUADRO DE ANSIEDADE'
+    : 'NÃO APRESENTA SINTOMATOLOGIA DE ANSIEDADE'
+
+  // IQCODE / B-ADL / Pfeffer
+  const iqcodeClass = (td?.IQCODE?.classification || '').toUpperCase()
+  const iqcode = iqcodeClass.includes('DECL') ? 'APRESENTA DECLÍNIO COGNITIVO'
+    : iqcodeClass.includes('LIMIT') ? 'APRESENTA POSSÍVEL DECLÍNIO COGNITIVO'
+    : 'NÃO APRESENTA DECLÍNIO COGNITIVO'
+  const badlClass = (td?.['B-ADL']?.classification || '').toUpperCase()
+  const badl = badlClass === 'NORMAL' ? 'NÃO APRESENTA COMPROMETIMENTO'
+    : badlClass.includes('LEVE') ? 'APRESENTA COMPROMETIMENTO LEVE'
+    : badlClass.includes('MODER') ? 'APRESENTA COMPROMETIMENTO MODERADO'
+    : badlClass.includes('GRAVE') ? 'APRESENTA COMPROMETIMENTO GRAVE'
+    : 'NÃO APRESENTA COMPROMETIMENTO'
+  const pfefferClass = (td?.Pfeffer?.classification || '').toUpperCase()
+  const pfeffer = pfefferClass.includes('COMPROM') ? 'APRESENTA COMPROMETIMENTO FUNCIONAL'
+    : 'NÃO APRESENTA COMPROMETIMENTO'
+
+  // MEMIMP
+  const mm = td?.MEMIMP
+  const mmCls = (v, max) => {
+    if (v == null) return 'PRESERVADA'
+    const pct = Number(v) / max
+    return pct <= 0.25 ? 'PRESERVADA' : pct <= 0.50 ? 'LIMÍTROFE' : 'COMPROMETIDA'
+  }
+
+  // Observações / comportamento
+  const qualidadeDiscurso = ad?.observacoes_comportamentais
+    ? ad.observacoes_comportamentais
+    : 'Seu discurso é organizado e coerente com as atividades abordadas durante a avaliação.'
+  const cooperacao = (ad?.cooperacao || '').toLowerCase()
+  const compreendia = cooperacao.includes('não') || cooperacao.includes('nao') ? 'NÃO' : 'SIM'
+
+  // WASI
+  const wasi = td?.WASI || td?.['WASI-III']
+  const wasiPontuacao = wasi ? (Number(wasi.qit_2 ?? wasi.qit) || null) : null
+  const wasiPercentil = wasi ? (Number(wasi.qit_percentile) || null) : null
+  const wasiDesempenho = wasi?.classification ?? null
+
+  return {
+    nome: initials,
+    sexo,
+    qualidadeDiscurso,
+    compreendia,
+    wasiPontuacao,
+    wasiPercentil,
+    wasiDesempenho,
+    orientacaoTemporal: npOri,
+    orientacaoEspacial: npOri,
+    atencao: npAtt,
+    atencaoDesc: toDesc(npAtt),
+    percepcao: npPerc,
+    percepcaoDesc: toDesc(npPerc),
+    memoriaTrabalho: npMem,
+    memoriaVCurtoPrazo: npMem,
+    memoriaProspectiva: mm ? mmCls(mm.patient_prospective, 32) : npMem,
+    praxiaIdeomotora: npPrax,
+    praxiaConstrutiva: npPrax,
+    praxiaReflexiva: npPrax,
+    fluenciaFonemica: npExec,
+    fluenciaSematica: bamsSubCls(bams?.fv_total, 40),
+    definicaoPalavras: bamsSubCls(bams?.dp_total, 10),
+    categorizacaoVerbal: bamsSubCls(bams?.cv_total, 10),
+    conceituacao: bamsSubCls(bams?.cg_total, 10),
+    escoreGlobal: bamsGlobal,
+    escoreGlobalDesc: bamsGlobalDesc,
+    ravltA1, ravltA1Desc: toDesc(ravltA1),
+    ravltB1,
+    ravltA6, ravltA6Desc: toDesc(ravltA6),
+    ravltA7, ravltA7Desc: toDesc(ravltA7),
+    velEsquecimento: velEsq,
+    velEsquecimentoDesc: toRateD(velEsq),
+    reconhecimento: recogn,
+    reconhecimentoDesc: recogn.includes('PRESERV') ? 'facilitou o reconhecimento' : 'NÃO facilitou o reconhecimento',
+    categoriasCompletas: wcstCat,
+    errosPerseverativos: wcstPE, errosPersDesc: toDesc(wcstPE),
+    errosNaoPers: wcstNPE, errosNaoPersDesc: toDesc(wcstNPE),
+    beneficioFeedback,
+    token: tokenLabel, tokenDesc,
+    prospInformante:   mm ? mmCls(mm.family_prospective, 32)    : 'PRESERVADA',
+    prospPaciente:     mm ? mmCls(mm.patient_prospective, 32)   : 'PRESERVADA',
+    retrospInformante: mm ? mmCls(mm.family_retrospective, 32)  : 'PRESERVADA',
+    retrospPaciente:   mm ? mmCls(mm.patient_retrospective, 32) : 'PRESERVADA',
+    retrospAnamnese:   iqcode.includes('NÃO') ? 'PRESERVADA' : 'COMPROMETIDA',
+    depressao, ansiedade, iqcode, badl, pfeffer,
+    avdAnamnese: pfeffer.includes('NÃO') ? 'NÃO APRESENTA COMPROMETIMENTO' : 'APRESENTA COMPROMETIMENTO',
+  }
+}
+
+// ── Gera HTML da conclusão a partir dos blocos determinísticos ────────────────
+function buildConclusaoHtml(blocos, ad) {
+  const paraStyle = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
+  const secStyle  = `background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
+  const sec = (title) => `<div style="${secStyle}">${title}</div>`
+  const p   = (text)  => `<p style="${paraStyle}">${text}</p>`
+
+  const obsTexto = [
+    ad?.observacoes_comportamentais,
+    ad?.humor        ? `Humor aparente: ${ad.humor}.`          : null,
+    ad?.cooperacao   ? `Cooperação: ${ad.cooperacao}.`         : null,
+    ad?.nivel_alerta ? `Nível de alerta: ${ad.nivel_alerta}.`  : null,
+  ].filter(Boolean).join(' ') || '[Registrar o comportamento do paciente durante a avaliação]'
+
+  const conclusaoBlocks = [
+    blocos.discurso, blocos.inteligencia, blocos.orientacao, blocos.atencao,
+    blocos.memoria, blocos.funcoesExecutivas, blocos.linguagem,
+    blocos.percepcao, blocos.praxia, blocos.depressaoAnsiedade, blocos.declinioAVD,
+  ].filter(Boolean).map(t => p(t)).join('\n')
+
+  return `
+<div style="margin-bottom:20px;">
+  ${sec('ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO')}
+  ${p('[A ser preenchido com os dados da anamnese clínica do paciente — use o botão EDITAR.]')}
+</div>
+
+<div style="margin-bottom:20px;">
+  ${sec('OBSERVAÇÕES COMPORTAMENTAIS')}
+  ${p(obsTexto)}
+</div>
+
+<div style="margin-bottom:20px;">
+  ${sec('CONCLUSÃO')}
+  ${conclusaoBlocks}
+</div>
+
+<div style="margin-bottom:20px;">
+  ${sec('ENFIM')}
+  ${p('[Síntese diagnóstica — inserir hipótese diagnóstica principal e código CID-10 — use o botão EDITAR.]')}
+</div>
+
+<div style="margin-bottom:20px;">
+  ${sec('ENCAMINHAMENTOS')}
+  ${p('Com base nos resultados, sugere-se:')}
+  <ul style="margin:8px 0 12px 24px;font-size:11pt;">
+    <li style="margin-bottom:4px;">Retorno ao médico solicitante com este laudo</li>
+    <li style="margin-bottom:4px;">Exercícios cognitivos (mínimo 2x/semana)</li>
+    <li style="margin-bottom:4px;">Treino de memória, função executiva e atenção</li>
+    <li style="margin-bottom:4px;">Psicoterapia (modalidade adequada ao caso)</li>
+    <li style="margin-bottom:4px;">Exercícios físicos regulares</li>
+    <li style="margin-bottom:4px;"><em><strong>Reavaliação neuropsicológica após 1 ano</strong></em></li>
+  </ul>
+</div>`
+}
+
 // ── Documento completo ────────────────────────────────────────────────────────
 function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
@@ -1332,9 +1565,6 @@ export default function Reports() {
         await new Promise(r => setTimeout(r, 500))
       }
 
-      const fnUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-neuroclin-f55a5.cloudfunctions.net'
-      const token = await auth.currentUser?.getIdToken()
-
       // Lê anamnese da nova coleção anamneses/{patientId} (prioritário) ou da sessão legada
       let ad = session.session?.anamnesis || {}
       if (patientId) {
@@ -1368,8 +1598,6 @@ export default function Reports() {
       // Fonte 4: dados manuais do formulário (prioridade máxima)
       if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
       console.log('[generate] td keys:', Object.keys(td))
-      const s   = v => v || 'N/D'
-      const arr = v => Array.isArray(v) ? v.join(', ') : (v || 'N/D')
       const lbl = z => {
         if (z == null) return 'N/A'
         const n = parseFloat(z)
@@ -1381,52 +1609,6 @@ export default function Reports() {
       const age = patient?.birth_date
         ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         : null
-
-      // Dados resumidos para o prompt (a IA NÃO re-descreve — apenas interpreta)
-      const anamSummary = Object.keys(ad).length ? `
-MOTIVO E ENCAMINHAMENTO:
-  Objetivo: ${s(ad.objetivo_avaliacao || ad.motivo_encaminhamento)}
-  Encaminhado por: ${s(ad.encaminhado_por || ad.origem_encaminhamento)}
-  Queixas principais: ${s(ad.queixas)}
-  Queixas cognitivas/emocionais: ${s(ad.queixas_cognitivas_emocionais)}
-
-CRONOLOGIA DOS SINTOMAS:
-  Início: ${s(ad.inicio_sintomas_data)}
-  Desenvolvimento: ${s(ad.desenvolvimento_sintomas)}
-  Evolução/progressão: ${s(ad.evolucao_sintomas || ad.progressao)}
-
-HISTÓRICO CLÍNICO:
-  Doenças preexistentes: ${arr(ad.doencas_preexistentes)}
-  Medicamentos em uso: ${s(ad.medicamentos)}
-  Cirurgias/hospitalizações: ${s(ad.cirurgias || ad.hospitalizacoes)}
-  Exames de neuroimagem: ${s(ad.exames)}
-  Hipótese diagnóstica prévia: ${s(ad.hipotese_diagnostica_previa)}
-  Histórico familiar (memória/cognição): ${s(ad.historico_familiar_memoria || ad.historia_familiar)}
-  Queda/trauma craniano: ${s(ad.trauma || ad.quedas)}
-
-PERFIL BIOGRÁFICO:
-  Escolaridade: ${s(ad.escolaridade || patient?.education)}
-  Profissão: ${s(ad.profissao || patient?.occupation)}
-  Lateralidade: ${s(ad.lateralidade || patient?.lateralidade)}
-  Estado civil: ${s(ad.estado_civil || patient?.marital_status)}
-  Situação de moradia: ${s(ad.moradia)}
-
-ESTILO DE VIDA:
-  Sono: ${s(ad.sono || ad.sono_como_e)}
-  Apetite: ${s(ad.apetite || ad.apetite_como_e)}
-  Atividade física: ${s(ad.atividade_fisica)}
-  Atividades de lazer: ${s(ad.lazer)}
-  Uso de álcool/tabaco: ${s(ad.uso_substancias || ad.alcool_tabaco)}
-
-INFORMANTE / ACOMPANHANTE:
-  Nome: ${s(ad.acompanhante || ad.informante || ad.responsavel)}${ad.parentesco_acompanhante ? ' (' + ad.parentesco_acompanhante + ')' : ''}
-
-OBSERVAÇÕES COMPORTAMENTAIS:
-  ${s(ad.observacoes_comportamentais || ad.comportamento || 'Não registradas')}
-  Humor aparente: ${s(ad.humor)}
-  Cooperação: ${s(ad.cooperacao)}
-  Nível de alerta: ${s(ad.nivel_alerta)}
-` : 'Sem dados de anamnese.'
 
       // NEUPSILIN: compute z-scores from flat fields (new format) or use legacy zScores
       const np = td?.NEUPSILIN
@@ -1459,173 +1641,14 @@ OBSERVAÇÕES COMPORTAMENTAIS:
         }
       }
       const npLbl = (k) => lbl(npZscores[k])
-      const npZ2  = (k) => npZscores[k] != null ? parseFloat(npZscores[k]).toFixed(2) : 'N/A'
-
-      const ravltTotal = td?.RAVLT
-        ? (td.RAVLT.total_score ?? [td.RAVLT.a1_score, td.RAVLT.a2_score, td.RAVLT.a3_score, td.RAVLT.a4_score, td.RAVLT.a5_score]
-            .reduce((acc, v) => acc + (v != null && v !== '' ? Number(v) : 0), 0))
-        : null
-
-      const resultsSummary = `
-NEUPSILIN — Avaliação Neuropsicológica Breve:
-  Orientação: z=${npZ2('orientation')} — ${npLbl('orientation')}
-  Atenção: z=${npZ2('attention')} — ${npLbl('attention')}
-  Percepção: z=${npZ2('perception')} — ${npLbl('perception')}
-  Memória: z=${npZ2('memory')} — ${npLbl('memory')}
-  Habilidades Aritméticas: z=${npZ2('arithmetic')} — ${npLbl('arithmetic')}
-  Linguagem: z=${npZ2('language')} — ${npLbl('language')}
-  Praxias: z=${npZ2('praxis')} — ${npLbl('praxis')}
-  Funções Executivas: z=${npZ2('executive')} — ${npLbl('executive')}
-
-WASI/WASI-III: ${td?.WASI
-  ? `QI Total=${td.WASI.qit_2 ?? td.WASI.qit ?? '—'}, Percentil=${td.WASI.qit_percentile ?? '—'}, Classif.=${td.WASI.classification ?? '—'}, Vocab.QI=${td.WASI.vocab_qi ?? '—'}, Matrix.QI=${td.WASI.matrix_qi ?? '—'}`
-  : td?.['WASI-III']
-    ? `QI Total=${td['WASI-III'].qit_2 ?? '—'}, Percentil=${td['WASI-III'].qit_percentile ?? '—'}, Vocab.QI=${td['WASI-III'].vocab_qi ?? '—'}, Simil.QI=${td['WASI-III'].similarities_qi ?? '—'}`
-    : 'Não aplicado'}
-
-RAVLT: ${td?.RAVLT
-  ? `A1=${td.RAVLT.a1_score ?? '—'}, A2=${td.RAVLT.a2_score ?? '—'}, A3=${td.RAVLT.a3_score ?? '—'}, A4=${td.RAVLT.a4_score ?? '—'}, A5=${td.RAVLT.a5_score ?? '—'} (total A1-A5=${ravltTotal}), B1=${td.RAVLT.b1_score ?? '—'}, A6 interferência=${td.RAVLT.a6_score ?? '—'}, A7 tardia=${td.RAVLT.a7_score ?? '—'}, ALT=${td.RAVLT.alt_score ?? '—'}, Velocidade esquecimento=${td.RAVLT.forgetting_speed ?? '—'}, Interf. retroativa=${td.RAVLT.retroactive_interference ?? '—'}, Reconhecimento (hits−FP)=${td.RAVLT.recognition_score ?? '—'}`
-  : 'Não aplicado'}
-
-BAMS: ${td?.BAMS
-  ? `Escore Global=${td.BAMS.global_score}, Percentil=${td.BAMS.percentile}, Classif.=${td.BAMS.interpretation || td.BAMS.classification}`
-  : 'Não aplicado'}
-
-WCST-N: ${td?.['WCST-N']
-  ? `Ensaios=${td['WCST-N'].trials_administered ?? '—'}, Categorias=${td['WCST-N'].categories_completed ?? '—'}, Acertos=${td['WCST-N'].total_correct ?? '—'}, Erros=${td['WCST-N'].total_errors ?? '—'}, Erros Persev.=${td['WCST-N'].perseverative_errors ?? '—'}, Erros Não-Persev.=${td['WCST-N'].non_perseverative_errors ?? '—'}, Rupturas=${td['WCST-N'].total_breaks ?? '—'}`
-  : 'Não aplicado'}
-
-Token Test: ${td?.TOKEN
-  ? `Pontuação Total=${td.TOKEN.total_score}/36, Classif.=${td.TOKEN.classification || td.TOKEN.interpretation}`
-  : 'Não aplicado'}
-
-DEX: ${td?.DEX
-  ? `Paciente=${td.DEX.totals?.patient_total ?? td.DEX.patient_total ?? '—'} (${td.DEX.totals?.patient_mean_class ?? td.DEX.patient_classification ?? '—'}), Familiar=${td.DEX.totals?.family_total ?? td.DEX.family_total ?? '—'} (${td.DEX.totals?.family_mean_class ?? td.DEX.family_classification ?? '—'})`
-  : 'Não aplicado'}
-
-FAB: ${td?.FAB ? `Escore=${td.FAB.total_score}, Classif.=${td.FAB.classification}` : 'Não aplicado'}
-MoCA: ${td?.MoCA ? `${td.MoCA.total_score}/30 — ${td.MoCA.classification}` : 'Não aplicado'}
-TRIACOG: ${td?.TRIACOG ? `aplicado (status: ${td.TRIACOG.status || 'concluído'})` : 'Não aplicado'}
-
-Escalas de Humor e Ansiedade:
-  GDS-15: ${td?.['GDS-15'] ? `${td['GDS-15'].total_score} pts — ${td['GDS-15'].classification}` : 'Não aplicado'}
-  GAI: ${td?.GAI ? `${td.GAI.total_score} pts — ${td.GAI.classification}` : 'Não aplicado'}
-  BDI-II: ${td?.['BDI-II'] ? `${td['BDI-II'].total_score} pts — ${td['BDI-II'].classification}` : 'Não aplicado'}
-  HAD: ${td?.HAD ? `Ansiedade=${td.HAD.anxiety_score} (${td.HAD.anxiety_classification}), Depressão=${td.HAD.depression_score} (${td.HAD.depression_classification})` : 'Não aplicado'}
-  IDATE-E: ${td?.['IDATE-E'] ? `${td['IDATE-E'].total_score} — ${td['IDATE-E'].classification}` : 'Não aplicado'}
-  IDATE-T: ${td?.['IDATE-T'] ? `${td['IDATE-T'].total_score} — ${td['IDATE-T'].classification}` : 'Não aplicado'}
-
-Escalas Funcionais e AVD:
-  IQCODE: ${td?.IQCODE ? `${td.IQCODE.total_score} — ${td.IQCODE.classification}` : 'Não aplicado'}
-  B-ADL: ${td?.['B-ADL'] ? `${td['B-ADL'].total_score} — ${td['B-ADL'].classification}` : 'Não aplicado'}
-  Pfeffer: ${td?.Pfeffer ? `${td.Pfeffer.total_score} — ${td.Pfeffer.classification}` : 'Não aplicado'}
-  Lawton: ${td?.Lawton ? `${td.Lawton.total_score} — ${td.Lawton.classification}` : 'Não aplicado'}
-  BADL: ${td?.BADL ? `${td.BADL.total_score} — ${td.BADL.classification}` : 'Não aplicado'}
-`
 
       const initials = patient?.full_name
         ? patient.full_name.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + '.').join('')
         : 'N.P.'
 
-      const prompt = `Você é um neuropsicólogo clínico especialista em laudos neuropsicológicos da Clínica Neuroavaliação. As tabelas de identificação do paciente e de resultados dos testes já foram incluídas no laudo pelo sistema — NÃO as repita nem mencione valores brutos.
-
-Sua tarefa é elaborar as seções interpretativas em português brasileiro técnico, empático e clínico, formatadas em HTML.
-
-DADOS DO CASO:
-Paciente (iniciais): ${initials} | ${age != null ? age + ' anos' : 'N/D'} | ${patient?.sex || 'N/D'}
-Escolaridade: ${patient?.education || ad?.escolaridade || 'N/D'}
-Testes aplicados: ${selectedTests.join(', ')}
-Aplicado por: ${professional} | Supervisão: ${SUPERVISOR.name} — ${SUPERVISOR.crp}
-
-ANAMNESE CLÍNICA:
-${anamSummary}
-
-RESULTADOS DOS TESTES (use para interpretar — NÃO repita valores):
-${resultsSummary}
-
-=== GERE EXATAMENTE ESTAS 5 SEÇÕES EM HTML ===
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO</div>
-[Contextualização clínica integrando queixas relatadas, histórico clínico, desenvolvimento dos sintomas e perfil biográfico relevante de ${initials}. 2 parágrafos justificados. NÃO repita dados da tabela — interprete-os clinicamente.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">OBSERVAÇÕES COMPORTAMENTAIS</div>
-[Comportamento de ${initials} durante a avaliação: nível de alerta, atenção sustentada, cooperação, velocidade de resposta, contato, adaptação às tarefas, sinais de ansiedade/fadiga. 1 a 2 parágrafos.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONCLUSÃO</div>
-[REGRA ABSOLUTA: redigir em PROSA CONTÍNUA sem JAMAIS nomear os instrumentos/testes aplicados. Para cada domínio avaliado, use EXATAMENTE este formato — nome do domínio em MAIÚSCULAS e negrito, seguido imediatamente da interpretação em prosa no mesmo parágrafo:
-
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ORIENTAÇÃO TÊMPORO-ESPACIAL:</strong> [interpretação clínica em prosa contínua]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ATENÇÃO:</strong> [interpretação por subtipo — seletiva, sustentada, dividida, alternada — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>MEMÓRIA:</strong> [interpretação por subtipo — operacional, episódica imediata, evocação tardia, reconhecimento, semântica, prospectiva — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>FUNÇÕES EXECUTIVAS:</strong> [planejamento, controle inibitório, fluência verbal, resolução de problemas — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>LINGUAGEM:</strong> [oral e escrita: nomeação, fluência, compreensão — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>PERCEPÇÃO:</strong> [habilidades visuoespaciais — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>PRAXIAS:</strong> [ideomotora, construtiva, reflexiva — em prosa]</p>
-<p style="font-size:11pt;margin:10px 0 6px;text-align:justify;line-height:1.8;"><strong>ASPECTOS EMOCIONAIS:</strong> [resultados de escalas de humor/ansiedade e interação com cognição — em prosa]</p>
-Incluir SOMENTE os domínios efetivamente avaliados nos testes aplicados.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENFIM</div>
-[OBRIGATÓRIO — PARÁGRAFO ÚNICO em prosa contínua, SEM bullet points, SEM quebra de linha:
-Iniciar com: "De acordo com os achados na avaliação neuropsicológica e da observação clínica feita durante o processo, sugere-se que ${initials} apresenta perfil de "
-Em seguida: diagnóstico principal em <strong><u>MAIÚSCULAS (CID-10 FXXX)</u></strong>, depois comorbidade se houver em <strong><u>MAIÚSCULAS (CID-10 FXXX)</u></strong>, depois justificativa clínica breve em prosa.
-REGRA: códigos CID-10 SOMENTE neste parágrafo, nunca no restante do texto.]
-</div>
-
-<div style="margin-bottom:20px;">
-<div style="background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">ENCAMINHAMENTOS</div>
-<p style="font-size:11pt;margin:8px 0;">Com base nos resultados, sugere-se:</p>
-<ul style="margin:8px 0 12px 24px;font-size:11pt;">
-[Listar 6 a 8 encaminhamentos individualizados para este caso. Incluir OBRIGATORIAMENTE:
-• Retorno ao médico solicitante com este laudo
-• Exercícios cognitivos (mínimo 2x/semana)
-• Treino de memória, função executiva e atenção
-• Psicoterapia (modalidade adequada ao caso)
-• Exercícios físicos regulares
-• <em><strong>Reavaliação neuropsicológica após 1 ano</strong></em> (este item sempre em itálico e negrito)
-Adicionar encaminhamentos específicos ao caso (neurologia, psiquiatria, fonoaudiologia, orientação ao cuidador, etc.)]
-</ul>
-</div>
-
-=== REGRAS DE FORMATAÇÃO ===
-- Parágrafos: <p style="font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;">
-- Listas: <ul style="margin:8px 0 12px 24px;font-size:11pt;"><li style="margin-bottom:4px;">
-- NÃO inclua html/body/head/style
-- NÃO mencione nomes de instrumentos/testes na seção CONCLUSÃO
-- NÃO mencione "inteligência artificial" ou "IA"
-- NÃO repita tabelas de dados
-- SEMPRE use iniciais ${initials} ao referenciar o paciente, nunca nome completo
-- Tom: técnico, rigoroso, clínico, individualizado, empático
-- Critérios diagnósticos: DSM-5 / CID-10 / CFP Resolução nº 31/2022
-- Mínimo de 1.500 palavras no total`
-
-      const res = await fetch(`${fnUrl}/anthropicProxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 4096,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error?.message || `Erro ${res.status}`)
-      }
-
-      const data      = await res.json()
-      const rawAiBody = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
-      const aiBody    = stripMdFences(rawAiBody)
+      const dadosPaciente = mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials)
+      const blocos = generateTextoConclusao(dadosPaciente)
+      const aiBody = buildConclusaoHtml(blocos, ad)
       setAiBodyState(aiBody)
       setReportDate(dataFormatada)
 
