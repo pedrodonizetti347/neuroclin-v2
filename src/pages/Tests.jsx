@@ -3652,7 +3652,69 @@ function TRIACOGForm({ data, onChange }) {
   )
 }
 
-// ─── TOKEN (Base44-compliant) ─────────────────────────────────────────────────
+// ─── TOKEN — Tabela Normativa EPI (Fonte: Tabela 2 – Escores padronizados por idade) ─
+const TOKEN_CLASSIFICACAO_ST = [
+  { min: 0,   max: 30,  label: 'Deficitário',    type: 'impaired' },
+  { min: 31,  max: 36,  label: 'Limítrofe',      type: 'borderline' },
+  { min: 37,  max: 43,  label: 'Média Inferior', type: 'borderline' },
+  { min: 44,  max: 56,  label: 'Média',          type: 'preserved' },
+  { min: 57,  max: 63,  label: 'Média Superior', type: 'preserved' },
+  { min: 64,  max: 69,  label: 'Superior',       type: 'preserved' },
+  { min: 70,  max: 999, label: 'Muito Superior', type: 'preserved' },
+]
+const TOKEN_TABELA_EPI = [
+  { epi:  2, percentil: '<1',    tScore: '<25',   escores: { '63_67': '≤14', '68_72': '≤14', '73_77': '≤18', '78_82': '≤18',     '83mais': '≤15' } },
+  { epi:  3, percentil: '1',     tScore: '25–28', escores: { '63_67': 15,    '68_72': 15,    '73_77': 19,    '78_82': null,       '83mais': null  } },
+  { epi:  4, percentil: '2',     tScore: '28–31', escores: { '63_67': 19,    '68_72': 19,    '73_77': null,  '78_82': 19,         '83mais': null  } },
+  { epi:  5, percentil: '3–5',   tScore: '32–35', escores: { '63_67': 23,    '68_72': 23,    '73_77': 23,    '78_82': 22,         '83mais': 16    } },
+  { epi:  6, percentil: '6–10',  tScore: '35–38', escores: { '63_67': 24,    '68_72': null,  '73_77': 24,    '78_82': 23,         '83mais': 22    } },
+  { epi:  7, percentil: '11–18', tScore: '39–42', escores: { '63_67': '25–26', '68_72': '24–25', '73_77': 25, '78_82': 24,       '83mais': 23    } },
+  { epi:  8, percentil: '19–28', tScore: '42–45', escores: { '63_67': 27,    '68_72': '26–28', '73_77': 26,  '78_82': '25–26',   '83mais': 24    } },
+  { epi:  9, percentil: '29–40', tScore: '45–48', escores: { '63_67': 29,    '68_72': 29,    '73_77': '27–28', '78_82': 27,      '83mais': 26    } },
+  { epi: 10, percentil: '41–59', tScore: '49–51', escores: { '63_67': 30,    '68_72': 30,    '73_77': '29–30', '78_82': '28–29', '83mais': 28    } },
+  { epi: 11, percentil: '60–71', tScore: '52–55', escores: { '63_67': 31,    '68_72': 31,    '73_77': 31,    '78_82': 30,         '83mais': '29–30' } },
+  { epi: 12, percentil: '72–81', tScore: '55–58', escores: { '63_67': '32–33', '68_72': 32,  '73_77': 32,    '78_82': 31,         '83mais': 31    } },
+  { epi: 13, percentil: '82–89', tScore: '58–61', escores: { '63_67': null,  '68_72': 33,    '73_77': null,  '78_82': null,       '83mais': null  } },
+  { epi: 14, percentil: '90–94', tScore: '62–65', escores: { '63_67': 34,    '68_72': 34,    '73_77': 33,    '78_82': 32,         '83mais': null  } },
+  { epi: 15, percentil: '95–97', tScore: '65–68', escores: { '63_67': 35,    '68_72': null,  '73_77': null,  '78_82': null,       '83mais': 32    } },
+  { epi: 16, percentil: '98',    tScore: '69–72', escores: { '63_67': null,  '68_72': 35,    '73_77': 34,    '78_82': 33,         '83mais': null  } },
+  { epi: 17, percentil: '99',    tScore: '72–75', escores: { '63_67': null,  '68_72': null,  '73_77': null,  '78_82': null,       '83mais': null  } },
+  { epi: 18, percentil: '>99',   tScore: '>75',   escores: { '63_67': 36,    '68_72': 36,    '73_77': 35,    '78_82': 34,         '83mais': 33    } },
+]
+function tokenParseTScore(ts) {
+  if (typeof ts === 'number') return ts
+  if (ts.startsWith('<')) return parseInt(ts.replace('<', '')) - 1
+  if (ts.startsWith('>')) return parseInt(ts.replace('>', '')) + 1
+  const p = ts.split('–')
+  return p.length === 2 ? Math.round((parseInt(p[0]) + parseInt(p[1])) / 2) : parseInt(ts)
+}
+function tokenGetFaixaId(age) {
+  const a = Number(age)
+  if (a >= 63 && a <= 67) return '63_67'
+  if (a >= 68 && a <= 72) return '68_72'
+  if (a >= 73 && a <= 77) return '73_77'
+  if (a >= 78 && a <= 82) return '78_82'
+  if (a >= 83) return '83mais'
+  return null
+}
+function tokenBuscarEPI(bruto, faixaId) {
+  for (let i = TOKEN_TABELA_EPI.length - 1; i >= 0; i--) {
+    const row = TOKEN_TABELA_EPI[i]
+    const val = row.escores[faixaId]
+    if (val === null || val === undefined) continue
+    let lim
+    if (typeof val === 'string') {
+      lim = val.startsWith('≤') ? parseInt(val.replace('≤', '')) : parseInt(val.split('–')[1] ?? val)
+    } else { lim = val }
+    if (bruto >= lim) {
+      const tMedio = tokenParseTScore(row.tScore)
+      const cl = TOKEN_CLASSIFICACAO_ST.find(f => tMedio >= f.min && tMedio <= f.max)
+      return { epi: row.epi, percentil: row.percentil, tScore: row.tScore, classificacao: cl?.label || '—', type: cl?.type || 'info' }
+    }
+  }
+  return null
+}
+
 const TOKEN_PARTS = [
   { key: 'part_a', label: 'Parte A', desc: 'Todas as peças', count: 7 },
   { key: 'part_b', label: 'Parte B', desc: 'Somente peças grandes', count: 4 },
@@ -3677,8 +3739,16 @@ function TOKENForm({ data, onChange }) {
     })
     n.total_score = totalScore
     n.errors = TOKEN_MAX - totalScore
-    const hasAnyItems = TOKEN_PARTS.some(p => (n[`${p.key}_items`] || []).some(v => v != null && Number(v) !== 0))
-    n.classification = hasAnyItems ? (classify.token(totalScore)?.label || '') : (n.classification || '')
+    const faixaId = tokenGetFaixaId(n.age)
+    if (faixaId && totalScore > 0) {
+      const epi = tokenBuscarEPI(totalScore, faixaId)
+      if (epi) {
+        n.epi        = epi.epi
+        n.percentile = epi.percentil
+        n.t_score    = epi.tScore
+        n.classification = epi.classificacao
+      }
+    }
     onChange(n)
   }
 
@@ -3686,8 +3756,9 @@ function TOKENForm({ data, onChange }) {
     const arr = d[`${p.key}_items`] || []
     return s + arr.reduce((ss, v) => ss + (Number(v) || 0), 0)
   }, 0)
-  const hasAny = total > 0 || TOKEN_PARTS.some(p => (d[`${p.key}_items`] || []).some(v => v != null && v !== 0))
-  const c = hasAny ? classify.token(total) : null
+  const hasAny   = total > 0 || TOKEN_PARTS.some(p => (d[`${p.key}_items`] || []).some(v => v != null && v !== 0))
+  const faixaId  = tokenGetFaixaId(d.age)
+  const epiResult = (faixaId && total > 0) ? tokenBuscarEPI(total, faixaId) : null
 
   return (
     <div>
@@ -3748,26 +3819,46 @@ function TOKENForm({ data, onChange }) {
 
       {/* Resultado */}
       {hasAny && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/{TOKEN_MAX}</span>
-            <span style={{ fontSize: 12, color: S.muted, marginLeft: 14 }}>Erros: {d.errors ?? TOKEN_MAX - total}</span>
+        <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: epiResult ? 10 : 0 }}>
+            <div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/{TOKEN_MAX}</span>
+              <span style={{ fontSize: 12, color: S.muted, marginLeft: 14 }}>Erros: {d.errors ?? TOKEN_MAX - total}</span>
+            </div>
+            {epiResult && <Badge label={epiResult.classificacao} type={epiResult.type} />}
           </div>
-          {c && <Badge {...c} />}
+          {epiResult ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 2 }}>EPI</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>{epiResult.epi}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 2 }}>Percentil</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>{epiResult.percentil}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 2 }}>T-score (sT)</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>{epiResult.tScore}</div>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>
+              {faixaId ? 'Preencha as partes para calcular o EPI.' : 'Informe a idade (63–83+) para calcular EPI e T-score.'}
+            </p>
+          )}
         </div>
       )}
-      <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>Ref: ≥29 Normal · 25–28 Leve · 20–24 Moderado · &lt;20 Grave</p>
 
-      {/* Percentil + Classificação manual */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, marginTop: 10 }}>
-        <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} />
+      {/* Classificação / Interpretação */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Classificação</div>
           <input value={d.classification || ''} onChange={e => update({ classification: e.target.value })}
-            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Normal" />
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: Média" />
         </div>
+        <NumField label="Percentil" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} />
       </div>
-
       <div style={{ marginTop: 4 }}>
         <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Interpretação</div>
         <textarea rows={2} value={d.interpretation || ''} onChange={e => update({ interpretation: e.target.value })}
