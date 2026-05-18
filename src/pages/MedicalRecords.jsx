@@ -393,7 +393,7 @@ export default function MedicalRecords() {
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.04)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
             {[
               { key: 'anamnese', label: 'Anamnese', icon: BookOpen },
-              { key: 'testes', label: 'Testes', icon: FlaskConical },
+              { key: 'testes', label: 'Testes Aplicados', icon: FlaskConical },
               { key: 'laudos', label: 'Laudos', icon: FileText },
               { key: 'notas', label: 'Notas clínicas', icon: BookOpen },
             ].map(({ key, label, icon: Icon }) => (
