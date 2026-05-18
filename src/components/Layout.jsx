@@ -24,7 +24,7 @@ const NAV_ADMIN = [
 ]
 
 const S = {
-  bg:      '#F8FAFC',
+  bg:      '#0D1117',
   nav:     '#0B1929',
   sidebar: '#0F1B2D',
   card:    '#1A2744',

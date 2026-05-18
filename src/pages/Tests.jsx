@@ -7,10 +7,10 @@ import { FlaskConical, CheckCircle2, Save, Camera, Lock } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
 const S = {
-  bg:     '#F8FAFC',
-  card:   '#FFFFFF',
-  border: '#D1E2F0',
-  muted:  '#888888',
+  bg:     '#0D1B2A',
+  card:   '#1A2744',
+  border: 'rgba(255,255,255,0.08)',
+  muted:  'rgba(255,255,255,0.45)',
   green:  '#2E7D32',
   greenL: '#4CAF50',
   amber:  '#F59E0B',
@@ -19,9 +19,9 @@ const S = {
 }
 
 const inputStyle = {
-  background: 'rgba(0,0,0,0.04)',
+  background: 'rgba(255,255,255,0.05)',
   border: `1px solid ${S.border}`,
-  color: '#1A2744', borderRadius: 6,
+  color: '#fff', borderRadius: 6,
   padding: '6px 10px', fontSize: 13, width: '100%', outline: 'none',
   textAlign: 'center',
 }
@@ -30,10 +30,10 @@ const inputStyle = {
 function Badge({ label, type }) {
   if (!label) return null
   const colors = {
-    preserved:  { bg: 'rgba(46,125,50,0.1)',  border: '#2E7D32', text: '#1B5E20' },
-    borderline: { bg: 'rgba(245,158,11,0.1)', border: '#B45309', text: '#92400E' },
-    impaired:   { bg: 'rgba(239,68,68,0.1)',  border: '#EF4444', text: '#B91C1C' },
-    info:       { bg: 'rgba(59,130,246,0.1)', border: '#3B82F6', text: '#1D4ED8' },
+    preserved:  { bg: 'rgba(46,125,50,0.2)',  border: '#2E7D32', text: '#4CAF50' },
+    borderline: { bg: 'rgba(245,158,11,0.2)', border: '#F59E0B', text: '#FCD34D' },
+    impaired:   { bg: 'rgba(239,68,68,0.2)',  border: '#EF4444', text: '#F87171' },
+    info:       { bg: 'rgba(59,130,246,0.2)', border: '#3B82F6', text: '#93C5FD' },
   }
   const c = colors[type] || colors.info
   return (
@@ -214,7 +214,7 @@ function ScoreButtons({ value, onChange, max = 3, min = 0 }) {
           style={{
           width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
           fontSize: 12, fontWeight: 700,
-          background: (value != null && Number(value) === v) ? S.green : 'rgba(0,0,0,0.08)',
+          background: (value != null && Number(value) === v) ? S.green : 'rgba(255,255,255,0.08)',
           color:      (value != null && Number(value) === v) ? '#fff'  : S.muted,
         }}>{v}</button>
       ))}
@@ -227,7 +227,7 @@ function NumField({ label, value, onChange, min, max, step = 1, hint }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>
-        {label}{hint && <span style={{ color: 'rgba(0,0,0,0.25)', marginLeft: 4 }}>({hint})</span>}
+        {label}{hint && <span style={{ color: 'rgba(255,255,255,0.25)', marginLeft: 4 }}>({hint})</span>}
       </div>
       <input
         type="number" min={min} max={max} step={step}
@@ -344,7 +344,7 @@ function RAVLTForm({ data, onChange }) {
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
     fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -545,8 +545,8 @@ function RAVLTForm({ data, onChange }) {
                     <button key={idx} onClick={() => toggleWord(idx)} style={{
                       padding: '6px 4px',
                       borderRadius: 6,
-                      border: `1px solid ${item.marked ? (isHit ? '#4CAF50' : S.red) : 'rgba(0,0,0,0.1)'}`,
-                      background: item.marked ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(0,0,0,0.04)',
+                      border: `1px solid ${item.marked ? (isHit ? '#4CAF50' : S.red) : 'rgba(255,255,255,0.1)'}`,
+                      background: item.marked ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(255,255,255,0.04)',
                       color: item.marked ? (isHit ? '#4CAF50' : S.red) : originColor,
                       cursor: 'pointer',
                       fontSize: 11,
@@ -575,9 +575,9 @@ function RAVLTForm({ data, onChange }) {
             { label: 'Interferência retroativa (A6/A5)', value: d.retroactive_interference, hint: 'quanto B1 afetou A6' },
             { label: 'Reconhecimento (hits − FP)', value: d.recognition_score, hint: '≥13 = preservado' },
           ].map(({ label, value, suffix, hint }) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
               <div>
-                <div style={{ fontSize: 12, color: '#1A2744' }}>{label}</div>
+                <div style={{ fontSize: 12, color: '#fff' }}>{label}</div>
                 {hint && <div style={{ fontSize: 10, color: S.muted }}>{hint}</div>}
               </div>
               <span style={{ fontSize: 16, fontWeight: 700, color: S.greenL }}>
@@ -592,7 +592,7 @@ function RAVLTForm({ data, onChange }) {
       {tab === 'resultado' && (
         <div>
           {/* ── Resumo automático dos índices ── */}
-          <div style={{ background:'rgba(0,0,0,0.04)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
             <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:8 }}>CLASSIFICAÇÕES AUTOMÁTICAS</div>
             {[
               { label:'A7 — Evocação Tardia',    val:a7s,                        suffix:'/15', c: classify.ravlt_a7(a7s) },
@@ -704,7 +704,7 @@ function NEUPSILINForm({ data, onChange }) {
     { id: 'resultado',  label: 'Resultado'                              },
   ]
 
-  const secBox  = { background: 'rgba(0,0,0,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
+  const secBox  = { background: 'rgba(255,255,255,0.03)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 }
   const subHead = (txt) => (
     <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '10px 0 6px', borderTop: `1px solid ${S.border}`, paddingTop: 8 }}>{txt}</div>
   )
@@ -715,7 +715,7 @@ function NEUPSILINForm({ data, onChange }) {
   )
   const orientItem = (key, label) => (
     <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 0' }}>
-      <div style={{ fontSize: 12, color: d[key] != null ? '#1A2744' : S.muted }}>{label}</div>
+      <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>{label}</div>
       <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} max={1} />
     </div>
   )
@@ -775,7 +775,7 @@ function NEUPSILINForm({ data, onChange }) {
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '4px 9px', borderRadius: 5, border: 'none', cursor: 'pointer',
             fontSize: 11, fontWeight: tab === t.id ? 700 : 400,
-            background: tab === t.id ? S.green : 'rgba(0,0,0,0.06)',
+            background: tab === t.id ? S.green : 'rgba(255,255,255,0.06)',
             color: tab === t.id ? '#fff' : S.muted,
           }}>
             {t.label} {t.max ? `(${t.tot}/${t.max})` : `(${t.tot})`}
@@ -883,7 +883,7 @@ function NEUPSILINForm({ data, onChange }) {
             ['Funções Executivas', execTotal, null],
           ].map(([lbl, val, max]) => (
             <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
-              <span style={{ fontSize: 12, color: '#1A2744' }}>{lbl}</span>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: S.greenL }}>{val}{max != null ? `/${max}` : ''}</span>
             </div>
           ))}
@@ -926,9 +926,9 @@ function FABForm({ data, onChange }) {
           <div key={f.key} style={{
             display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
             padding: '7px 10px', borderRadius: 6,
-            background: d[f.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(0,0,0,0.02)',
+            background: d[f.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize: 12, color: d[f.key] != null ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize: 12, color: d[f.key] != null ? '#fff' : S.muted }}>
               {f.label}
               {f.hint && <span style={{ color: S.muted, fontSize: 10, marginLeft: 6 }}>({f.hint})</span>}
             </div>
@@ -939,8 +939,8 @@ function FABForm({ data, onChange }) {
 
       {/* Total */}
       {hasAny && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/18</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/18</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -1067,9 +1067,9 @@ function GDS15Form({ data, onChange }) {
             <div key={it.key} style={{
               display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
               padding: '6px 10px', borderRadius: 6,
-              background: d[it.key] != null ? (isDepressive ? 'rgba(239,68,68,0.06)' : 'rgba(46,125,50,0.06)') : 'rgba(0,0,0,0.02)',
+              background: d[it.key] != null ? (isDepressive ? 'rgba(239,68,68,0.06)' : 'rgba(46,125,50,0.06)') : 'rgba(255,255,255,0.02)',
             }}>
-              <div style={{ fontSize: 12, color: d[it.key] != null ? '#1A2744' : S.muted }}>
+              <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
                 <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -1081,7 +1081,7 @@ function GDS15Form({ data, onChange }) {
                       style={{
                         padding: '3px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
                         fontSize: 12, fontWeight: 700,
-                        background: isSelected ? (isThisDepressive ? 'rgba(239,68,68,0.5)' : S.green) : 'rgba(0,0,0,0.08)',
+                        background: isSelected ? (isThisDepressive ? 'rgba(239,68,68,0.5)' : S.green) : 'rgba(255,255,255,0.08)',
                         color: isSelected ? '#fff' : S.muted,
                       }}>{opt}</button>
                   )
@@ -1094,8 +1094,8 @@ function GDS15Form({ data, onChange }) {
 
       {/* Resultado */}
       {answered > 0 && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/15 ({answered} respondidos)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/15 ({answered} respondidos)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -1173,10 +1173,10 @@ function BDI2Form({ data, onChange }) {
               padding: '5px 10px', borderRadius: 6,
               background: isAlert
                 ? 'rgba(239,68,68,0.12)'
-                : d[item.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(0,0,0,0.02)',
+                : d[item.key] != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
               border: isAlert ? '1px solid rgba(239,68,68,0.3)' : '1px solid transparent',
             }}>
-              <div style={{ fontSize: 12, color: d[item.key] != null ? '#1A2744' : S.muted }}>
+              <div style={{ fontSize: 12, color: d[item.key] != null ? '#fff' : S.muted }}>
                 <span style={{ color: S.muted, fontSize: 10, marginRight: 6 }}>{i + 1}</span>
                 {item.label}
                 {isAlert && <span style={{ color: S.red, fontSize: 10, marginLeft: 6 }}>⚠ atenção</span>}
@@ -1189,8 +1189,8 @@ function BDI2Form({ data, onChange }) {
 
       {/* Resultado */}
       {answered > 0 && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
             Total: {total}/63
             <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>({answered}/21 itens)</span>
           </span>
@@ -1297,7 +1297,7 @@ function HADForm({ data, onChange }) {
   const tabStyle = (t) => ({
     padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
     fontSize: 11, fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -1305,9 +1305,9 @@ function HADForm({ data, onChange }) {
     <div key={item.key} style={{
       display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
       padding: '7px 10px', borderRadius: 6, marginBottom: 3,
-      background: d[item.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+      background: d[item.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
     }}>
-      <div style={{ fontSize: 12, color: d[item.key] != null ? '#1A2744' : S.muted }}>{item.label}</div>
+      <div style={{ fontSize: 12, color: d[item.key] != null ? '#fff' : S.muted }}>{item.label}</div>
       <ScoreButtons value={d[item.key]} onChange={v => update({ [item.key]: v })} max={3} />
     </div>
   )
@@ -1346,8 +1346,8 @@ function HADForm({ data, onChange }) {
         <div>
           {HAD_ANXIETY_ITEMS.map(itemRow)}
           {aScore != null && (
-            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>Ansiedade: {aScore}/21</span>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Ansiedade: {aScore}/21</span>
               {ca && <Badge {...ca} />}
             </div>
           )}
@@ -1358,8 +1358,8 @@ function HADForm({ data, onChange }) {
         <div>
           {HAD_DEPRESSION_ITEMS.map(itemRow)}
           {dScore != null && (
-            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>Depressão: {dScore}/21</span>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Depressão: {dScore}/21</span>
               {cd && <Badge {...cd} />}
             </div>
           )}
@@ -1368,12 +1368,12 @@ function HADForm({ data, onChange }) {
 
       {tab === 'resultado' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>Ansiedade: {aScore != null ? `${aScore}/21` : '—'}</span>
+          <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Ansiedade: {aScore != null ? `${aScore}/21` : '—'}</span>
             {ca ? <Badge {...ca} /> : <span style={{ fontSize: 11, color: S.muted }}>não respondido</span>}
           </div>
-          <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>Depressão: {dScore != null ? `${dScore}/21` : '—'}</span>
+          <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Depressão: {dScore != null ? `${dScore}/21` : '—'}</span>
             {cd ? <Badge {...cd} /> : <span style={{ fontSize: 11, color: S.muted }}>não respondido</span>}
           </div>
           <p style={{ fontSize: 11, color: S.muted }}>Ref: 0-7 Normal · 8-10 Limítrofe · 11-14 Moderado · ≥15 Grave</p>
@@ -1465,9 +1465,9 @@ function GAIForm({ data, onChange }) {
           <div key={it.key} style={{
             display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
             padding: '6px 10px', borderRadius: 6,
-            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize: 12, color: d[it.key] != null ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
               <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -1476,7 +1476,7 @@ function GAIForm({ data, onChange }) {
                   style={{
                     padding: '3px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
                     fontSize: 12, fontWeight: 700,
-                    background: d[it.key] === opt ? (opt === 'Sim' ? S.green : 'rgba(239,68,68,0.3)') : 'rgba(0,0,0,0.08)',
+                    background: d[it.key] === opt ? (opt === 'Sim' ? S.green : 'rgba(239,68,68,0.3)') : 'rgba(255,255,255,0.08)',
                     color:      d[it.key] === opt ? '#fff' : S.muted,
                   }}>{opt}</button>
               ))}
@@ -1487,8 +1487,8 @@ function GAIForm({ data, onChange }) {
 
       {/* Resultado */}
       {answered > 0 && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/20 ({answered} respondidos)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/20 ({answered} respondidos)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -1636,9 +1636,9 @@ function IDATEForm({ data, onChange, label }) {
             <div key={key} style={{
               display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
               padding: '6px 10px', borderRadius: 6,
-              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
             }}>
-              <div style={{ fontSize: 12, color: d[key] != null ? '#1A2744' : S.muted }}>
+              <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
                 <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
               </div>
               <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={4} />
@@ -1649,8 +1649,8 @@ function IDATEForm({ data, onChange, label }) {
 
       {/* Resultado */}
       {total != null && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/80 ({answered}/20 respondidos)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/80 ({answered}/20 respondidos)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -1763,9 +1763,9 @@ function IQCODEForm({ data, onChange }) {
             <div key={key} style={{
               display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
               padding: '6px 10px', borderRadius: 6,
-              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+              background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
             }}>
-              <div style={{ fontSize: 12, color: d[key] != null ? '#1A2744' : S.muted }}>
+              <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
                 <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
               </div>
               <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={5} />
@@ -1776,8 +1776,8 @@ function IQCODEForm({ data, onChange }) {
 
       {/* Resultado */}
       {mean != null && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Média: {mean.toFixed(2)} ({answered}/26 itens)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Média: {mean.toFixed(2)} ({answered}/26 itens)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -1873,9 +1873,9 @@ function BADLForm({ data, onChange }) {
           <div key={item.key} style={{
             display: 'grid', gridTemplateColumns: '1fr 72px', gap: 10, alignItems: 'center',
             padding: '5px 10px', borderRadius: 6,
-            background: d[item.key] ? 'rgba(46,125,50,0.08)' : 'rgba(0,0,0,0.02)',
+            background: d[item.key] ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize: 12, color: d[item.key] ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize: 12, color: d[item.key] ? '#fff' : S.muted }}>
               <span style={{ color: S.muted, fontSize: 10, marginRight: 6 }}>Q{i + 1}</span>
               {item.label}
             </div>
@@ -1891,8 +1891,8 @@ function BADLForm({ data, onChange }) {
 
       {/* Resultado */}
       {meanStr && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, color: '#1A2744' }}>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, color: '#fff' }}>
             Média: <strong>{meanStr}</strong>
             <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>({answered.length}/25 itens)</span>
           </span>
@@ -2005,9 +2005,9 @@ function PfefferForm({ data, onChange }) {
           <div key={it.key} style={{
             display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
             padding: '7px 10px', borderRadius: 6,
-            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize: 12, color: d[it.key] != null ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
               <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
             </div>
             <ScoreButtons value={d[it.key]} onChange={v => update({ [it.key]: v })} max={3} />
@@ -2017,8 +2017,8 @@ function PfefferForm({ data, onChange }) {
 
       {/* Resultado */}
       {total != null && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/30 ({answered}/10 itens)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/30 ({answered}/10 itens)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -2094,9 +2094,9 @@ function LawtonForm({ data, onChange }) {
           <div key={it.key} style={{
             display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
             padding: '7px 10px', borderRadius: 6,
-            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+            background: d[it.key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize: 12, color: d[it.key] != null ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize: 12, color: d[it.key] != null ? '#fff' : S.muted }}>
               <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{it.label}
             </div>
             <ScoreButtons value={d[it.key]} onChange={v => update({ [it.key]: v })} min={1} max={3} />
@@ -2106,8 +2106,8 @@ function LawtonForm({ data, onChange }) {
 
       {/* Resultado */}
       {total != null && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/27 ({answered}/9 itens)</span>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/27 ({answered}/9 itens)</span>
           {c && <Badge {...c} />}
         </div>
       )}
@@ -2159,7 +2159,7 @@ function WASIForm({ data, onChange, version }) {
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
     fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -2252,8 +2252,8 @@ function WASIForm({ data, onChange, version }) {
       {tab === 'subtestes' && (
         <div>
           {/* Vocabulário */}
-          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
               Vocabulário — {cfg.vocabCount} itens (0–2)
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -2270,8 +2270,8 @@ function WASIForm({ data, onChange, version }) {
           </div>
 
           {/* Semelhanças */}
-          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
               Semelhanças — {cfg.similCount} itens (0–2)
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -2288,8 +2288,8 @@ function WASIForm({ data, onChange, version }) {
           </div>
 
           {/* Cubos */}
-          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Cubos — 13 itens</div>
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Cubos — 13 itens</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <NumField label="Escore bruto" value={d.blocks_score}
                 onChange={v => update({ blocks_score: v })} min={0} max={71} />
@@ -2299,8 +2299,8 @@ function WASIForm({ data, onChange, version }) {
           </div>
 
           {/* Raciocínio Matricial */}
-          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 6 }}>Raciocínio Matricial — 35 itens{!isIII ? ' (0–1)' : ''}</div>
+          <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Raciocínio Matricial — 35 itens{!isIII ? ' (0–1)' : ''}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <NumField label="Escore bruto (0–35)" value={d.matrix_score}
                 onChange={v => update({ matrix_score: v })} min={0} max={35} />
@@ -2337,8 +2337,8 @@ function WASIForm({ data, onChange, version }) {
             { label: 'QI Total — 2 subtestes',                     qiKey: 'qit_2', percKey: 'qit_percentile', classKey: cfg.hasClassif ? 'qit_classification' : null, badge: cqit2 },
             { label: 'QI Total — 4 subtestes',                     qiKey: 'qit_4', percKey: null,             classKey: null, badge: cqit4 },
           ].map(({ label, qiKey, percKey, classKey, badge }) => (
-            <div key={qiKey} style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 8 }}>{label}</div>
+            <div key={qiKey} style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{label}</div>
               <div style={{ display: 'grid', gridTemplateColumns: percKey ? (classKey ? 'repeat(3,1fr)' : '1fr 1fr') : '1fr', gap: 8 }}>
                 <div>
                   <NumField label="QI" value={d[qiKey]} onChange={v => update({ [qiKey]: v })} min={40} max={160} />
@@ -2372,7 +2372,7 @@ function WASIForm({ data, onChange, version }) {
             ['QIT-4 (4 subtestes)', d.qit_4, cqit4],
           ].map(([lbl, val, cls]) => val != null && (
             <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${S.border}` }}>
-              <span style={{ fontSize: 12, color: '#1A2744' }}>{lbl}</span>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 15, fontWeight: 700, color: S.greenL }}>{val}</span>
                 {cls && <Badge {...cls} />}
@@ -2416,7 +2416,7 @@ const WCST_COLORS = {
   F: { bg: 'rgba(46,125,50,0.45)',  text: '#4CAF50' },
   N: { bg: 'rgba(245,158,11,0.35)', text: '#FCD34D' },
   O: { bg: 'rgba(239,68,68,0.35)',  text: '#F87171' },
-  '': { bg: 'rgba(0,0,0,0.05)', text: S.muted },
+  '': { bg: 'rgba(255,255,255,0.05)', text: S.muted },
 }
 
 function WCSTForm({ data, onChange }) {
@@ -2447,7 +2447,7 @@ function WCSTForm({ data, onChange }) {
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
     fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -2552,7 +2552,7 @@ function WCSTForm({ data, onChange }) {
             </div>
             <div>
               <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Erros não-perseverativos</div>
-              <div style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
                 {d.non_perseverative_errors ?? '—'}
               </div>
               <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>auto (erros − persev.)</div>
@@ -2584,7 +2584,7 @@ function WCSTForm({ data, onChange }) {
             ['Rupturas de set', d.total_breaks, null, cBreak],
           ].map(([lbl, val, suffix, cls]) => val != null && (
             <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
-              <span style={{ fontSize: 12, color: '#1A2744' }}>{lbl}</span>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: S.greenL }}>{val}{suffix || ''}</span>
                 {cls && <Badge {...cls} />}
@@ -2618,7 +2618,7 @@ function WCSTFullForm({ data, onChange }) {
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
     fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -2688,7 +2688,7 @@ function WCSTFullForm({ data, onChange }) {
               onChange={v => update({ perseverative_errors: v })} min={0} />
             <div>
               <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Erros não-perseverativos</div>
-              <div style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
                 {d.non_perseverative_errors ?? '—'}
               </div>
               <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>auto (erros − persev.)</div>
@@ -2735,7 +2735,7 @@ function WCSTFullForm({ data, onChange }) {
             ['Falha em manter contexto', d.failure_to_maintain_set, null, null],
           ].map(([lbl, val, suffix, cls]) => val != null && (
             <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
-              <span style={{ fontSize: 12, color: '#1A2744' }}>{lbl}</span>
+              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: S.greenL }}>{val}{suffix || ''}</span>
                 {cls && <Badge {...cls} />}
@@ -2790,7 +2790,7 @@ function ItemGrid({ values, count, onChangeFn }) {
           style={{
             width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
             fontSize: 11, fontWeight: 700,
-            background: v === 1 ? S.green : 'rgba(0,0,0,0.08)',
+            background: v === 1 ? S.green : 'rgba(255,255,255,0.08)',
             color: v === 1 ? '#fff' : S.muted,
           }}>{i + 1}</button>
       ))}
@@ -2858,7 +2858,7 @@ function BAMSForm({ data, onChange }) {
   const cp = classify.bams_pct(d.percentile)
 
   const ts = (a) => ({ padding:'4px 9px', borderRadius:5, border:'none', cursor:'pointer', fontSize:11,
-    fontWeight:a?700:400, background:a?S.green:'rgba(0,0,0,0.06)', color:a?'#fff':S.muted })
+    fontWeight:a?700:400, background:a?S.green:'rgba(255,255,255,0.06)', color:a?'#fff':S.muted })
   const sec = (t) => <div style={{ fontSize:10, color:S.muted, fontWeight:700, letterSpacing:'0.06em',
     textTransform:'uppercase', margin:'10px 0 5px', borderTop:`1px solid ${S.border}`, paddingTop:8 }}>{t}</div>
 
@@ -2885,7 +2885,7 @@ function BAMSForm({ data, onChange }) {
             {key:'animals',label:'Animais'},{key:'fruits',label:'Frutas'},
             {key:'utensils',label:'Utensílios'},{key:'clothes',label:'Roupas'},
           ].map(cat => (
-            <div key={cat.key} style={{ marginBottom:10, padding:'10px 14px', background:'rgba(0,0,0,0.03)', borderRadius:8 }}>
+            <div key={cat.key} style={{ marginBottom:10, padding:'10px 14px', background:'rgba(255,255,255,0.03)', borderRadius:8 }}>
               <div style={{ fontSize:12, fontWeight:700, color:'#fff', marginBottom:8 }}>{cat.label}</div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
                 <NumField label="Acertos"     value={d[`fv_${cat.key}_hits`]}        onChange={v=>update({[`fv_${cat.key}_hits`]:v})}        min={0} hint="nº" />
@@ -2894,7 +2894,7 @@ function BAMSForm({ data, onChange }) {
               </div>
             </div>
           ))}
-          <div style={{ padding:'8px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, fontSize:12 }}>
+          <div style={{ padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
             Total FV (acertos): <span style={{ color:S.greenL, fontWeight:700 }}>{fvTot}</span>
           </div>
         </div>
@@ -2910,7 +2910,7 @@ function BAMSForm({ data, onChange }) {
             <NumField label="Seres Vivos (/5)" value={d.nd_living_total}    onChange={v=>update({nd_living_total:v})}    min={0} max={5} hint="0-5" />
             <NumField label="Artefatos (/5)"   value={d.nd_artifacts_total} onChange={v=>update({nd_artifacts_total:v})} min={0} max={5} hint="0-5" />
           </div>
-          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, fontSize:12 }}>
+          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
             Total ND: <span style={{ color:S.greenL, fontWeight:700 }}>{ndTot}/10</span>
           </div>
         </div>
@@ -2931,7 +2931,7 @@ function BAMSForm({ data, onChange }) {
             <NumField label="Seres Vivos" value={d.ni_living_total}    onChange={v=>update({ni_living_total:v})}    min={0} hint="nº" />
             <NumField label="Artefatos"   value={d.ni_artifacts_total} onChange={v=>update({ni_artifacts_total:v})} min={0} hint="nº" />
           </div>
-          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, fontSize:12 }}>
+          <div style={{ marginTop:8, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
             Total NI: <span style={{ color:S.greenL, fontWeight:700 }}>{niTot}/28</span>
           </div>
         </div>
@@ -2956,7 +2956,7 @@ function BAMSForm({ data, onChange }) {
       {tab==='result' && (
         <div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14,
-            padding:'10px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, fontSize:12 }}>
+            padding:'10px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
             <div><span style={{ color:S.muted }}>Léxico:</span> <span style={{ color:'#fff', fontWeight:700 }}>{lexTot}</span></div>
             <div><span style={{ color:S.muted }}>Categoriz.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{catTot}</span></div>
             <div><span style={{ color:S.muted }}>Concept.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{concTot}</span></div>
@@ -2972,7 +2972,7 @@ function BAMSForm({ data, onChange }) {
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Interpretação</div>
               {cp ? (
-                <div style={{ background:'rgba(0,0,0,0.05)', border:`1px solid ${S.border}`, borderRadius:6, padding:'8px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ background:'rgba(255,255,255,0.05)', border:`1px solid ${S.border}`, borderRadius:6, padding:'8px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                   <span style={{ fontSize:13, color:'#fff', fontWeight:600 }}>{cp.interpretation}</span>
                   <Badge {...cp} />
                 </div>
@@ -3057,7 +3057,7 @@ function MoCAForm({ data, onChange }) {
       <p style={{ fontSize: 11, color: S.muted, marginTop: 8 }}>Ref: ≥26 Normal · 18-25 CCL · {'<'}18 Sugestivo de demência</p>
       {/* Resultado */}
       {d.total_score != null && (
-        <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Resultado</div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div style={{ textAlign: 'center' }}>
@@ -3128,7 +3128,7 @@ function DEXForm({ data, onChange, onSave }) {
   const disc = patAns > 0 && famAns > 0 ? patTotal - famTotal : null
 
   const ts = (a) => ({ padding:'4px 9px', borderRadius:5, border:'none', cursor:'pointer',
-    fontSize:11, fontWeight:a?700:400, background:a?S.green:'rgba(0,0,0,0.06)', color:a?'#fff':S.muted })
+    fontSize:11, fontWeight:a?700:400, background:a?S.green:'rgba(255,255,255,0.06)', color:a?'#fff':S.muted })
 
   const ItemList = ({ prefix }) => (
     <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
@@ -3139,9 +3139,9 @@ function DEXForm({ data, onChange, onSave }) {
           <div key={key} style={{
             display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'center',
             padding:'5px 10px', borderRadius:6,
-            background: val != null ? 'rgba(46,125,50,0.08)' : 'rgba(0,0,0,0.02)',
+            background: val != null ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.02)',
           }}>
-            <div style={{ fontSize:12, color: val != null ? '#1A2744' : S.muted }}>
+            <div style={{ fontSize:12, color: val != null ? '#fff' : S.muted }}>
               <span style={{ color:S.muted, fontSize:10, marginRight:6 }}>{it.n}</span>{it.label}
             </div>
             <ScoreButtons value={val} onChange={v => update({ [key]: v })} max={4} />
@@ -3177,7 +3177,7 @@ function DEXForm({ data, onChange, onSave }) {
           </p>
           <ItemList prefix="patient" />
           {patAns > 0 && (
-            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <span style={{ fontSize:13, color:'#fff', fontWeight:700 }}>Total: {patTotal}/80</span>
               {cPat && <Badge {...cPat} />}
             </div>
@@ -3198,7 +3198,7 @@ function DEXForm({ data, onChange, onSave }) {
           </p>
           <ItemList prefix="family" />
           {famAns > 0 && (
-            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div style={{ marginTop:10, padding:'8px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <span style={{ fontSize:13, color:'#fff', fontWeight:700 }}>Total: {famTotal}/80</span>
               {cFam && <Badge {...cFam} />}
             </div>
@@ -3210,13 +3210,13 @@ function DEXForm({ data, onChange, onSave }) {
       {tab === 'result' && (
         <div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:14 }}>
-            <div style={{ padding:'12px', background:'rgba(0,0,0,0.04)', borderRadius:8 }}>
+            <div style={{ padding:'12px', background:'rgba(255,255,255,0.04)', borderRadius:8 }}>
               <div style={{ fontSize:11, color:S.muted, marginBottom:6 }}>PACIENTE</div>
               <div style={{ fontSize:20, fontWeight:700, color:'#fff' }}>{patTotal}<span style={{ fontSize:13, color:S.muted }}>/80</span></div>
               <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>Média/item: {patAns>0?(patTotal/patAns).toFixed(2):'—'}</div>
               {cPat && <div style={{ marginTop:6 }}><Badge {...cPat} /></div>}
             </div>
-            <div style={{ padding:'12px', background:'rgba(0,0,0,0.04)', borderRadius:8 }}>
+            <div style={{ padding:'12px', background:'rgba(255,255,255,0.04)', borderRadius:8 }}>
               <div style={{ fontSize:11, color:S.muted, marginBottom:6 }}>FAMILIAR / INFORMANTE</div>
               <div style={{ fontSize:20, fontWeight:700, color:'#fff' }}>{famTotal}<span style={{ fontSize:13, color:S.muted }}>/80</span></div>
               <div style={{ fontSize:11, color:S.muted, marginTop:2 }}>Média/item: {famAns>0?(famTotal/famAns).toFixed(2):'—'}</div>
@@ -3225,7 +3225,7 @@ function DEXForm({ data, onChange, onSave }) {
           </div>
 
           {disc !== null && (
-            <div style={{ padding:'10px 14px', background:'rgba(0,0,0,0.04)', borderRadius:8, fontSize:12, marginBottom:12 }}>
+            <div style={{ padding:'10px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12, marginBottom:12 }}>
               Discrepância (paciente − familiar):{' '}
               <span style={{ color: Math.abs(disc)>10 ? S.amber : S.greenL, fontWeight:700 }}>
                 {disc>=0?'+':''}{disc}
@@ -3337,7 +3337,7 @@ function TRIACOGForm({ data, onChange }) {
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
     fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -3348,7 +3348,7 @@ function TRIACOGForm({ data, onChange }) {
   const scoreRow = (label, value, max) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: `1px solid ${S.border}` }}>
       <span style={{ fontSize: 12, color: S.muted }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>{value ?? '—'}/{max}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{value ?? '—'}/{max}</span>
     </div>
   )
 
@@ -3400,11 +3400,11 @@ function TRIACOGForm({ data, onChange }) {
         <div>
           {sectionTitle('Orientação (máx 2)')}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
               <span style={{ fontSize: 12, color: S.muted }}>Qual a sua idade?</span>
               <ScoreButtons value={d.orientacao_idade} onChange={v => update({ orientacao_idade: v })} max={1} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
               <span style={{ fontSize: 12, color: S.muted }}>Em que ano estamos?</span>
               <ScoreButtons value={d.orientacao_ano} onChange={v => update({ orientacao_ano: v })} max={1} />
             </div>
@@ -3446,7 +3446,7 @@ function TRIACOGForm({ data, onChange }) {
             {Array.from({ length: 8 }, (_, i) => {
               const arr = d.praxia_copia_figura_items || []
               return (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8, alignItems: 'center', padding: '5px 8px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8, alignItems: 'center', padding: '5px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                   <span style={{ fontSize: 12, color: S.muted }}>Item {i + 1}</span>
                   <ScoreButtons value={arr[i] != null ? Number(arr[i]) : null} max={3} onChange={v => {
                     const a = [...(d.praxia_copia_figura_items || Array(8).fill(null))]
@@ -3472,7 +3472,7 @@ function TRIACOGForm({ data, onChange }) {
           )}
 
           {sectionTitle('Praxia Ideomotora')}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 6, maxWidth: 320 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, maxWidth: 320 }}>
             <span style={{ fontSize: 12, color: S.muted }}>Uso do garfo</span>
             <ScoreButtons value={d.praxia_ideomotora} onChange={v => update({ praxia_ideomotora: v })} max={1} />
           </div>
@@ -3490,14 +3490,14 @@ function TRIACOGForm({ data, onChange }) {
               onChange={v => update({ fe_fluencia_verbal_30s: v })} min={0} />
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Total</div>
-              <div style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: S.greenL }}>{d.fe_fluencia_verbal_total ?? '—'}</div>
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: S.greenL }}>{d.fe_fluencia_verbal_total ?? '—'}</div>
             </div>
           </div>
 
           {sectionTitle('NSR — Nomeação Serial Reversa (8 acertos/parte, máx 24)')}
           {[['a','A'],['b','B'],['c','C']].map(([k, lbl]) => (
-            <div key={k} style={{ marginBottom: 8, padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#1A2744', marginBottom: 5 }}>Parte {lbl}</div>
+            <div key={k} style={{ marginBottom: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Parte {lbl}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                 <NumField label="Acertos" value={d[`fe_nsr_${k}_acertos`]}
                   onChange={v => update({ [`fe_nsr_${k}_acertos`]: v })} min={0} max={8} hint="0-8" />
@@ -3517,7 +3517,7 @@ function TRIACOGForm({ data, onChange }) {
 
           {sectionTitle('Processamento Numérico (máx 7)')}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
               <span style={{ fontSize: 12, color: S.muted }}>91 × 12 — cálculo mental (0–3)</span>
               <ScoreButtons value={d.processamento_numerico_a} onChange={v => update({ processamento_numerico_a: v })} max={3} />
             </div>
@@ -3527,7 +3527,7 @@ function TRIACOGForm({ data, onChange }) {
               ['processamento_numerico_b_18',    '18 — transcrição'],
               ['processamento_numerico_c',       '27 − 18 = resultado'],
             ].map(([fk, flbl]) => (
-              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>{flbl}</span>
                 <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={1} />
               </div>
@@ -3548,7 +3548,7 @@ function TRIACOGForm({ data, onChange }) {
               ['linguagem_compreensao_oral',    'Compreensão oral', 1],
               ['linguagem_compreensao_escrita', 'Compreensão escrita', 1],
             ].map(([fk, flbl, fmax]) => (
-              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>{flbl} (0–{fmax})</span>
                 <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={fmax} />
               </div>
@@ -3557,7 +3557,7 @@ function TRIACOGForm({ data, onChange }) {
               ['linguagem_nomeacao_acao',   'Nomeação — ação', 2],
               ['linguagem_nomeacao_objeto', 'Nomeação — objeto', 2],
             ].map(([fk, flbl, fmax]) => (
-              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+              <div key={fk} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>{flbl} (0–{fmax})</span>
                 <ScoreButtons value={d[fk]} onChange={v => update({ [fk]: v })} max={fmax} />
               </div>
@@ -3580,7 +3580,7 @@ function TRIACOGForm({ data, onChange }) {
           {sectionTitle('Repetição (0–2 cada, máx 8)')}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {['terra','prazer','sossego','nupo'].map(w => (
-              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>{w.charAt(0).toUpperCase() + w.slice(1)}</span>
                 <ScoreButtons value={d[`linguagem_repeticao_${w}`]} onChange={v => update({ [`linguagem_repeticao_${w}`]: v })} max={2} />
               </div>
@@ -3593,7 +3593,7 @@ function TRIACOGForm({ data, onChange }) {
           {sectionTitle('Escrita (0–1 cada, máx 4)')}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {['terra','prazer','sossego','nupo'].map(w => (
-              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(0,0,0,0.02)', borderRadius: 5 }}>
+              <div key={w} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', padding: '5px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 5 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>{w.charAt(0).toUpperCase() + w.slice(1)}</span>
                 <ScoreButtons value={d[`linguagem_escrita_${w}`]} onChange={v => update({ [`linguagem_escrita_${w}`]: v })} max={1} />
               </div>
@@ -3604,8 +3604,8 @@ function TRIACOGForm({ data, onChange }) {
           )}
 
           {/* Resumo por domínio */}
-          <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 8 }}>Resumo por Domínio</div>
+          <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Resumo por Domínio</div>
             {scoreRow('Orientação', d.orientacao_total, 2)}
             {scoreRow('Mem. Imediata', d.memoria_evocacao_imediata, 6)}
             {scoreRow('Mem. Tardia', d.memoria_evocacao_tardia, 6)}
@@ -3622,7 +3622,7 @@ function TRIACOGForm({ data, onChange }) {
             {/* Total geral */}
             {d.total_score != null && (
               <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${S.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#1A2744' }}>TOTAL TRIACOG</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>TOTAL TRIACOG</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 16, fontWeight: 700, color: S.greenL }}>{d.total_score}</span>
                   {d.classification && (
@@ -3734,9 +3734,9 @@ function TOKENForm({ data, onChange }) {
         const arr = d[`${p.key}_items`] || []
         const score = d[`${p.key}_score`] ?? arr.reduce((s, v) => s + (Number(v) || 0), 0)
         return (
-          <div key={p.key} style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8 }}>
+          <div key={p.key} style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744' }}>{p.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{p.label}</span>
               <span style={{ fontSize: 10, color: S.muted }}>{p.desc}</span>
             </div>
             <ItemGrid values={arr} count={p.count} onChangeFn={v => update({ [`${p.key}_items`]: v })} />
@@ -3746,9 +3746,9 @@ function TOKENForm({ data, onChange }) {
 
       {/* Resultado */}
       {hasAny && (
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2744' }}>Total: {total}/{TOKEN_MAX}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Total: {total}/{TOKEN_MAX}</span>
             <span style={{ fontSize: 12, color: S.muted, marginLeft: 14 }}>Erros: {d.errors ?? TOKEN_MAX - total}</span>
           </div>
           {c && <Badge {...c} />}
@@ -3838,7 +3838,7 @@ function MEMIMPForm({ data, onChange, onSave }) {
   const tabStyle = (t) => ({
     padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
     fontSize: 11, fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -3849,10 +3849,10 @@ function MEMIMPForm({ data, onChange, onSave }) {
       <div key={key} style={{
         display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
         padding: '6px 10px', borderRadius: 6, marginBottom: 3,
-        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
         borderLeft: `3px solid ${isProsp ? 'rgba(59,130,246,0.4)' : 'rgba(245,158,11,0.4)'}`,
       }}>
-        <div style={{ fontSize: 12, color: d[key] != null ? '#1A2744' : S.muted }}>
+        <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
           <span style={{ fontSize: 9, color: isProsp ? S.blue : S.amber, marginRight: 5, fontWeight: 700 }}>
             {isProsp ? 'PM' : 'RM'}
           </span>
@@ -3864,8 +3864,8 @@ function MEMIMPForm({ data, onChange, onSave }) {
   })
 
   const scoreBox = (label, stats) => stats.total != null && (
-    <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, marginBottom: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', marginBottom: 4 }}>{label}</div>
+    <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, marginBottom: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
         {[
           ['Prospectiva', stats.prospective, 40],
@@ -3923,7 +3923,7 @@ function MEMIMPForm({ data, onChange, onSave }) {
           {scoreBox('Paciente', p)}
           {scoreBox('Familiar', f)}
           {p.total != null && f.total != null && (
-            <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, marginBottom: 6 }}>
+            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, marginBottom: 6 }}>
               <div style={{ fontSize: 11, color: S.muted }}>Discrepância Paciente − Familiar:</div>
               <div style={{ fontSize: 20, fontWeight: 700, color: p.total - f.total > 0 ? S.amber : S.greenL }}>
                 {p.total - f.total > 0 ? '+' : ''}{p.total - f.total}
@@ -4013,7 +4013,7 @@ function PCRSForm({ data, onChange, onSave }) {
   const tabStyle = (t) => ({
     padding: '4px 12px', borderRadius: 5, border: 'none', cursor: 'pointer',
     fontSize: 11, fontWeight: tab === t ? 700 : 400,
-    background: tab === t ? S.green : 'rgba(0,0,0,0.06)',
+    background: tab === t ? S.green : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : S.muted,
   })
 
@@ -4023,9 +4023,9 @@ function PCRSForm({ data, onChange, onSave }) {
       <div key={key} style={{
         display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
         padding: '6px 10px', borderRadius: 6, marginBottom: 3,
-        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(0,0,0,0.02)',
+        background: d[key] != null ? 'rgba(46,125,50,0.06)' : 'rgba(255,255,255,0.02)',
       }}>
-        <div style={{ fontSize: 12, color: d[key] != null ? '#1A2744' : S.muted }}>
+        <div style={{ fontSize: 12, color: d[key] != null ? '#fff' : S.muted }}>
           <span style={{ color: S.muted, marginRight: 5 }}>{i + 1}.</span>{lbl}
         </div>
         <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={5} />
@@ -4072,7 +4072,7 @@ function PCRSForm({ data, onChange, onSave }) {
           {/* Totais */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
             {[['Paciente', pTotal], ['Informante', iTotal]].map(([lbl, v]) => (
-              <div key={lbl} style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, textAlign: 'center' }}>
+              <div key={lbl} style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 11, color: S.muted }}>{lbl}</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: S.greenL }}>{v != null ? `${v}/85` : '—'}</div>
               </div>
@@ -4081,7 +4081,7 @@ function PCRSForm({ data, onChange, onSave }) {
 
           {/* Discrepância */}
           {discrepancy !== null && (
-            <div style={{ padding: '12px 14px', background: 'rgba(0,0,0,0.04)', borderRadius: 8, marginBottom: 10 }}>
+            <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: 12, color: S.muted }}>Discrepância total (Paciente − Informante)</span>
                 <span style={{ fontSize: 20, fontWeight: 700, color: Math.abs(discrepancy) > 10 ? S.amber : S.greenL }}>
@@ -4247,7 +4247,7 @@ export default function Tests() {
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A2744', letterSpacing: '0.02em' }}>TESTES</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>TESTES</h1>
         <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Registro e classificação automática em tempo real</p>
       </div>
 
@@ -4294,7 +4294,7 @@ export default function Tests() {
                       borderRadius: 7, border: 'none',
                       cursor: locked ? 'not-allowed' : 'pointer',
                       fontSize: 12,
-                      background: activeKey === item.key ? S.green : 'transparent',
+                      background: activeKey === item.key ? 'rgba(46,125,50,0.25)' : 'transparent',
                       color: activeKey === item.key ? '#fff' : S.muted,
                       fontWeight: activeKey === item.key ? 700 : 400,
                       opacity: locked ? 0.35 : 1,
@@ -4323,7 +4323,7 @@ export default function Tests() {
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1A2744', margin: 0 }}>{activeConf.label}</h2>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>{activeConf.label}</h2>
                   <p style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>Classificação automática ao digitar</p>
                 </div>
                 {justSaved[activeKey] && (
@@ -4346,10 +4346,10 @@ export default function Tests() {
                   onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
                 />
               ) : (
-                <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.02)', textAlign: 'center' }}>
+                <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>
                   <Lock size={20} color={S.muted} style={{ margin: '0 auto 8px', opacity: 0.35, display: 'block' }} />
                   <p style={{ fontSize: 12, color: S.muted, margin: 0 }}>
-                    Preencha o teste <strong style={{ color: 'rgba(0,0,0,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos
+                    Preencha o teste <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{activeConf.label}</strong> para liberar o anexo de fotos
                   </p>
                 </div>
               )}
