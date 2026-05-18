@@ -241,60 +241,64 @@ function NumField({ label, value, onChange, min, max, step = 1, hint }) {
 }
 
 // ─── RAVLT — lista padrão de reconhecimento (50 palavras) ────────────────────
+// Lista de reconhecimento oficial — Vetor/Giunti, 50 palavras na ordem da folha de aplicação
+// categoria: A=alvo, B=Lista B, SA=similar A, SB=similar B, FA=falso alarme, FB=falso alarme B
 const DEFAULT_RAVLT_RECOGNITION = [
-  // Lista A — alvos (15)
-  { word: 'tambor',  origin: 'A',   marked: false },
-  { word: 'cortina', origin: 'A',   marked: false },
-  { word: 'sino',    origin: 'A',   marked: false },
-  { word: 'café',    origin: 'A',   marked: false },
-  { word: 'escola',  origin: 'A',   marked: false },
-  { word: 'pais',    origin: 'A',   marked: false },
-  { word: 'lua',     origin: 'A',   marked: false },
-  { word: 'jardim',  origin: 'A',   marked: false },
-  { word: 'chapéu',  origin: 'A',   marked: false },
-  { word: 'fazenda', origin: 'A',   marked: false },
-  { word: 'nariz',   origin: 'A',   marked: false },
-  { word: 'peru',    origin: 'A',   marked: false },
-  { word: 'cor',     origin: 'A',   marked: false },
-  { word: 'céu',     origin: 'A',   marked: false },
-  { word: 'bota',    origin: 'A',   marked: false },
-  // Lista B — distratores (15)
-  { word: 'mesa',    origin: 'B',   marked: false },
-  { word: 'nuvem',   origin: 'B',   marked: false },
-  { word: 'barco',   origin: 'B',   marked: false },
-  { word: 'banana',  origin: 'B',   marked: false },
-  { word: 'milho',   origin: 'B',   marked: false },
-  { word: 'costura', origin: 'B',   marked: false },
-  { word: 'colher',  origin: 'B',   marked: false },
-  { word: 'fogo',    origin: 'B',   marked: false },
-  { word: 'fio',     origin: 'B',   marked: false },
-  { word: 'abóbora', origin: 'B',   marked: false },
-  { word: 'dedo',    origin: 'B',   marked: false },
-  { word: 'galinha', origin: 'B',   marked: false },
-  { word: 'lixa',    origin: 'B',   marked: false },
-  { word: 'inverno', origin: 'B',   marked: false },
-  { word: 'prado',   origin: 'B',   marked: false },
-  // Novos distratores (20)
-  { word: 'casa',    origin: 'new', marked: false },
-  { word: 'rua',     origin: 'new', marked: false },
-  { word: 'carta',   origin: 'new', marked: false },
-  { word: 'anel',    origin: 'new', marked: false },
-  { word: 'peixe',   origin: 'new', marked: false },
-  { word: 'pedra',   origin: 'new', marked: false },
-  { word: 'livro',   origin: 'new', marked: false },
-  { word: 'carro',   origin: 'new', marked: false },
-  { word: 'noite',   origin: 'new', marked: false },
-  { word: 'flor',    origin: 'new', marked: false },
-  { word: 'pato',    origin: 'new', marked: false },
-  { word: 'árvore',  origin: 'new', marked: false },
-  { word: 'ferro',   origin: 'new', marked: false },
-  { word: 'lago',    origin: 'new', marked: false },
-  { word: 'vela',    origin: 'new', marked: false },
-  { word: 'cobra',   origin: 'new', marked: false },
-  { word: 'ovo',     origin: 'new', marked: false },
-  { word: 'branco',  origin: 'new', marked: false },
-  { word: 'tempo',   origin: 'new', marked: false },
-  { word: 'letra',   origin: 'new', marked: false },
+  // Coluna 1
+  { palavra: 'LUA',    categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'GALO',   categoria: 'SB',    correta: false, marcada: false },
+  { palavra: 'FOGO',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'CHAPÉU', categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'VASO',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'MESA',   categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'LAGO',   categoria: 'SB',    correta: false, marcada: false },
+  { palavra: 'PORTA',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'DENTE',  categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'RIO',    categoria: 'B',     correta: false, marcada: false },
+  // Coluna 2
+  { palavra: 'COR',    categoria: 'FA',    correta: false, marcada: false },
+  { palavra: 'ÍNDIO',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'BALÃO',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'RUA',    categoria: 'FA',    correta: false, marcada: false },
+  { palavra: 'PLANTA', categoria: 'SA/SB', correta: false, marcada: false },
+  { palavra: 'ROUPA',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'CORPO',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'PATO',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'CESTA',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'LIVRO',  categoria: 'B',     correta: false, marcada: false },
+  // Coluna 3
+  { palavra: 'PONTO',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'FLOR',   categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'ISCA',   categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'BOCA',   categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'CHUVA',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'CAIXA',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'ROSA',   categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'CIRCO',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'CARRO',  categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'LÁPIS',  categoria: 'A',     correta: true,  marcada: false },
+  // Coluna 4
+  { palavra: 'VACA',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'SALA',   categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'FILHO',  categoria: 'SA/FA', correta: false, marcada: false },
+  { palavra: 'BOLA',   categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'AULA',   categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'MILHO',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'BOLO',   categoria: 'SB',    correta: false, marcada: false },
+  { palavra: 'PEIXE',  categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'BOTÃO',  categoria: 'FA',    correta: false, marcada: false },
+  { palavra: 'LEITE',  categoria: 'SA',    correta: false, marcada: false },
+  // Coluna 5
+  { palavra: 'MEIA',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'JARDIM', categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'SOFÁ',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'FESTA',  categoria: 'FA',    correta: false, marcada: false },
+  { palavra: 'DOCE',   categoria: 'B',     correta: false, marcada: false },
+  { palavra: 'SOL',    categoria: 'SA',    correta: false, marcada: false },
+  { palavra: 'MÃE',    categoria: 'A',     correta: true,  marcada: false },
+  { palavra: 'PAPEL',  categoria: 'FA',    correta: false, marcada: false },
+  { palavra: 'MAR',    categoria: 'SB',    correta: false, marcada: false },
+  { palavra: 'VENTO',  categoria: 'FB',    correta: false, marcada: false },
 ]
 
 // ─── RAVLT — Normas por Faixa Etária (Manual RAVLT, Tabelas 15–26) ─────────
@@ -341,8 +345,8 @@ function RAVLTForm({ data, onChange }) {
     const a6 = a('a6_score'), a7 = a('a7_score')
     const updRL = n.recognition_list || []
     const hasUpdRL = updRL.length > 0
-    const rHits = hasUpdRL ? updRL.filter(w => w.origin === 'A' && w.marked).length : a('recognition_hits')
-    const rFP   = hasUpdRL ? updRL.filter(w => w.origin !== 'A' && w.marked).length : a('recognition_false')
+    const rHits = hasUpdRL ? updRL.filter(w => w.correta && w.marcada).length : a('recognition_hits')
+    const rFP   = hasUpdRL ? updRL.filter(w => !w.correta && w.marcada).length : a('recognition_false')
 
     const total_score                = (a1!=null&&a2!=null&&a3!=null&&a4!=null&&a5!=null) ? a1+a2+a3+a4+a5 : null
     const alt_score                  = (a1!=null&&a5!=null) ? a5-a1 : null
@@ -385,15 +389,15 @@ function RAVLTForm({ data, onChange }) {
 
   const rl     = d.recognition_list || []
   const hasRL  = rl.length > 0
-  const rlHits = hasRL ? rl.filter(w => w.origin === 'A' && w.marked).length : null
-  const rlFP   = hasRL ? rl.filter(w => w.origin !== 'A' && w.marked).length : null
+  const rlHits = hasRL ? rl.filter(w => w.correta && w.marcada).length : null
+  const rlFP   = hasRL ? rl.filter(w => !w.correta && w.marcada).length : null
   const rlScore = rlHits !== null ? rlHits - rlFP : null
   const toggleWord = (idx) => {
-    const newRL = rl.map((w, i) => i === idx ? { ...w, marked: !w.marked } : w)
+    const newRL = rl.map((w, i) => i === idx ? { ...w, marcada: !w.marcada } : w)
     update({ recognition_list: newRL })
   }
   const initList = () => update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
-  const clearMarks = () => update({ recognition_list: rl.map(w => ({ ...w, marked: false })) })
+  const clearMarks = () => update({ recognition_list: rl.map(w => ({ ...w, marcada: false })) })
 
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
@@ -584,7 +588,8 @@ function RAVLTForm({ data, onChange }) {
                   Marque as palavras que o paciente reconheceu como sendo da Lista A
                   <span style={{ marginLeft: 8, color: S.greenL }}>■ A=alvo</span>
                   <span style={{ marginLeft: 6, color: '#FCD34D' }}>■ B=distr.B</span>
-                  <span style={{ marginLeft: 6, color: '#888' }}>■ N=novo</span>
+                  <span style={{ marginLeft: 6, color: '#F97316' }}>■ SA/SB=similar</span>
+                  <span style={{ marginLeft: 6, color: '#888' }}>■ FA/FB=novo</span>
                 </span>
                 <button onClick={clearMarks} style={{ padding: '3px 10px', borderRadius: 5, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 10, cursor: 'pointer' }}>
                   Limpar
@@ -592,24 +597,25 @@ function RAVLTForm({ data, onChange }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
                 {rl.map((item, idx) => {
-                  const isHit = item.origin === 'A' && item.marked
-                  const isFP  = item.origin !== 'A' && item.marked
-                  const originColor = item.origin === 'A' ? S.greenL : item.origin === 'B' ? '#FCD34D' : '#888'
+                  const isHit = item.correta && item.marcada
+                  const isFP  = !item.correta && item.marcada
+                  const cat = item.categoria || ''
+                  const baseColor = cat === 'A' ? S.greenL : cat === 'B' ? '#FCD34D' : cat.startsWith('S') ? '#F97316' : '#888'
                   return (
                     <button key={idx} onClick={() => toggleWord(idx)} style={{
                       padding: '6px 4px',
                       borderRadius: 6,
-                      border: `1px solid ${item.marked ? (isHit ? '#4CAF50' : S.red) : 'rgba(255,255,255,0.1)'}`,
-                      background: item.marked ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(255,255,255,0.04)',
-                      color: item.marked ? (isHit ? '#4CAF50' : S.red) : originColor,
+                      border: `1px solid ${item.marcada ? (isHit ? '#4CAF50' : S.red) : 'rgba(255,255,255,0.1)'}`,
+                      background: item.marcada ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(255,255,255,0.04)',
+                      color: item.marcada ? (isHit ? '#4CAF50' : S.red) : baseColor,
                       cursor: 'pointer',
                       fontSize: 11,
-                      fontWeight: item.marked ? 700 : 400,
+                      fontWeight: item.marcada ? 700 : 400,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                       transition: 'all 0.1s',
                     }}>
-                      <span>{item.word}</span>
-                      <span style={{ fontSize: 8, opacity: 0.6 }}>{item.origin === 'new' ? 'N' : item.origin}</span>
+                      <span>{item.palavra}</span>
+                      <span style={{ fontSize: 8, opacity: 0.6 }}>{cat}</span>
                     </button>
                   )
                 })}
