@@ -402,10 +402,12 @@ const ACTION_LABELS = {
 }
 
 function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [err,      setErr]      = useState('')
-  const [ok,       setOk]       = useState(false)
+  const [password,   setPassword]   = useState('')
+  const [loading,    setLoading]    = useState(false)
+  const [err,        setErr]        = useState('')
+  const [ok,         setOk]         = useState(false)
+  const [resetSent,  setResetSent]  = useState(false)
+  const [resetErr,   setResetErr]   = useState('')
 
   const handle = async () => {
     if (password.length < 6) { setErr('Mínimo 6 caracteres.'); return }
@@ -414,8 +416,14 @@ function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
       const secondaryAuth = getSecondaryAuth()
       await createUserWithEmailAndPassword(secondaryAuth, u.email, password)
       await signOutSecondary(secondaryAuth)
+      // Envia link de redefinição imediatamente após criar a conta
+      try {
+        const { auth } = await import('@/lib/firebase')
+        await sendPasswordResetEmail(auth, u.email)
+        setResetSent(true)
+      } catch { setResetErr('Conta criada, mas o link de acesso não pôde ser enviado. Use o botão "Senha" na lista.') }
       setOk(true)
-      setTimeout(() => { onDone(); onClose() }, 1200)
+      onDone()
     } catch (e) {
       const msgs = {
         'auth/email-already-in-use': 'Este e-mail já tem conta no Firebase Auth.',
@@ -431,7 +439,20 @@ function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <CheckCircle2 size={36} color={S.greenL} style={{ margin: '0 auto 12px', display: 'block' }} />
           <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Conta criada com sucesso!</div>
-          <div style={{ fontSize: 12, color: S.muted, marginTop: 6 }}>O profissional já pode fazer login.</div>
+          {resetSent ? (
+            <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(46,125,50,0.12)', border: '1px solid rgba(46,125,50,0.3)', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, color: S.greenL, fontWeight: 600 }}>Link de acesso enviado para:</div>
+              <div style={{ fontSize: 12, color: '#fff', marginTop: 2 }}>{u.email}</div>
+              <div style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>O profissional deve verificar a caixa de entrada e de spam.</div>
+            </div>
+          ) : resetErr ? (
+            <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 12, color: '#EF4444' }}>
+              {resetErr}
+            </div>
+          ) : null}
+          <button onClick={onClose} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 9, border: 'none', background: S.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            Fechar
+          </button>
         </div>
       ) : (
         <>
@@ -440,12 +461,15 @@ function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
             <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>{u.full_name}</div>
             <div style={{ fontSize: 12, color: S.greenL, marginTop: 2 }}>{u.email}</div>
           </div>
+          <div style={{ marginBottom: 14, padding: '8px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, fontSize: 11, color: '#F59E0B' }}>
+            A conta será criada e um link de redefinição de senha será enviado automaticamente para o profissional.
+          </div>
           {err && (
             <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
               {err}
             </div>
           )}
-          <Fld label="SENHA INICIAL" type="password" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
+          <Fld label="SENHA TEMPORÁRIA" type="password" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
             <button onClick={onClose} style={{ padding: 11, borderRadius: 9, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer' }}>
               Cancelar
@@ -457,7 +481,7 @@ function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
               cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
-              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Criando...</> : 'Criar acesso'}
+              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Criando...</> : 'Criar e enviar link'}
             </button>
           </div>
         </>
