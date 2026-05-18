@@ -344,9 +344,12 @@ function RAVLTForm({ data, onChange }) {
     const a1 = a('a1_score'), a2 = a('a2_score'), a3 = a('a3_score'), a4 = a('a4_score'), a5 = a('a5_score')
     const a6 = a('a6_score'), a7 = a('a7_score')
     const rawUpdRL = n.recognition_list || []
-    const updRL = rawUpdRL.length > 0 && rawUpdRL[0].word !== undefined
-      ? DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w }))
-      : rawUpdRL
+    const updRL = (() => {
+      if (!rawUpdRL.length || rawUpdRL[0].palavra !== undefined) return rawUpdRL
+      if (rawUpdRL[0].correct !== undefined)
+        return DEFAULT_RAVLT_RECOGNITION.map((def, i) => ({ ...def, marcada: rawUpdRL[i]?.marked ?? false }))
+      return DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w }))
+    })()
     const hasUpdRL = updRL.length > 0
     const rHits = hasUpdRL ? updRL.filter(w => w.correta && w.marcada).length : a('recognition_hits')
     const rFP   = hasUpdRL ? updRL.filter(w => !w.correta && w.marcada).length : a('recognition_false')
@@ -390,24 +393,30 @@ function RAVLTForm({ data, onChange }) {
     ? [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].reduce((s,v)=>s+v,0) : null
   const a7c = classify.ravlt_a7(a7s)
 
-  // Migração automática: sessões antigas usavam {word, origin, marked}
+  // Migração: Base44={word,origin,correct,marked} → preserva marked
+  //           NeuroClin antigo={word,origin,marked} sem correct → reseta (palavras eram erradas)
+  const migrateRL = (raw) => {
+    if (!raw || !raw.length) return raw
+    if (raw[0].palavra !== undefined) return raw            // já no novo formato
+    if (raw[0].correct !== undefined)                        // formato Base44 — preserva marcas
+      return DEFAULT_RAVLT_RECOGNITION.map((def, i) => ({ ...def, marcada: raw[i]?.marked ?? false }))
+    return DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w }))   // NeuroClin antigo — reseta
+  }
   const rawRL = d.recognition_list || []
-  const isOldFormat = rawRL.length > 0 && rawRL[0].word !== undefined
+  const isOldFormat = rawRL.length > 0 && rawRL[0].palavra === undefined
   React.useEffect(() => {
-    if (isOldFormat) {
-      update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
-    }
+    if (isOldFormat) update({ recognition_list: migrateRL(rawRL) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const rl     = isOldFormat ? DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) : rawRL
-  const hasRL  = rl.length > 0
-  const rlHits = hasRL ? rl.filter(w => w.correta && w.marcada).length : null
-  const rlFP   = hasRL ? rl.filter(w => !w.correta && w.marcada).length : null
+  const rl      = isOldFormat ? migrateRL(rawRL) : rawRL
+  const hasRL   = rl.length > 0
+  const rlHits  = hasRL ? rl.filter(w => w.correta && w.marcada).length : null
+  const rlFP    = hasRL ? rl.filter(w => !w.correta && w.marcada).length : null
   const rlScore = rlHits !== null ? rlHits - rlFP : null
   const toggleWord = (idx) => {
     const newRL = rl.map((w, i) => i === idx ? { ...w, marcada: !w.marcada } : w)
     update({ recognition_list: newRL })
   }
-  const initList = () => update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
+  const initList   = () => update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
   const clearMarks = () => update({ recognition_list: rl.map(w => ({ ...w, marcada: false })) })
 
   const tabStyle = (t) => ({
@@ -594,42 +603,54 @@ function RAVLTForm({ data, onChange }) {
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: 10, color: S.muted, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>
-                  Marque as palavras que o paciente reconheceu como sendo da Lista A
-                  <span style={{ marginLeft: 8, color: S.greenL }}>■ A=alvo</span>
-                  <span style={{ marginLeft: 6, color: '#FCD34D' }}>■ B=distr.B</span>
-                  <span style={{ marginLeft: 6, color: '#F97316' }}>■ SA/SB=similar</span>
-                  <span style={{ marginLeft: 6, color: '#888' }}>■ FA/FB=novo</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: S.muted }}>
+                  Leia cada palavra e marque <strong style={{ color: S.greenL }}>SIM</strong> se o paciente reconhecer como sendo da Lista A
                 </span>
                 <button onClick={clearMarks} style={{ padding: '3px 10px', borderRadius: 5, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 10, cursor: 'pointer' }}>
                   Limpar
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
-                {rl.map((item, idx) => {
-                  const isHit = item.correta && item.marcada
-                  const isFP  = !item.correta && item.marcada
-                  const cat = item.categoria || ''
-                  const baseColor = cat === 'A' ? S.greenL : cat === 'B' ? '#FCD34D' : cat.startsWith('S') ? '#F97316' : '#888'
-                  return (
-                    <button key={idx} onClick={() => toggleWord(idx)} style={{
-                      padding: '6px 4px',
-                      borderRadius: 6,
-                      border: `1px solid ${item.marcada ? (isHit ? '#4CAF50' : S.red) : 'rgba(255,255,255,0.1)'}`,
-                      background: item.marcada ? (isHit ? 'rgba(76,175,80,0.22)' : 'rgba(239,68,68,0.22)') : 'rgba(255,255,255,0.04)',
-                      color: item.marcada ? (isHit ? '#4CAF50' : S.red) : baseColor,
-                      cursor: 'pointer',
-                      fontSize: 11,
-                      fontWeight: item.marcada ? 700 : 400,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                      transition: 'all 0.1s',
-                    }}>
-                      <span>{item.palavra}</span>
-                      <span style={{ fontSize: 8, opacity: 0.6 }}>{cat}</span>
-                    </button>
-                  )
-                })}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+                {[rl.slice(0, 25), rl.slice(25)].map((col, colIdx) => (
+                  <div key={colIdx} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {col.map((item, i) => {
+                      const idx = colIdx * 25 + i
+                      const isHit = item.correta && item.marcada
+                      const catColor = item.categoria === 'A' ? S.greenL : item.categoria === 'B' ? '#FCD34D' : item.categoria?.startsWith('S') ? '#F97316' : '#9CA3AF'
+                      return (
+                        <div key={idx} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '4px 8px', borderRadius: 6,
+                          border: `1px solid ${item.marcada ? (isHit ? 'rgba(76,175,80,0.5)' : 'rgba(239,68,68,0.4)') : S.border}`,
+                          background: item.marcada ? (isHit ? 'rgba(76,175,80,0.1)' : 'rgba(239,68,68,0.08)') : 'rgba(255,255,255,0.03)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                            <span style={{ fontSize: 10, color: S.muted, minWidth: 18, textAlign: 'right' }}>{idx + 1}.</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{item.palavra}</span>
+                            <span style={{ fontSize: 9, color: catColor, opacity: 0.7 }}>({item.categoria})</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                            <button onClick={() => { if (!item.marcada) toggleWord(idx) }} style={{
+                              padding: '3px 10px', borderRadius: 4, border: 'none',
+                              cursor: item.marcada ? 'default' : 'pointer',
+                              fontSize: 11, fontWeight: 700,
+                              background: item.marcada ? '#2E7D32' : 'rgba(46,125,50,0.18)',
+                              color: item.marcada ? '#fff' : S.greenL,
+                            }}>SIM</button>
+                            <button onClick={() => { if (item.marcada) toggleWord(idx) }} style={{
+                              padding: '3px 10px', borderRadius: 4, border: 'none',
+                              cursor: item.marcada ? 'pointer' : 'default',
+                              fontSize: 11, fontWeight: 700,
+                              background: !item.marcada ? 'rgba(255,255,255,0.07)' : 'rgba(239,68,68,0.2)',
+                              color: !item.marcada ? '#9CA3AF' : S.red,
+                            }}>NÃO</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
