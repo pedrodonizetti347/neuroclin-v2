@@ -6,12 +6,12 @@ import { useAuth } from '@/lib/AuthContext'
 import { Users, FileText, FlaskConical, ArrowRight, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 
 const S = {
-  card:       '#1A2744',
-  cardGreen:  '#1A3D2B',
+  card:       '#FFFFFF',
+  cardGreen:  '#F0FFF4',
   green:      '#2E7D32',
-  greenL:     '#4CAF50',
-  border:     'rgba(255,255,255,0.08)',
-  muted:      'rgba(255,255,255,0.45)',
+  greenL:     '#2E7D32',
+  border:     '#D1E2F0',
+  muted:      '#888888',
   amber:      '#F59E0B',
 }
 
@@ -24,7 +24,7 @@ function StatCard({ label, value, sub, icon: Icon, iconColor, iconBg, subColor }
       <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, letterSpacing: '0.06em', marginBottom: 4 }}>
         {label.toUpperCase()}
       </div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#1A2744', lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: subColor || S.greenL, marginTop: 4 }}>{sub}</div>}
     </div>
   )
@@ -43,10 +43,10 @@ function PatientRow({ patient }) {
       <div style={{
         width: 34, height: 34, borderRadius: '50%', background: colors[ci],
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
+        fontSize: 11, fontWeight: 700, color: '#1A2744', flexShrink: 0,
       }}>{initials}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {patient.full_name}
         </div>
         <div style={{ fontSize: 11, color: S.muted, marginTop: 1 }}>
@@ -136,7 +136,7 @@ export default function Dashboard() {
               AO VIVO
             </span>
           </div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#fff' }}>{loading ? '—' : counts.reportsToday}</div>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#1A2744' }}>{loading ? '—' : counts.reportsToday}</div>
           <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>laudos gerados hoje</div>
         </div>
 
@@ -147,7 +147,7 @@ export default function Dashboard() {
               MÊS
             </span>
           </div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#fff' }}>{loading ? '—' : counts.reports}</div>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#1A2744' }}>{loading ? '—' : counts.reports}</div>
           <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>
             {months[currentMonth].toLowerCase()} de {new Date().getFullYear()}
           </div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
             padding: '12px 16px', borderBottom: `1px solid ${S.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#1A2744', letterSpacing: '0.04em' }}>
               ⚡ PACIENTES RECENTES
             </span>
             <Link to="/pacientes" style={{ fontSize: 11, color: S.greenL, fontWeight: 600 }}>
@@ -203,7 +203,7 @@ export default function Dashboard() {
                   <Icon size={16} color={color} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>{label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1A2744', letterSpacing: '0.04em' }}>{label}</div>
                   <div style={{ fontSize: 10, color: S.muted, marginTop: 1 }}>{sub}</div>
                 </div>
                 <ArrowRight size={14} color={S.muted} style={{ marginLeft: 'auto' }} />

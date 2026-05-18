@@ -857,6 +857,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     : [new Paragraph({ children: [new TextRun({ text: 'NEUROAVALIAÇÃO — Neuropsicologia na Prática', bold: true, font: 'Arial', size: 24, color: C.dark })], alignment: AlignmentType.LEFT })]
 
   const doc = new Document({
+    background: { color: 'FFFFFF' },
     sections: [{
       properties: {
         page: {
