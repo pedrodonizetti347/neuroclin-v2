@@ -270,12 +270,13 @@ export default function MedicalRecords() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteErr,     setDeleteErr]     = useState('')
 
-  const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
-  const isAdmin      = user?.role === 'admin'
+  const isSupervisor    = user?.role === 'admin' || user?.role === 'supervisor'
+  const isAdmin         = user?.role === 'admin'
+  const canDeleteReport = user?.uid === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   const handleDeleteReport = async () => {
     if (!deleteTarget || !deletePass.trim()) return
-    if (!isAdmin) { setDeleteErr('Apenas o administrador pode excluir laudos.'); return }
+    if (!canDeleteReport) { setDeleteErr('Apenas o administrador responsável pode excluir laudos.'); return }
     setDeleteLoading(true)
     setDeleteErr('')
     try {
@@ -466,7 +467,7 @@ export default function MedicalRecords() {
                         <ReportCard
                           key={r.id}
                           report={r}
-                          canDelete={isAdmin}
+                          canDelete={canDeleteReport}
                           onDeleteRequest={rep => { setDeleteTarget(rep); setDeletePass(''); setDeleteErr('') }}
                           patient={patient}
                           user={user}
