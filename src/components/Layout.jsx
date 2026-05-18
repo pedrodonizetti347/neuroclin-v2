@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { auth } from '@/lib/firebase'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
-import { BUILD_TIME } from '@/version'
+import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3,
@@ -163,6 +163,36 @@ export default function Layout({ children }) {
   const location = useLocation()
   const [collapsed,       setCollapsed]       = useState(false)
   const [showChangePass,  setShowChangePass]  = useState(false)
+
+  // ── Verificação de nova versão ─────────────────────────────────────────────
+  const [newVersion,  setNewVersion]  = useState(false)
+  const [countdown,   setCountdown]   = useState(45)
+  const countdownRef = useRef(null)
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('/version.json?_=' + Date.now())
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.v > BUILD_ID) setNewVersion(true)
+      } catch {}
+    }
+    check()
+    const interval = setInterval(check, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (!newVersion) return
+    countdownRef.current = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { window.location.reload(); return 0 }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current)
+  }, [newVersion])
 
   const initials = user?.full_name
     ?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || 'NC'
@@ -352,6 +382,29 @@ export default function Layout({ children }) {
             </div>
           </div>
         </header>
+
+        {/* Banner nova versão */}
+        {newVersion && (
+          <div style={{
+            background: 'linear-gradient(90deg, #1A3D2B 0%, #2E7D32 100%)',
+            padding: '10px 20px', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(46,125,50,0.4)',
+          }}>
+            <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
+              Nova versao disponivel — atualizando em {countdown}s
+            </span>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '6px 16px', borderRadius: 8, border: 'none',
+                background: '#fff', color: '#1A3D2B',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>
+              Atualizar agora
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <main style={{ flex: 1, overflow: 'auto', padding: 20 }}>
