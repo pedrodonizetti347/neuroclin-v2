@@ -343,7 +343,10 @@ function RAVLTForm({ data, onChange }) {
     const a = (k) => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
     const a1 = a('a1_score'), a2 = a('a2_score'), a3 = a('a3_score'), a4 = a('a4_score'), a5 = a('a5_score')
     const a6 = a('a6_score'), a7 = a('a7_score')
-    const updRL = n.recognition_list || []
+    const rawUpdRL = n.recognition_list || []
+    const updRL = rawUpdRL.length > 0 && rawUpdRL[0].word !== undefined
+      ? DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w }))
+      : rawUpdRL
     const hasUpdRL = updRL.length > 0
     const rHits = hasUpdRL ? updRL.filter(w => w.correta && w.marcada).length : a('recognition_hits')
     const rFP   = hasUpdRL ? updRL.filter(w => !w.correta && w.marcada).length : a('recognition_false')
@@ -387,7 +390,15 @@ function RAVLTForm({ data, onChange }) {
     ? [gn('a1_score'),gn('a2_score'),gn('a3_score'),gn('a4_score'),gn('a5_score')].reduce((s,v)=>s+v,0) : null
   const a7c = classify.ravlt_a7(a7s)
 
-  const rl     = d.recognition_list || []
+  // Migração automática: sessões antigas usavam {word, origin, marked}
+  const rawRL = d.recognition_list || []
+  const isOldFormat = rawRL.length > 0 && rawRL[0].word !== undefined
+  React.useEffect(() => {
+    if (isOldFormat) {
+      update({ recognition_list: DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const rl     = isOldFormat ? DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w })) : rawRL
   const hasRL  = rl.length > 0
   const rlHits = hasRL ? rl.filter(w => w.correta && w.marcada).length : null
   const rlFP   = hasRL ? rl.filter(w => !w.correta && w.marcada).length : null
