@@ -885,9 +885,9 @@ function buildMEMIMPSection(td) {
   }
 
   const rows_data = [
-    { label: 'Memória Prospectiva (itens 1–8)', fam: d.family_prospective,   pat: d.patient_prospective,   max: 32 },
-    { label: 'Memória Retrospectiva (itens 9–16)', fam: d.family_retrospective, pat: d.patient_retrospective, max: 32 },
-    { label: 'TOTAL',                             fam: d.family_total,         pat: d.patient_total,         max: 64 },
+    { label: 'Memória Prospectiva (itens 1–8)', fam: d.family_prospective,   pat: d.patient_prospective,   max: 40 },
+    { label: 'Memória Retrospectiva (itens 9–16)', fam: d.family_retrospective, pat: d.patient_retrospective, max: 40 },
+    { label: 'TOTAL',                             fam: d.family_total,         pat: d.patient_total,         max: 80 },
   ]
 
   const rows = rows_data.map((r, i) => {
@@ -908,9 +908,9 @@ function buildMEMIMPSection(td) {
     <tr><th colspan="5" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Inventário de Memória Prospectiva e Retrospectiva (MEMIMP)</th></tr>
     <tr>
       ${thCell('Domínio')}
-      ${thCell('Familiar (0–' + '32)', 'text-align:center;')}
+      ${thCell('Familiar (8–40)', 'text-align:center;')}
       ${thCell('Classificação', 'text-align:center;')}
-      ${thCell('Paciente (0–' + '32)', 'text-align:center;')}
+      ${thCell('Paciente (8–40)', 'text-align:center;')}
       ${thCell('Classificação', 'text-align:center;')}
     </tr>
   </thead>`

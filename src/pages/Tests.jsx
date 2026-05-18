@@ -1864,7 +1864,7 @@ function BADLForm({ data, onChange }) {
   return (
     <div>
       <p style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>
-        Pontue de 1 (sem dificuldade) a 10 (máxima dificuldade). Deixe em branco se não aplicável.
+        Pontue de 1 (sem dificuldade) a 10 (máxima dificuldade). Use 0 para "não se aplica / não sei". Deixe em branco se não respondido.
       </p>
 
       {/* Itens */}
@@ -1880,7 +1880,7 @@ function BADLForm({ data, onChange }) {
               {item.label}
             </div>
             <input
-              type="number" min={1} max={10}
+              type="number" min={0} max={10}
               value={d[item.key] ?? ''}
               onChange={e => update({ [item.key]: e.target.value === '' ? null : Number(e.target.value) })}
               style={{ ...inputStyle, textAlign: 'center' }}
@@ -3684,7 +3684,7 @@ function TOKENForm({ data, onChange }) {
     const arr = d[`${p.key}_items`] || []
     return s + arr.reduce((ss, v) => ss + (Number(v) || 0), 0)
   }, 0)
-  const hasAny = TOKEN_PARTS.some(p => (d[`${p.key}_items`] || []).some(v => v != null && v !== 0))
+  const hasAny = total > 0 || TOKEN_PARTS.some(p => (d[`${p.key}_items`] || []).some(v => v != null && v !== 0))
   const c = hasAny ? classify.token(total) : null
 
   return (
@@ -3780,7 +3780,7 @@ function TOKENForm({ data, onChange }) {
   )
 }
 
-// ─── MEMIMP / MemoryTest (Base44-compliant — 16 itens × 2 respondentes, 0–4) ──
+// ─── MEMIMP / MemoryTest (Base44-compliant — 16 itens × 2 respondentes, 1–5) ──
 const MEMIMP_ITEMS = [
   'Deixa de fazer algo planejado durante o dia',
   'Esquece de passar uma mensagem a alguém',
@@ -3858,7 +3858,7 @@ function MEMIMPForm({ data, onChange, onSave }) {
           </span>
           <span style={{ color: S.muted, marginRight: 4 }}>{i + 1}.</span>{lbl}
         </div>
-        <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} max={4} />
+        <ScoreButtons value={d[key]} onChange={v => update({ [key]: v })} min={1} max={5} />
       </div>
     )
   })
@@ -3868,9 +3868,9 @@ function MEMIMPForm({ data, onChange, onSave }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
         {[
-          ['Prospectiva', stats.prospective, 32],
-          ['Retrospectiva', stats.retrospective, 32],
-          ['Total', stats.total, 64],
+          ['Prospectiva', stats.prospective, 40],
+          ['Retrospectiva', stats.retrospective, 40],
+          ['Total', stats.total, 80],
           ['Média', stats.mean, null],
         ].map(([k, v, mx]) => (
           <div key={k} style={{ textAlign: 'center' }}>
@@ -3901,16 +3901,16 @@ function MEMIMPForm({ data, onChange, onSave }) {
       <div style={{ display: 'flex', gap: 12, marginBottom: 8, fontSize: 10, color: S.muted }}>
         <span><span style={{ color: S.blue, fontWeight: 700 }}>PM</span> = Prospectiva (q1–q8) — intenções futuras</span>
         <span><span style={{ color: S.amber, fontWeight: 700 }}>RM</span> = Retrospectiva (q9–q16) — eventos passados</span>
-        <span>0=Nunca · 4=Sempre</span>
+        <span>1=Nunca · 2=Raramente · 3=Às vezes · 4=Frequentemente · 5=Quase sempre</span>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         <button style={tabStyle('paciente')} onClick={() => switchTab('paciente')}>
-          Paciente {p.total != null ? `(${p.total}/64)` : ''}
+          Paciente {p.total != null ? `(${p.total}/80)` : ''}
         </button>
         <button style={tabStyle('familiar')} onClick={() => switchTab('familiar')}>
-          Familiar {f.total != null ? `(${f.total}/64)` : ''}
+          Familiar {f.total != null ? `(${f.total}/80)` : ''}
         </button>
         <button style={tabStyle('resultado')} onClick={() => switchTab('resultado')}>Resultado</button>
       </div>
