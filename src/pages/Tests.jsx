@@ -4209,8 +4209,9 @@ const TEST_CONFIG = [
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Tests() {
   const [searchParams] = useSearchParams()
+  const urlPatient = searchParams.get('paciente') || ''
   const [patients,  setPatients]  = useState([])
-  const [patientId, setPatientId] = useState(searchParams.get('paciente') || '')
+  const [patientId, setPatientId] = useState(urlPatient || localStorage.getItem('neuroclin_last_patient') || '')
   const [activeKey, setActiveKey] = useState('')
   const [justSaved, setJustSaved] = useState({})
 
@@ -4256,7 +4257,7 @@ export default function Tests() {
       <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <FlaskConical size={16} color={S.greenL} />
         <select
-          value={patientId} onChange={e => setPatientId(e.target.value)}
+          value={patientId} onChange={e => { setPatientId(e.target.value); if (e.target.value) localStorage.setItem('neuroclin_last_patient', e.target.value) }}
           style={{ ...inputStyle, width: 'auto', flex: 1, textAlign: 'left' }}
         >
           <option value="">— Selecionar paciente —</option>
