@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp, getDocs, query, collection, where, limit } from 'firebase/firestore'
 import { auth, db, googleProvider } from './firebase'
 import { logAction } from './auditLog'
 import { Brain, Eye, EyeOff } from 'lucide-react'
@@ -185,18 +185,74 @@ export function AuthProvider({ children }) {
               logAction(resolvedUser, 'login')
             }
           } else {
-            const isAdmin = ADMIN_UIDS.includes(fu.uid)
-            const profile = {
-              email:      fu.email,
-              full_name:  fu.displayName || fu.email?.split('@')[0] || 'Profissional',
-              photo_url:  fu.photoURL || '',
-              role:       isAdmin ? 'admin' : 'professional',
-              active:     true,
-              created_at: serverTimestamp(),
-              last_login: serverTimestamp(),
+            // Sem documento Firestore para este UID (primeiro login)
+            const isAdmin      = ADMIN_UIDS.includes(fu.uid)
+            const isGoogleLogin = fu.providerData.some(p => p.providerId === 'google.com')
+
+            if (isAdmin) {
+              // Admin hardcoded — cria perfil automaticamente
+              const profile = {
+                email:      fu.email,
+                full_name:  fu.displayName || fu.email?.split('@')[0] || 'Admin',
+                photo_url:  fu.photoURL || '',
+                role:       'admin',
+                active:     true,
+                created_at: serverTimestamp(),
+                last_login: serverTimestamp(),
+              }
+              await setDoc(ref, profile)
+              const resolvedUser = { id: fu.uid, ...profile }
+              setUser(resolvedUser)
+              if (sessionStorage.getItem('neuroclin_login_pending')) {
+                sessionStorage.removeItem('neuroclin_login_pending')
+                logAction(resolvedUser, 'login')
+              }
+            } else if (isGoogleLogin) {
+              // Google login de profissional — valida se e-mail está pré-cadastrado
+              const q = query(collection(db, 'users'), where('email', '==', fu.email), limit(1))
+              const result = await getDocs(q)
+              if (result.empty) {
+                await firebaseSignOut(auth)
+                setLoginErr('Acesso não autorizado. Seu e-mail não está cadastrado no sistema. Solicite ao administrador.')
+                setUser(null)
+                setLoading(false)
+                return
+              }
+              const existing = result.docs[0].data()
+              if (existing.active === false) {
+                await firebaseSignOut(auth)
+                setLoginErr('Seu acesso está desativado. Entre em contato com o administrador.')
+                setUser(null)
+                setLoading(false)
+                return
+              }
+              // Copia perfil pré-cadastrado para o novo UID Google
+              const profile = {
+                ...existing,
+                photo_url:  fu.photoURL || existing.photo_url || '',
+                last_login: serverTimestamp(),
+              }
+              await setDoc(ref, profile)
+              const resolvedUser = { id: fu.uid, ...profile }
+              setUser(resolvedUser)
+              if (sessionStorage.getItem('neuroclin_login_pending')) {
+                sessionStorage.removeItem('neuroclin_login_pending')
+                logAction(resolvedUser, 'login')
+              }
+            } else {
+              // Email/password sem doc — fallback (doc deveria ter sido criado pelo admin)
+              const profile = {
+                email:      fu.email,
+                full_name:  fu.email?.split('@')[0] || 'Profissional',
+                photo_url:  '',
+                role:       'professional',
+                active:     true,
+                created_at: serverTimestamp(),
+                last_login: serverTimestamp(),
+              }
+              await setDoc(ref, profile)
+              setUser({ id: fu.uid, ...profile })
             }
-            await setDoc(ref, profile)
-            setUser({ id: fu.uid, ...profile })
           }
         } catch (err) {
           console.error('[AuthContext] erro ao carregar perfil:', err)

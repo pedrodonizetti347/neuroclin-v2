@@ -22,6 +22,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
       allow write: if isAdminOrSupervisor();
+      // Profissional pode criar o próprio perfil no primeiro login Google
+      allow create: if isAuth() && request.auth.uid == userId;
+      // Profissional pode atualizar próprio perfil (last_login, photo_url) mas não escala role/active
+      allow update: if isAuth() && request.auth.uid == userId
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.active == resource.data.active;
     }
 
     // Pacientes — qualquer autenticado lê; só admin/supervisor escreve
@@ -48,6 +54,11 @@ service cloud.firestore {
     match /notes/{patientId} {
       allow read, write: if isAdminOrSupervisor();
       allow read, write: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
+    }
+
+    // Anamneses clínicas — qualquer autenticado lê e escreve
+    match /anamneses/{patientId} {
+      allow read, write: if isAuth();
     }
 
     // Configurações da clínica — apenas admin/supervisor
