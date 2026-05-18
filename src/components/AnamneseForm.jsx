@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { ChevronDown, ChevronUp, CheckCircle2, Loader2 } from 'lucide-react'
 
@@ -19,7 +19,7 @@ const SN = ['Sim', 'Não']
 function Fld({ label, name, value, onChange, type = 'text', opts = [], rows = 2 }) {
   const v = value ?? ''
   const lbl = <label style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>{label.toUpperCase()}</label>
-  if (type === 'select') return <div>{lbl}<select value={v} onChange={e => onChange(name, e.target.value)} style={inp}><option value="">—</option>{opts.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+  if (type === 'select') return <div>{lbl}<select value={v} onChange={e => onChange(name, e.target.value)} style={inp}><option value="">—</option>{opts.map(o => typeof o === 'object' ? <option key={o.value} value={o.value}>{o.label}</option> : <option key={o} value={o}>{o}</option>)}</select></div>
   if (type === 'textarea') return <div>{lbl}<textarea value={v} onChange={e => onChange(name, e.target.value)} rows={rows} style={{ ...inp, resize: 'vertical' }} /></div>
   if (type === 'date') return <div>{lbl}<input type="date" value={v} onChange={e => onChange(name, e.target.value)} style={inp} /></div>
   if (type === 'number') return <div>{lbl}<input type="number" value={v} onChange={e => onChange(name, e.target.value)} style={inp} /></div>
@@ -77,6 +77,9 @@ export default function AnamneseForm({ patientId }) {
     setSaving(true)
     try {
       await setDoc(doc(db, 'anamneses', patientId), { ...data, patient_type: 'idoso', updatedAt: serverTimestamp() }, { merge: true })
+      if (data.escolaridade) {
+        await updateDoc(doc(db, 'patients', patientId), { education: data.escolaridade }).catch(() => {})
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
@@ -125,7 +128,17 @@ export default function AnamneseForm({ patientId }) {
         <Fld label="Data de nascimento" name="data_nascimento" value={form.data_nascimento} onChange={ch} type="date" />
         <Fld label="Idade" name="idade" value={form.idade} onChange={ch} type="number" />
         <Fld label="Estado civil" name="estado_civil" value={form.estado_civil} onChange={ch} type="select" opts={['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União estável', 'Separado(a)']} />
-        <Fld label="Escolaridade" name="escolaridade" value={form.escolaridade} onChange={ch} />
+        <Fld label="Escolaridade" name="escolaridade" value={form.escolaridade} onChange={ch} type="select" opts={[
+          {value:'analfabeto',             label:'Analfabeto'},
+          {value:'anos_1_4',               label:'1–4 anos / Primário'},
+          {value:'fundamental_incompleto', label:'Ensino fundamental incompleto'},
+          {value:'fundamental_completo',   label:'Ensino fundamental completo'},
+          {value:'medio_incompleto',       label:'Ensino médio incompleto'},
+          {value:'medio_completo',         label:'Ensino médio completo'},
+          {value:'superior_incompleto',    label:'Ensino superior incompleto'},
+          {value:'superior_completo',      label:'Ensino superior completo'},
+          {value:'pos_graduacao',          label:'Pós-graduação'},
+        ]} />
         <Fld label="Profissão" name="profissao" value={form.profissao} onChange={ch} />
         <Fld label="Telefone" name="telefone" value={form.telefone} onChange={ch} />
         <Fld label="Endereço" name="endereco" value={form.endereco} onChange={ch} />
