@@ -1447,20 +1447,13 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
         </div>
       </div>
 
-      <!-- Supervisor / Diretor + Carimbo da clínica -->
+      <!-- Carimbo da clínica -->
       <div style="text-align:center;min-width:240px;">
         <img src="/images/sig-002.png" alt="Carimbo" style="max-width:160px;max-height:90px;display:block;margin:0 auto 4px;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
         <div style="border-top:2px solid ${H};padding-top:10px;margin-top:4px;">
-          <div style="font-size:14px;font-weight:800;color:${H};">${SUPERVISOR.name}</div>
-          <div style="font-size:11px;color:#555;margin-top:2px;">${SUPERVISOR.crp}</div>
-          <div style="font-size:11px;color:#555;">Neuropsicólogo · Supervisor Técnico</div>
-          <div style="font-size:10px;color:#777;margin-top:1px;">Diretor Clínico — Neuroavaliação</div>
-        </div>
-        <!-- Carimbo institucional -->
-        <div style="border:1.5px solid ${H};border-radius:4px;padding:8px 16px;margin-top:14px;display:inline-block;text-align:center;min-width:200px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-          <div style="font-size:11px;font-weight:800;color:${H};letter-spacing:0.04em;">NEUROAVALIAÇÃO ME</div>
-          <div style="font-size:9px;color:#555;margin-top:3px;">CRPJ 06/6481 &nbsp;|&nbsp; CNES 49795</div>
-          <div style="font-size:9px;color:#555;">CNPJ 29.313.355/0001-12</div>
+          <div style="font-size:13px;font-weight:700;color:${H};">NEUROAVALIAÇÃO ME</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">CRPJ 06/6481 &nbsp;/&nbsp; CNES 49795</div>
+          <div style="font-size:11px;color:#555;">CNPJ 29.313.355/0001-12</div>
         </div>
       </div>
 
