@@ -1435,8 +1435,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 
       <!-- Responsável técnico -->
       <div style="text-align:center;min-width:240px;">
-        <img src="/images/sig-002.png" alt="Assinatura" style="max-width:160px;max-height:90px;margin-bottom:4px;display:block;margin-left:auto;margin-right:auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
-        <div style="border-top:2px solid #1a1a2e;padding-top:10px;margin-top:4px;">
+        <div style="border-top:2px solid #1a1a2e;padding-top:10px;margin-top:8px;">
           <div style="font-size:13px;font-weight:700;color:#1a1a2e;">${SUPERVISOR.name}</div>
           <div style="font-size:11px;color:#555;margin-top:2px;">Neuropsicólogo · Responsável Técnico</div>
           <div style="font-size:11px;color:#555;">${SUPERVISOR.crp}</div>
@@ -1446,8 +1445,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 
       <!-- Supervisor / Diretor + Carimbo da clínica -->
       <div style="text-align:center;min-width:240px;">
-        <img src="/images/sig-002.png" alt="Carimbo" style="max-width:160px;max-height:90px;margin-bottom:4px;display:block;margin-left:auto;margin-right:auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
-        <div style="border-top:2px solid ${H};padding-top:10px;margin-top:4px;">
+        <div style="border-top:2px solid ${H};padding-top:10px;margin-top:8px;">
           <div style="font-size:14px;font-weight:800;color:${H};">${SUPERVISOR.name}</div>
           <div style="font-size:11px;color:#555;margin-top:2px;">${SUPERVISOR.crp}</div>
           <div style="font-size:11px;color:#555;">Neuropsicólogo · Supervisor Técnico</div>
@@ -1700,7 +1698,6 @@ export default function Reports() {
     w.document.write(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
   <meta charset="UTF-8">
-  <base href="${window.location.origin}/">
   <title>Laudo Neuropsicológico — ${patient?.full_name || ''}</title>
   <style>
     @page { size: A4; margin: 2.5cm 2cm 2.5cm 2cm; }
