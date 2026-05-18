@@ -1,25 +1,26 @@
 import {
-  AlignmentType, BorderStyle, Document, Header, ImageRun, Packer,
+  AlignmentType, BorderStyle, Document, Footer, Header, ImageRun, Packer,
   Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
 } from 'docx'
 import { saveAs } from 'file-saver'
 
 // ── Paleta de cores do template ───────────────────────────────────────────────
 const C = {
-  sectionBg:    'D6E4F7',   // fundo claro dos cabeçalhos de seção
-  sectionText:  '1E3A5F',   // texto escuro dos cabeçalhos de seção
-  tableHeader:  'D6E4F7',   // fundo claro dos headers de tabela
-  headerText:   '1E3A5F',   // texto escuro dos headers de tabela
+  sectionBg:    '4472C4',   // azul cabeçalho de seção (= H no PDF)
+  sectionText:  'FFFFFF',   // texto branco nos cabeçalhos
+  tableHeader:  '4472C4',   // azul header de tabela
+  headerText:   'FFFFFF',   // texto branco nos headers de tabela
   comprometido: 'E8821A',
   deficitario:  'C00000',
   preservado:   '1F3864',
-  altRow:       'EEF3F8',
+  altRow:       'EEF3F8',   // azul claro linha alternada (= HR no PDF)
   domainSub:    'D6E4F0',
-  border:       'B8C7D9',
+  border:       'C5D9EF',   // borda azul clara
   dark:         '1A3D2B',
   white:        'FFFFFF',
   gray:         '555555',
   text:         '1A1A2E',
+  green:        '2E7D32',
 }
 
 // ── Formata escolaridade do banco para texto legível ─────────────────────────
@@ -180,7 +181,7 @@ const NO_BORDERS = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: 
 function secHeader(text) {
   return new Paragraph({
     children: [new TextRun({ text: text.toUpperCase(), color: C.sectionText, bold: true, size: 24, font: 'Arial' })],
-    shading: { type: ShadingType.SOLID, fill: C.sectionBg, color: C.sectionBg },
+    shading: { type: ShadingType.CLEAR, fill: C.sectionBg, color: C.sectionBg },
     spacing: { before: 280, after: 140 },
     indent: { left: 120, right: 120 },
   })
@@ -193,7 +194,7 @@ function hCell(text, { span, center, pct } = {}) {
       alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT,
       spacing: { before: 60, after: 60 },
     })],
-    shading: { type: ShadingType.SOLID, fill: C.tableHeader },
+    shading: { type: ShadingType.CLEAR, fill: C.tableHeader },
     borders: BORDERS,
     columnSpan: span,
     width: pct ? { size: pct, type: WidthType.PERCENTAGE } : undefined,
@@ -209,7 +210,7 @@ function dCell(text, { alt, center, bold, color } = {}) {
       alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT,
       spacing: { before: 60, after: 60 },
     })],
-    shading: { type: ShadingType.SOLID, fill },
+    shading: { type: ShadingType.CLEAR, fill },
     borders: BORDERS,
     margins: { top: 60, bottom: 60, left: 100, right: 100 },
   })
@@ -223,7 +224,7 @@ function domainCell(text, { alt, isHeader } = {}) {
       alignment: AlignmentType.LEFT,
       spacing: { before: 60, after: 60 },
     })],
-    shading: { type: ShadingType.SOLID, fill },
+    shading: { type: ShadingType.CLEAR, fill },
     borders: BORDERS,
     margins: { top: 60, bottom: 60, left: 100, right: 100 },
   })
@@ -292,7 +293,7 @@ function convertHtmlTableToDocx(tableEl) {
           alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT,
           spacing: { before: 60, after: 60 },
         })],
-        shading: { type: ShadingType.SOLID, fill },
+        shading: { type: ShadingType.CLEAR, fill },
         borders: BORDERS,
         ...(colspan > 1 ? { columnSpan: colspan } : {}),
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
@@ -402,33 +403,45 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
 
   // ── TÍTULO ────────────────────────────────────────────────────────────────
   body.push(new Paragraph({
-    children: [new TextRun({ text: 'Laudo Psicológico com Ênfase Neuropsicológico', color: C.sectionBg, bold: true, size: 52, font: 'Arial' })],
+    children: [new TextRun({ text: 'LAUDO NEUROPSICOLÓGICO', color: C.white, bold: true, size: 26, font: 'Arial' })],
     alignment: AlignmentType.CENTER,
-    shading: { type: ShadingType.SOLID, fill: C.altRow, color: C.altRow },
-    spacing: { before: 0, after: 280 },
-    indent: { left: 120, right: 120 },
+    shading: { type: ShadingType.CLEAR, fill: C.sectionBg },
+    spacing: { before: 160, after: 200 },
+    indent: { left: 1440, right: 1440 },
   }))
 
-  // ── TABELA DE IDENTIFICAÇÃO ───────────────────────────────────────────────
+  // ── DADOS DO PACIENTE ─────────────────────────────────────────────────────
+  body.push(secHeader('DADOS DO PACIENTE'))
   const idRows = [
-    ['Paciente', patient?.full_name || '—', 'Matrícula Prevent', ad?.matricula || '—'],
-    ['Idade', age != null ? `${age} anos` : '—', 'Data de Nascimento', fmtDate(patient?.birth_date)],
+    ['Paciente', patient?.full_name || '—', 'Data de Nascimento', fmtDate(patient?.birth_date)],
+    ['Idade', age != null ? `${age} anos` : '—', 'Sexo', patient?.sex || '—'],
     ['Escolaridade', fmtEducation(patient?.education || ad?.escolaridade), 'Lateralidade', ad?.lateralidade || patient?.lateralidade || '—'],
     ['Período do Exame', mesAno, 'Data do Laudo', dataFormatada || '—'],
-    ['Informante', informante, 'Avaliado por', professional],
+    ['Informante(s)', informante, 'Avaliado por', professional],
   ]
 
   body.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: idRows.map((r, i) => new TableRow({ children: [
-      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[0], font: 'Arial', size: 20, bold: true })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
-      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[1], font: 'Arial', size: 20 })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
-      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[2], font: 'Arial', size: 20, bold: true })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
-      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[3], font: 'Arial', size: 20 })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
+      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[0], font: 'Arial', size: 20, bold: true })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
+      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[1], font: 'Arial', size: 20 })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
+      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[2], font: 'Arial', size: 20, bold: true })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
+      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r[3], font: 'Arial', size: 20 })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: i % 2 === 0 ? C.altRow : 'FFFFFF' }, borders: BORDERS, margins: { left: 100, right: 100 } }),
     ]}))
   }))
 
-  body.push(spacer(160))
+  // Linha de Medicamentos (colspan 3, igual ao PDF)
+  if (ad?.medicamentos) {
+    body.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Medicamentos', font: 'Arial', size: 20, bold: true })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: 'FFFFFF' }, borders: BORDERS, width: { size: 22, type: WidthType.PERCENTAGE }, margins: { left: 100, right: 100 } }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: ad.medicamentos, font: 'Arial', size: 20 })], spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: 'FFFFFF' }, borders: BORDERS, columnSpan: 3, margins: { left: 100, right: 100 } }),
+      ]})]
+    }))
+  }
+
+  body.push(spacer(120))
 
   // ── INFORMAÇÕES GERAIS E QUEIXAS ──────────────────────────────────────────
   const infoItems = [
@@ -438,8 +451,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       ? { lbl: 'Descrição da demanda', txt: ad.queixas } : null,
     (ad?.profissao || ad?.estado_civil || ad?.moradia)
       ? { lbl: 'Informações gerais', txt: [ad.profissao && `Profissão: ${ad.profissao}`, ad.estado_civil && `Estado civil: ${ad.estado_civil}`, ad.moradia && `Moradia: ${ad.moradia}`].filter(Boolean).join(' | ') } : null,
-    (ad?.doencas_preexistentes || ad?.medicamentos)
-      ? { lbl: 'Saúde e antecedentes', txt: [ad.doencas_preexistentes && `Doenças: ${Array.isArray(ad.doencas_preexistentes) ? ad.doencas_preexistentes.join(', ') : ad.doencas_preexistentes}`, ad.medicamentos && `Medicamentos: ${ad.medicamentos}`].filter(Boolean).join(' | ') } : null,
+    (ad?.doencas_preexistentes)
+      ? { lbl: 'Histórico clínico', txt: Array.isArray(ad.doencas_preexistentes) ? ad.doencas_preexistentes.join(', ') : ad.doencas_preexistentes } : null,
   ].filter(Boolean)
 
   if (infoItems.length) {
@@ -542,7 +555,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
-        new TableRow({ children: [new TableCell({ columnSpan: 5, children: [new Paragraph({ children: [new TextRun({ text: 'Memória Prospectiva e Retrospectiva (MEMIMP)', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [new TableCell({ columnSpan: 5, children: [new Paragraph({ children: [new TextRun({ text: 'Memória Prospectiva e Retrospectiva (MEMIMP)', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
         new TableRow({ children: [hCell('Itens', { pct: 30 }), hCell('Familiar', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true }), hCell('Paciente', { pct: 15, center: true }), hCell('Classif.', { pct: 20, center: true })] }),
         ...mRows.map(([lbl, famV, famC, patV, patC], i) => new TableRow({ children: [
           dCell(lbl, { alt: i % 2 === 1 }),
@@ -581,7 +594,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
-        new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Questionário Disexecutivo (DEX) — Funções Executivas', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: 'Questionário Disexecutivo (DEX) — Funções Executivas', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
         new TableRow({ children: [hCell('Item (0 = nunca  ·  4 = sempre)', { pct: 60 }), hCell('Paciente', { pct: 20, center: true }), hCell('Familiar', { pct: 20, center: true })] }),
         ...DEX_LABELS_DOCX.map((label, i) => {
           const n  = i + 1
@@ -635,7 +648,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Token Test', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Token Test', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
           new TableRow({ children: [hCell('Teste', { pct: 50 }), hCell('Pontos', { pct: 15, center: true }), hCell('Percentil', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...tokRows.map((p, i) => new TableRow({ children: [
             dCell(p.lbl, { alt: i % 2 === 1 }),
@@ -688,7 +701,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
     body.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
-        new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Instrumento de Avaliação Neuropsicológica Breve Adulto – NEUPSILIN', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+        new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Instrumento de Avaliação Neuropsicológica Breve Adulto – NEUPSILIN', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
         new TableRow({ children: [hCell('Fatores', { pct: 35 }), hCell('Escore Bruto', { pct: 20, center: true }), hCell('Z-Escore', { pct: 20, center: true }), hCell('Resultado', { pct: 25, center: true })] }),
         ...npDomains.map(({ lbl, raw, z }, i) => {
           const zn = z != null ? parseFloat(z) : null
@@ -725,7 +738,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
           new TableRow({ children: [hCell('Índices', { pct: 50 }), hCell('Escore', { pct: 15, center: true }), hCell('%', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...rvRows.map((r, i) => new TableRow({ children: [
             dCell(r.lbl, { alt: i % 2 === 1 }),
@@ -760,7 +773,7 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
       body.push(new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
-          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Bateria de Avaliação da Memória Semântica – BAMS', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.SOLID, fill: C.tableHeader }, borders: BORDERS })] }),
+          new TableRow({ children: [new TableCell({ columnSpan: 4, children: [new Paragraph({ children: [new TextRun({ text: 'Bateria de Avaliação da Memória Semântica – BAMS', color: C.headerText, bold: true, size: 22, font: 'Arial' })], alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 } })], shading: { type: ShadingType.CLEAR, fill: C.tableHeader }, borders: BORDERS })] }),
           new TableRow({ children: [hCell('Fatores', { pct: 50 }), hCell('Pontos', { pct: 15, center: true }), hCell('Percentil', { pct: 15, center: true }), hCell('Classificação', { pct: 20, center: true })] }),
           ...bamsRows.map((r, i) => new TableRow({ children: [
             dCell(r.lbl, { alt: i % 2 === 1 }),
@@ -862,12 +875,42 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
   })
 
   // ── MONTAR DOCUMENTO ──────────────────────────────────────────────────────
-  // Logo: usa proporção real da imagem; para cabeçalho horizontal ideal fornecer logo_header.png landscape
-  // Atual: 1414x2000 (retrato) → exibe 48x68 mantendo proporção
-  const logoW = 48, logoH = 68
-  const headerChildren = logoData
-    ? [new Paragraph({ children: [new ImageRun({ data: logoData, transformation: { width: logoW, height: logoH }, type: 'png' })], spacing: { after: 80 } })]
-    : [new Paragraph({ children: [new TextRun({ text: 'NEUROAVALIAÇÃO — Neuropsicologia na Prática', bold: true, font: 'Arial', size: 24, color: C.dark })], alignment: AlignmentType.LEFT })]
+  // Cabeçalho igual ao PDF: esquerda=clínica, direita=Dr. Pedro, linha azul embaixo
+  const headerTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({ children: [
+      new TableCell({
+        children: [
+          new Paragraph({ children: [new TextRun({ text: 'NEUROPSICOLOGIA NA PRÁTICA', font: 'Arial', size: 14, bold: true, color: C.green })], spacing: { after: 20 } }),
+          new Paragraph({ children: [new TextRun({ text: 'NEUROAVALIAÇÃO', font: 'Arial', size: 36, bold: true, color: C.sectionBg })], spacing: { after: 20 } }),
+          new Paragraph({ children: [new TextRun({ text: 'Neuropsicologia Clínica · Psicoterapia · Terapia ABA', font: 'Arial', size: 16, color: C.gray })], spacing: { after: 0 } }),
+        ],
+        borders: NO_BORDERS,
+        width: { size: 65, type: WidthType.PERCENTAGE },
+      }),
+      new TableCell({
+        children: [
+          new Paragraph({ children: [new TextRun({ text: SUPER.name, font: 'Arial', size: 18, bold: true, color: C.sectionBg })], alignment: AlignmentType.RIGHT, spacing: { after: 20 } }),
+          new Paragraph({ children: [new TextRun({ text: SUPER.crp, font: 'Arial', size: 16, color: C.gray })], alignment: AlignmentType.RIGHT, spacing: { after: 20 } }),
+          new Paragraph({ children: [new TextRun({ text: 'São Paulo — SP', font: 'Arial', size: 16, color: C.gray })], alignment: AlignmentType.RIGHT, spacing: { after: 0 } }),
+        ],
+        borders: NO_BORDERS,
+        width: { size: 35, type: WidthType.PERCENTAGE },
+      }),
+    ]})],
+  })
+  const headerDivider = new Paragraph({
+    children: [],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: C.sectionBg } },
+    spacing: { after: 100 },
+  })
+
+  const footerLine = new Paragraph({
+    children: [new TextRun({ text: 'Neuroavaliação ME  ·  CRPJ 06/6481  ·  CNES 49795  ·  CNPJ 29.313.355/0001-12  ·  São Paulo — SP', font: 'Arial', size: 14, color: C.gray })],
+    alignment: AlignmentType.CENTER,
+    border: { top: { style: BorderStyle.SINGLE, size: 6, color: C.border } },
+    spacing: { before: 80 },
+  })
 
   const doc = new Document({
     background: { color: 'FFFFFF' },
@@ -878,7 +921,8 @@ export async function exportToDocx({ patient, selectedTests = [], ad = {}, td = 
           size: { width: 11906, height: 16838 },
         },
       },
-      headers: { default: new Header({ children: headerChildren }) },
+      headers: { default: new Header({ children: [headerTable, headerDivider] }) },
+      footers: { default: new Footer({ children: [footerLine] }) },
       children: body,
     }],
   })
