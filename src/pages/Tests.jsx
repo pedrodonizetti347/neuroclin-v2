@@ -2801,6 +2801,27 @@ function ItemGrid({ values, count, onChangeFn }) {
   )
 }
 
+// ─── BAMS — Normas por Escolaridade (Manual BAMS, Apêndice 1) ───────────────
+const BAMS_NORMAS_EDU = {
+  analfabeto:  { lexico:{media:27.47,dp:6.46},  categorizacao:{media:44.88,dp:14.27}, conceitualizacao:{media:3.53,dp:2.22},  BAMS:{media:75.88,dp:19.80} },
+  anos_1_4:    { lexico:{media:33.66,dp:3.70},  categorizacao:{media:56.95,dp:12.68}, conceitualizacao:{media:5.97,dp:2.44},  BAMS:{media:96.58,dp:16.24} },
+  anos_5_8:    { lexico:{media:35.49,dp:2.72},  categorizacao:{media:59.92,dp:10.90}, conceitualizacao:{media:9.41,dp:3.48},  BAMS:{media:104.82,dp:14.55} },
+  anos_9_11:   { lexico:{media:36.15,dp:2.89},  categorizacao:{media:67.00,dp:15.65}, conceitualizacao:{media:11.07,dp:3.68}, BAMS:{media:113.81,dp:16.00} },
+  anos_12mais: { lexico:{media:36.92,dp:1.77},  categorizacao:{media:73.28,dp:13.11}, conceitualizacao:{media:14.33,dp:3.34}, BAMS:{media:124.48,dp:15.95} },
+}
+function bamsZ(score, media, dp) {
+  if (score == null || score === '' || !dp) return null
+  return (Number(score) - media) / dp
+}
+function bamsZToPercentil(z) {
+  if (z == null) return null
+  const t = 1 / (1 + 0.2316419 * Math.abs(z))
+  const d = 0.3989423 * Math.exp(-z * z / 2)
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))))
+  const pct = z >= 0 ? Math.round((1 - p) * 100) : Math.round(p * 100)
+  return Math.max(1, Math.min(99, pct))
+}
+
 // ─── BAMS (Base44-compliant) ──────────────────────────────────────────────────
 function BAMSForm({ data, onChange }) {
   const d = data || {}
@@ -2828,8 +2849,27 @@ function BAMSForm({ data, onChange }) {
     const ciTotal=ciArr.reduce((s,x)=>s+(x||0),0), cvTotal=cvArr.reduce((s,x)=>s+(x||0),0)
     const lexicoScore=ndTotal+niTotal, catScore=fvTotal+ciTotal+cvTotal
     const concScore=cgTotal+dpTotal,  globalScore=lexicoScore+catScore+concScore
+    const norma = BAMS_NORMAS_EDU[next.edu_group]
+    let autoNorm = {}
+    if (norma && globalScore > 0) {
+      const zB = bamsZ(globalScore, norma.BAMS.media, norma.BAMS.dp)
+      const zL = bamsZ(lexicoScore, norma.lexico.media, norma.lexico.dp)
+      const zC = bamsZ(catScore, norma.categorizacao.media, norma.categorizacao.dp)
+      const zK = bamsZ(concScore, norma.conceitualizacao.media, norma.conceitualizacao.dp)
+      const pct = bamsZToPercentil(zB)
+      const cls = classify.bams_pct(pct)
+      autoNorm = {
+        z_bams: zB != null ? zB.toFixed(2) : '',
+        z_lexico: zL != null ? zL.toFixed(2) : '',
+        z_categorizacao: zC != null ? zC.toFixed(2) : '',
+        z_conceitualizacao: zK != null ? zK.toFixed(2) : '',
+        percentile: pct != null ? pct : (next.percentile || ''),
+        classification: cls ? cls.label : (next.classification || ''),
+        interpretation: cls ? cls.interpretation : (next.interpretation || ''),
+      }
+    }
     onChange({
-      ...next,
+      ...next, ...autoNorm,
       fv_total: fvTotal, nd_total: ndTotal,
       ni_nouns_total: niNounsTot, ni_verbs_total: niVerbsTot, ni_professions_total: niProfTot,
       ni_total: niTotal, cg_total: cgTotal, dp_total: dpTotal, ci_total: ciTotal, cv_total: cvTotal,
@@ -2957,18 +2997,49 @@ function BAMSForm({ data, onChange }) {
       {/* ── Resultado ── */}
       {tab==='result' && (
         <div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14,
+          {/* Escores por domínio */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:10,
             padding:'10px 14px', background:'rgba(255,255,255,0.04)', borderRadius:8, fontSize:12 }}>
             <div><span style={{ color:S.muted }}>Léxico:</span> <span style={{ color:'#fff', fontWeight:700 }}>{lexTot}</span></div>
             <div><span style={{ color:S.muted }}>Categoriz.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{catTot}</span></div>
             <div><span style={{ color:S.muted }}>Concept.:</span> <span style={{ color:'#fff', fontWeight:700 }}>{concTot}</span></div>
             <div><span style={{ color:S.muted }}>Global:</span> <span style={{ color:S.greenL, fontWeight:700 }}>{global}</span></div>
           </div>
+          {/* Z-scores por domínio (visível apenas quando escolaridade selecionada) */}
+          {d.edu_group && d.z_bams && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
+              {[
+                { label:'z Léxico',     val: d.z_lexico },
+                { label:'z Categoriz.', val: d.z_categorizacao },
+                { label:'z Concept.',   val: d.z_conceitualizacao },
+                { label:'z BAMS Total', val: d.z_bams },
+              ].map(item => {
+                const zv = Number(item.val)
+                const col = zv >= -1 ? S.greenL : zv >= -1.5 ? '#FFC107' : '#F44336'
+                return (
+                  <div key={item.label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'8px 10px', textAlign:'center' }}>
+                    <div style={{ fontSize:10, color:S.muted, marginBottom:2 }}>{item.label}</div>
+                    <div style={{ fontSize:18, fontWeight:700, color: col }}>{item.val}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {!d.edu_group && (
+            <p style={{ fontSize:11, color:S.muted, marginBottom:12 }}>Selecione a escolaridade na aba Dados para calcular z-scores e percentil automaticamente.</p>
+          )}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div>
-              <NumField label="Percentil" value={d.percentile}
-                onChange={v => { const c = classify.bams_pct(v); update({ percentile: v, interpretation: c ? c.interpretation : (d.interpretation || ''), classification: c ? c.label : (d.classification || '') }) }}
-                min={1} max={99} hint="1-99" />
+              {d.edu_group ? (
+                <>
+                  <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Percentil (calculado)</div>
+                  <div style={{ background:'rgba(255,255,255,0.05)', border:`1px solid ${S.border}`, borderRadius:6, padding:'8px 10px', fontSize:20, fontWeight:700, color:S.greenL }}>{d.percentile || '—'}</div>
+                </>
+              ) : (
+                <NumField label="Percentil" value={d.percentile}
+                  onChange={v => { const c = classify.bams_pct(v); update({ percentile: v, interpretation: c ? c.interpretation : (d.interpretation || ''), classification: c ? c.label : (d.classification || '') }) }}
+                  min={1} max={99} hint="1-99" />
+              )}
               {cp && <div style={{ marginTop:4 }}><Badge {...cp} /></div>}
             </div>
             <div>
@@ -3012,8 +3083,15 @@ function BAMSForm({ data, onChange }) {
             <NumField label="Idade" value={d.age} onChange={v=>update({age:v})} min={0} max={120} hint="anos" />
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Escolaridade</div>
-              <input type="text" value={d.education||''} onChange={e=>update({education:e.target.value})}
-                style={{ ...inputStyle, textAlign:'left' }} placeholder="Ex: 12 anos" />
+              <select value={d.edu_group||''} onChange={e=>update({edu_group:e.target.value})}
+                style={{ ...inputStyle, textAlign:'left', paddingLeft:8 }}>
+                <option value="">— selecionar —</option>
+                <option value="analfabeto">Analfabeto</option>
+                <option value="anos_1_4">1–4 anos</option>
+                <option value="anos_5_8">5–8 anos</option>
+                <option value="anos_9_11">9–11 anos</option>
+                <option value="anos_12mais">12+ anos</option>
+              </select>
             </div>
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Profissão</div>
