@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary, sendPasswordResetEmail } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary, sendPasswordResetEmail, fetchSignInMethodsForEmail } from 'firebase/auth'
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
@@ -401,6 +401,71 @@ const ACTION_LABELS = {
   paciente_excluido:{ label: 'Paciente excluído', color: '#EF4444' },
 }
 
+function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
+  const [password, setPassword] = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [err,      setErr]      = useState('')
+  const [ok,       setOk]       = useState(false)
+
+  const handle = async () => {
+    if (password.length < 6) { setErr('Mínimo 6 caracteres.'); return }
+    setLoading(true); setErr('')
+    try {
+      const secondaryAuth = getSecondaryAuth()
+      await createUserWithEmailAndPassword(secondaryAuth, u.email, password)
+      await signOutSecondary(secondaryAuth)
+      setOk(true)
+      setTimeout(() => { onDone(); onClose() }, 1200)
+    } catch (e) {
+      const msgs = {
+        'auth/email-already-in-use': 'Este e-mail já tem conta no Firebase Auth.',
+        'auth/weak-password': 'Senha muito fraca.',
+      }
+      setErr(msgs[e.code] || e.message)
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <Modal title="Criar acesso Firebase Auth" onClose={onClose}>
+      {ok ? (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <CheckCircle2 size={36} color={S.greenL} style={{ margin: '0 auto 12px', display: 'block' }} />
+          <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Conta criada com sucesso!</div>
+          <div style={{ fontSize: 12, color: S.muted, marginTop: 6 }}>O profissional já pode fazer login.</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: S.muted, marginBottom: 2 }}>Profissional</div>
+            <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>{u.full_name}</div>
+            <div style={{ fontSize: 12, color: S.greenL, marginTop: 2 }}>{u.email}</div>
+          </div>
+          {err && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
+              {err}
+            </div>
+          )}
+          <Fld label="SENHA INICIAL" type="password" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
+            <button onClick={onClose} style={{ padding: 11, borderRadius: 9, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button onClick={handle} disabled={loading} style={{
+              padding: 11, borderRadius: 9, border: 'none',
+              background: loading ? 'rgba(46,125,50,0.5)' : S.green,
+              color: '#fff', fontSize: 13, fontWeight: 700,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Criando...</> : 'Criar acesso'}
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [users,       setUsers]       = useState([])
@@ -418,6 +483,10 @@ export default function Admin() {
   const [auditLogs,     setAuditLogs]     = useState([])
   const [auditLoading,  setAuditLoading]  = useState(false)
 
+  const [authStatus,     setAuthStatus]     = useState({})
+  const [checkingAuth,   setCheckingAuth]   = useState(false)
+  const [createAuthUser, setCreateAuthUser] = useState(null)
+
   const loadAuditLogs = useCallback(async () => {
     setAuditLoading(true)
     try {
@@ -429,6 +498,24 @@ export default function Admin() {
       setAuditLoading(false)
     }
   }, [])
+
+  const checkAllAuth = async () => {
+    setCheckingAuth(true)
+    const { auth } = await import('@/lib/firebase')
+    const next = {}
+    for (const u of users) {
+      if (!u.email) { next[u.id] = 'sem-email'; continue }
+      try {
+        const methods = await fetchSignInMethodsForEmail(auth, u.email)
+        if (methods.length === 0)              next[u.id] = 'none'
+        else if (methods.includes('password')) next[u.id] = 'email'
+        else if (methods.includes('google.com')) next[u.id] = 'google'
+        else                                   next[u.id] = 'outro'
+      } catch { next[u.id] = 'erro' }
+    }
+    setAuthStatus(next)
+    setCheckingAuth(false)
+  }
 
   const cleanOrphanReports = async () => {
     setCleaning(true)
@@ -518,6 +605,17 @@ export default function Admin() {
           }}>
             <RefreshCw size={13} /> Atualizar
           </button>
+          <button onClick={checkAllAuth} disabled={checkingAuth || users.length === 0} style={{
+            padding: '8px 14px', borderRadius: 8, border: `1px solid rgba(245,158,11,0.4)`,
+            background: 'rgba(245,158,11,0.08)', color: '#F59E0B', fontSize: 12,
+            cursor: (checkingAuth || users.length === 0) ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+            opacity: (checkingAuth || users.length === 0) ? 0.6 : 1,
+          }}>
+            {checkingAuth
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Verificando...</>
+              : <><Shield size={13} /> Verificar Auth</>}
+          </button>
           <button onClick={() => setShowSync(true)} style={{
             padding: '8px 14px', borderRadius: 8, border: `1px solid ${S.border}`,
             background: 'transparent', color: S.muted, fontSize: 12, cursor: 'pointer',
@@ -598,12 +696,28 @@ export default function Admin() {
                   background: inactive ? 'rgba(239,68,68,0.04)' : 'transparent',
                 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: inactive ? S.muted : '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: inactive ? S.muted : '#fff', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {u.full_name || '—'}
                       {!inactive && u.id === user?.id && (
                         <span style={{ fontSize: 9, background: 'rgba(46,125,50,0.2)', color: S.greenL, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>você</span>
                       )}
                     </div>
+                    {authStatus[u.id] && (() => {
+                      const st = authStatus[u.id]
+                      const cfg = {
+                        none:      { label: 'SEM AUTH', bg: 'rgba(239,68,68,0.15)',   color: '#EF4444' },
+                        email:     { label: 'EMAIL',    bg: 'rgba(46,125,50,0.15)',   color: '#4CAF50' },
+                        google:    { label: 'GOOGLE',   bg: 'rgba(59,130,246,0.15)',  color: '#60A5FA' },
+                        outro:     { label: 'OUTRO',    bg: 'rgba(245,158,11,0.15)',  color: '#F59E0B' },
+                        erro:      { label: 'ERRO',     bg: 'rgba(239,68,68,0.1)',    color: '#EF4444' },
+                        'sem-email':{ label: 'S/EMAIL', bg: 'rgba(156,163,175,0.15)', color: '#9CA3AF' },
+                      }[st] || null
+                      return cfg ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: cfg.bg, color: cfg.color, marginTop: 2, display: 'inline-block' }}>
+                          {cfg.label}
+                        </span>
+                      ) : null
+                    })()}
                   </div>
                   <div style={{ fontSize: 11, color: S.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
                   <div>
@@ -616,7 +730,15 @@ export default function Admin() {
                     {inactive && <span style={{ fontSize: 9, color: '#EF4444', display: 'block', marginTop: 2 }}>Inativo</span>}
                   </div>
                   <div style={{ fontSize: 11, color: S.muted }}>{formatDate(u.last_login)}</div>
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {authStatus[u.id] === 'none' && (
+                      <button
+                        onClick={() => setCreateAuthUser(u)}
+                        title="Criar conta Firebase Auth"
+                        style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', color: '#EF4444', fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>
+                        Criar Auth
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditUser(u)}
                       title="Editar"
@@ -759,10 +881,11 @@ export default function Admin() {
       </div>
 
       {/* Modals */}
-      {showCreate  && <CreateModal        onClose={() => setShowCreate(false)} onCreated={loadUsers} />}
-      {showSync    && <SyncModal          onClose={() => setShowSync(false)}  onSaved={loadUsers} />}
-      {editUser    && <EditModal  user={editUser}  onClose={() => setEditUser(null)}  onSaved={loadUsers} />}
-      {resetUser   && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
+      {showCreate      && <CreateModal              onClose={() => setShowCreate(false)} onCreated={loadUsers} />}
+      {showSync        && <SyncModal              onClose={() => setShowSync(false)}   onSaved={loadUsers} />}
+      {editUser        && <EditModal   user={editUser}       onClose={() => setEditUser(null)}       onSaved={loadUsers} />}
+      {resetUser       && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
+      {createAuthUser  && <CreateAuthForExistingModal user={createAuthUser} onClose={() => setCreateAuthUser(null)} onDone={() => { setAuthStatus(prev => ({ ...prev, [createAuthUser.id]: 'email' })) }} />}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
         select option { background: #1A2744; color: #fff; }
