@@ -1220,6 +1220,53 @@ function buildConclusaoHtml(blocos, ad) {
 </div>`
 }
 
+// ── Gera aiBody deterministicamente — reutilizado por generate() e handleExportDocx ──
+function buildAiBodyFromData(patient, ad, td) {
+  try {
+    const lbl = z => z == null ? 'N/A' : parseFloat(z) >= -1.0 ? 'PRESERVADO' : parseFloat(z) >= -1.5 ? 'LIMÍTROFE' : 'COMPROMETIDO'
+    const age = patient?.birth_date
+      ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+      : null
+    const np = td?.NEUPSILIN
+    let npZscores = {}
+    if (np) {
+      if (np.zScores) {
+        npZscores = np.zScores
+      } else {
+        const nAge = npAgeGroup(np.age || age)
+        const nEdu = npEduGroup(np.education_years || patient?.education)
+        const orientT = (Number(np.orientation_time)||0) + (Number(np.orientation_space)||0)
+        const attT    = (Number(np.attention_reverse_count)||0) + (Number(np.attention_digit_sequence)||0)
+        const percT   = (Number(np.perception_line_equality)||0) + (Number(np.perception_visual_hemineglect)||0) + (Number(np.perception_face_perception)||0) + (Number(np.perception_face_recognition)||0)
+        const episT   = (Number(np.memory_episodic_immediate)||0) + (Number(np.memory_episodic_delayed)||0) + (Number(np.memory_episodic_recognition)||0)
+        const memT    = (Number(np.memory_working)||0) + (Number(np.memory_span_auditory)||0) + episT + (Number(np.memory_semantic_long)||0) + (Number(np.memory_visual_short)||0) + (Number(np.memory_prospective)||0)
+        const langO   = (Number(np.lang_nomeacao)||0) + (Number(np.lang_repeticao)||0) + (Number(np.lang_automatica)||0) + (Number(np.lang_compreensao_oral)||0) + (Number(np.lang_inferencias)||0)
+        const langE   = (Number(np.lang_leitura)||0) + (Number(np.lang_compreensao_escrita)||0) + (Number(np.lang_escrita_espontanea)||0) + (Number(np.lang_escrita_copiada)||0) + (Number(np.lang_ditada)||0)
+        const praxT   = (Number(np.praxis_ideomotor)||0) + (Number(np.praxis_constructive)||0) + (Number(np.praxis_reflexive)||0)
+        const execT   = (Number(np.executive_problem_solving)||0) + (Number(np.executive_verbal_fluency)||0)
+        npZscores = {
+          orientation: npCalcZ(orientT, 'orientation', nAge, nEdu),
+          attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
+          perception:  npCalcZ(percT,   'perception',  nAge, nEdu),
+          memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
+          arithmetic:  npCalcZ(np.arithmetic, 'arithmetic', nAge, nEdu),
+          language:    npCalcZ(langO + langE, 'language',   nAge, nEdu),
+          praxis:      npCalcZ(praxT,   'praxis',      nAge, nEdu),
+          executive:   npCalcZ(execT,   'executive',   nAge, nEdu),
+        }
+      }
+    }
+    const initials = patient?.full_name
+      ? patient.full_name.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + '.').join('')
+      : 'N.P.'
+    const dadosPaciente = mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials)
+    const blocos = generateTextoConclusao(dadosPaciente)
+    return buildConclusaoHtml(blocos, ad)
+  } catch (_) {
+    return null
+  }
+}
+
 // ── Documento completo ────────────────────────────────────────────────────────
 function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
@@ -1610,57 +1657,10 @@ export default function Reports() {
       // Fonte 4: dados manuais do formulário (prioridade máxima)
       if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
       console.log('[generate] td keys:', Object.keys(td))
-      const lbl = z => {
-        if (z == null) return 'N/A'
-        const n = parseFloat(z)
-        return n >= -1.0 ? 'PRESERVADO' : n >= -1.5 ? 'LIMÍTROFE' : 'COMPROMETIDO'
-      }
-
       const dataFormatada = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
       const professional  = appliedBy || user?.full_name || 'Profissional responsável'
-      const age = patient?.birth_date
-        ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-        : null
 
-      // NEUPSILIN: compute z-scores from flat fields (new format) or use legacy zScores
-      const np = td?.NEUPSILIN
-      let npZscores = {}
-      if (np) {
-        if (np.zScores) {
-          npZscores = np.zScores
-        } else {
-          const nAge = npAgeGroup(np.age || age)
-          const nEdu = npEduGroup(np.education_years || patient?.education)
-          const orientT = (Number(np.orientation_time)||0) + (Number(np.orientation_space)||0)
-          const attT    = (Number(np.attention_reverse_count)||0) + (Number(np.attention_digit_sequence)||0)
-          const percT   = (Number(np.perception_line_equality)||0) + (Number(np.perception_visual_hemineglect)||0) + (Number(np.perception_face_perception)||0) + (Number(np.perception_face_recognition)||0)
-          const episT   = (Number(np.memory_episodic_immediate)||0) + (Number(np.memory_episodic_delayed)||0) + (Number(np.memory_episodic_recognition)||0)
-          const memT    = (Number(np.memory_working)||0) + (Number(np.memory_span_auditory)||0) + episT + (Number(np.memory_semantic_long)||0) + (Number(np.memory_visual_short)||0) + (Number(np.memory_prospective)||0)
-          const langO   = (Number(np.lang_nomeacao)||0) + (Number(np.lang_repeticao)||0) + (Number(np.lang_automatica)||0) + (Number(np.lang_compreensao_oral)||0) + (Number(np.lang_inferencias)||0)
-          const langE   = (Number(np.lang_leitura)||0) + (Number(np.lang_compreensao_escrita)||0) + (Number(np.lang_escrita_espontanea)||0) + (Number(np.lang_escrita_copiada)||0) + (Number(np.lang_ditada)||0)
-          const praxT   = (Number(np.praxis_ideomotor)||0) + (Number(np.praxis_constructive)||0) + (Number(np.praxis_reflexive)||0)
-          const execT   = (Number(np.executive_problem_solving)||0) + (Number(np.executive_verbal_fluency)||0)
-          npZscores = {
-            orientation: npCalcZ(orientT, 'orientation', nAge, nEdu),
-            attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
-            perception:  npCalcZ(percT,   'perception',  nAge, nEdu),
-            memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
-            arithmetic:  npCalcZ(np.arithmetic, 'arithmetic', nAge, nEdu),
-            language:    npCalcZ(langO + langE, 'language',   nAge, nEdu),
-            praxis:      npCalcZ(praxT,   'praxis',      nAge, nEdu),
-            executive:   npCalcZ(execT,   'executive',   nAge, nEdu),
-          }
-        }
-      }
-      const npLbl = (k) => lbl(npZscores[k])
-
-      const initials = patient?.full_name
-        ? patient.full_name.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + '.').join('')
-        : 'N.P.'
-
-      const dadosPaciente = mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials)
-      const blocos = generateTextoConclusao(dadosPaciente)
-      const aiBody = buildConclusaoHtml(blocos, ad)
+      const aiBody = buildAiBodyFromData(patient, ad, td) || ''
       setAiBodyState(aiBody)
       setReportDate(dataFormatada)
 
@@ -1791,6 +1791,10 @@ export default function Reports() {
 
       // ── Fonte E: TestsDataForm (prioridade máxima — entrada manual recente) ─
       if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
+
+      // Regenera conclusão sempre com dados frescos (nunca usa texto salvo pelo AI)
+      const freshAiBody = buildAiBodyFromData(patient, ad, td)
+      if (freshAiBody) aiBody = freshAiBody
 
       console.log('[DOCX Export] td instruments:', Object.keys(td))
       console.log('[DOCX Export] reportHtml length:', reportHtmlForDocx?.length || 0)
@@ -2012,7 +2016,7 @@ export default function Reports() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Editar na tela */}
               {report && (
-                <button onClick={() => setEditMode(m => !m)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.5)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.1)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
+                <button onMouseDown={e => { e.preventDefault(); setEditMode(m => !m) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.5)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.1)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
                   <Pencil size={12} /> {editMode ? 'EDITANDO' : 'EDITAR'}
                 </button>
               )}
