@@ -22,12 +22,6 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
       allow write: if isAdminOrSupervisor();
-      // Profissional pode criar o próprio perfil no primeiro login Google
-      allow create: if isAuth() && request.auth.uid == userId;
-      // Profissional pode atualizar próprio perfil (last_login, photo_url) mas não escala role/active
-      allow update: if isAuth() && request.auth.uid == userId
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.active == resource.data.active;
     }
 
     // Pacientes — qualquer autenticado lê; só admin/supervisor escreve

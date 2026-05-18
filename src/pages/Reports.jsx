@@ -607,6 +607,14 @@ function buildWASISection(td, selectedTests) {
 }
 
 // ── Tabela BAMS ───────────────────────────────────────────────────────────────
+// Normas por escolaridade — Manual BAMS, Apêndice 1
+const BAMS_NORMAS_EDU_RPT = {
+  analfabeto:  { lexico:{media:27.47,dp:6.46},  categorizacao:{media:44.88,dp:14.27}, conceitualizacao:{media:3.53,dp:2.22},  BAMS:{media:75.88,dp:19.80} },
+  anos_1_4:    { lexico:{media:33.66,dp:3.70},  categorizacao:{media:56.95,dp:12.68}, conceitualizacao:{media:5.97,dp:2.44},  BAMS:{media:96.58,dp:16.24} },
+  anos_5_8:    { lexico:{media:35.49,dp:2.72},  categorizacao:{media:59.92,dp:10.90}, conceitualizacao:{media:9.41,dp:3.48},  BAMS:{media:104.82,dp:14.55} },
+  anos_9_11:   { lexico:{media:36.15,dp:2.89},  categorizacao:{media:67.00,dp:15.65}, conceitualizacao:{media:11.07,dp:3.68}, BAMS:{media:113.81,dp:16.00} },
+  anos_12mais: { lexico:{media:36.92,dp:1.77},  categorizacao:{media:73.28,dp:13.11}, conceitualizacao:{media:14.33,dp:3.34}, BAMS:{media:124.48,dp:15.95} },
+}
 function rptBamsZToPct(z) {
   if (z == null) return null
   const t = 1 / (1 + 0.2316419 * Math.abs(z))
@@ -627,10 +635,22 @@ function buildBAMSSection(td) {
   const d = td?.BAMS
   if (!d) return ''
 
-  const rowComp = (label, score, zKey) => {
-    const z   = d[zKey] != null && d[zKey] !== '' ? Number(d[zKey]) : null
-    const pct = z != null ? rptBamsZToPct(z) : null
-    const cls = pct != null ? rptBamsCls(pct) : null
+  // Calcula z-score: usa o salvo se existir; senão calcula das normas + escore bruto
+  const norma = BAMS_NORMAS_EDU_RPT[d.edu_group]
+  const calcZ = (savedZ, score, normaKey) => {
+    if (savedZ != null && savedZ !== '') return Number(savedZ)
+    if (!norma || score == null || score === '') return null
+    const { media, dp } = norma[normaKey]
+    return dp ? (Number(score) - media) / dp : null
+  }
+  const zL = calcZ(d.z_lexico,          d.lexico_score,            'lexico')
+  const zC = calcZ(d.z_categorizacao,   d.categorization_score,    'categorizacao')
+  const zK = calcZ(d.z_conceitualizacao,d.conceptualization_score, 'conceitualizacao')
+  const zG = calcZ(d.z_bams,            d.global_score,            'BAMS')
+
+  const rowComp = (label, score, z) => {
+    const pct = rptBamsZToPct(z)
+    const cls = rptBamsCls(pct)
     const clr = cls?.color ?? '#374151'
     return `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;font-weight:bold;">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${clr};">${pct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${clr};">${cls?.label ?? '—'}</td></tr>`
   }
@@ -639,24 +659,25 @@ function buildBAMSSection(td) {
     return `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;"><td style="border:1px solid #C5D9EF;padding:6px 10px;padding-left:${pl}px;">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td></tr>`
   }
 
-  const gPct = d.percentile != null && d.percentile !== '' ? Number(d.percentile) : null
-  const gCls = gPct != null ? rptBamsCls(gPct) : null
+  // Global: usa percentil salvo, ou calcula pelo z-score global
+  const gPct = d.percentile != null && d.percentile !== '' ? Number(d.percentile) : rptBamsZToPct(zG)
+  const gCls = rptBamsCls(gPct)
   const gLbl = d.interpretation || d.classification || gCls?.label || '—'
   const gClr = gCls?.color ?? '#374151'
 
   const rows = [
-    rowComp('Léxico (ND + NI)',                       d.lexico_score,          'z_lexico'),
+    rowComp('Léxico (ND + NI)',                       d.lexico_score,           zL),
     rowSub('· Nomeação por Definição (ND)',            d.nd_total),
     rowSub('· Nomeação por Identificação (NI)',        d.ni_total),
-    rowComp('Categorização (FV + CI + CV)',            d.categorization_score,  'z_categorizacao'),
+    rowComp('Categorização (FV + CI + CV)',            d.categorization_score,   zC),
     rowSub('· Fluência Verbal Semântica (FV)',         d.fv_total),
-    rowSub('· · FV Animais',                          d.fv_animals_hits,       2),
-    rowSub('· · FV Frutas',                           d.fv_fruits_hits,        2),
-    rowSub('· · FV Utensílios',                       d.fv_utensils_hits,      2),
-    rowSub('· · FV Roupas',                           d.fv_clothes_hits,       2),
+    rowSub('· · FV Animais',                          d.fv_animals_hits,        2),
+    rowSub('· · FV Frutas',                           d.fv_fruits_hits,         2),
+    rowSub('· · FV Utensílios',                       d.fv_utensils_hits,       2),
+    rowSub('· · FV Roupas',                           d.fv_clothes_hits,        2),
     rowSub('· Categorização por Identificação (CI)',   d.ci_total),
     rowSub('· Categorização Verbal (CV)',              d.cv_total),
-    rowComp('Conceitualização (CG + DP)',              d.conceptualization_score, 'z_conceitualizacao'),
+    rowComp('Conceitualização (CG + DP)',              d.conceptualization_score, zK),
     rowSub('· Conteúdo Geral (CG)',                   d.cg_total),
     rowSub('· Definição de Palavras (DP)',             d.dp_total),
     `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;font-weight:bold;font-size:11pt;">ESCORE GLOBAL BAMS</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;font-size:11pt;">${d.global_score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gPct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gLbl}</td></tr>`,
