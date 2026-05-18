@@ -286,25 +286,34 @@ export default function AnamneseForm({ patientId }) {
       {/* 12. Sintomas */}
       <Sec title="12. SINTOMAS">
         <div style={FULL}><ChkArr label="Memória" name="sintomas_memoria_idoso"
-          items={['Esquece nomes', 'Perde objetos', 'Repete perguntas', 'Esquece compromissos', 'Esquece eventos recentes', 'Não reconhece pessoas', 'Desorientação temporal', 'Desorientação espacial']}
+          items={['Esquece nomes', 'Perde objetos', 'Repete perguntas', 'Esquece compromissos', 'Esquece eventos recentes', 'Não reconhece pessoas', 'Desorientação temporal', 'Desorientação espacial', 'Esquece coisas que não usa normalmente', 'Esquece o café da manhã ou refeições do dia', 'Esquece fatos do mesmo dia', 'Não sabe onde está ou aonde vai', 'Esquece o que deveria fazer', 'Esquece a ordem dos eventos', 'Está repetitivo']}
           value={form.sintomas_memoria_idoso} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Atenção" name="sintomas_atencao_idoso"
-          items={['Distração fácil', 'Dificuldade de concentração', 'Não consegue fazer duas coisas ao mesmo tempo']}
+          items={['Distração fácil', 'Dificuldade de concentração', 'Não consegue fazer duas coisas ao mesmo tempo', 'Perde a linha de raciocínio facilmente', 'Tem muitos "brancos"', 'Momentos de confusão ou desorientação', 'Não sabe onde deixou objetos', 'Dificuldade em tarefas de grande esforço cognitivo']}
           value={form.sintomas_atencao_idoso} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Função executiva" name="sintomas_funcao_executiva_idoso"
-          items={['Dificuldade de planejamento', 'Dificuldade de organização', 'Impulsividade', 'Tomada de decisão prejudicada', 'Dificuldade em tarefas complexas']}
+          items={['Dificuldade de planejamento', 'Dificuldade de organização', 'Impulsividade', 'Tomada de decisão prejudicada', 'Dificuldade em tarefas complexas', 'Dificuldade em tarefas com diversas etapas', 'Inflexibilidade frente a mudanças', 'Dificuldade de se adaptar a novidades', 'Dificuldade de planejar tarefas futuras']}
           value={form.sintomas_funcao_executiva_idoso} onChange={ch} /></div>
+        <div style={FULL}><ChkArr label="Resolução de problemas" name="sintomas_resolucao_problemas"
+          items={['Dificuldade de aprender coisas novas', 'Dificuldade de resolver problemas do cotidiano', 'Dificuldade de planejar o futuro', 'Dificuldade de mudar planos quando necessário', 'Dificuldade de pensar rapidamente', 'Dificuldade de completar atividades em tempo razoável', 'Dificuldade de fazer coisas sequencialmente']}
+          value={form.sintomas_resolucao_problemas} onChange={ch} /></div>
+        <div style={FULL}><ChkArr label="Linguagem / Matemática" name="sintomas_linguagem_matematica"
+          items={['Dificuldade de encontrar a palavra certa', 'Não sabe nomear objetos', 'Dificuldade de articular as palavras', 'Dificuldade de compreender o que é falado', 'Forma de falar curiosa ou incomum', 'Dificuldade de expressar pensamentos', 'Dificuldade de entender o que os outros dizem', 'Dificuldade de entender informação escrita', 'Dificuldade de escrever (sem problema motor)', 'Dificuldades matemáticas']}
+          value={form.sintomas_linguagem_matematica} onChange={ch} /></div>
+        <div style={FULL}><ChkArr label="Habilidades não verbais / visuoespaciais" name="sintomas_hab_nao_verbais"
+          items={['Dificuldade de diferenciar direita e esquerda', 'Dificuldade de desenhar ou copiar', 'Dificuldade para se vestir (sem problema motor)', 'Dificuldade em atividades automáticas (escovar dentes)', 'Problemas para encontrar caminhos familiares', 'Se perdeu em lugares conhecidos', 'Dificuldade em aprender caminhos novos', 'Dificuldade de se localizar dentro de casa', 'Dificuldade de reconhecer objetos ou pessoas', 'Dificuldade de reconhecer partes do próprio corpo', 'Declínio em habilidades musicais', 'Dificuldade de orientação de tempo', 'Não sabe como usar ferramentas ou objetos']}
+          value={form.sintomas_hab_nao_verbais} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Humor / comportamento" name="sintomas_humor_comportamento"
-          items={['Depressão', 'Ansiedade', 'Apatia', 'Irritabilidade', 'Paranoia', 'Alucinações', 'Comportamento repetitivo']}
+          items={['Depressão', 'Ansiedade', 'Apatia', 'Irritabilidade', 'Paranoia', 'Alucinações', 'Comportamento repetitivo', 'Euforia sem motivo', 'Chora facilmente', 'Explosões de humor', 'Fica facilmente frustrado', 'Sente-se menos inibido', 'Dificuldade em ser espontâneo', 'Aumento de agressividade', 'Indiferença / não se importa com nada', 'Não tem interesse pelo mundo', 'Dificuldade de engajar em conversas', 'Isolamento social', 'Preocupação excessiva com trivialidades', 'Histórico de depressão']}
           value={form.sintomas_humor_comportamento} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Desinibição / agitação" name="sintomas_desinibicao_agitacao_idoso"
-          items={['Desinibição sexual', 'Linguagem inapropriada', 'Agitação noturna', 'Wandering', 'Agressividade verbal', 'Agressividade física']}
+          items={['Desinibição sexual', 'Linguagem inapropriada', 'Agitação noturna', 'Wandering', 'Agressividade verbal', 'Agressividade física', 'Age impulsivamente sem pensar', 'Age de forma constrangedora', 'Mudança de personalidade', 'Pouco cooperativo / não permite ser ajudado', 'Fica mexendo em objetos repetidamente', 'Comportamento ritualístico', 'Comportamento compulsivo', 'Flutuações de humor']}
           value={form.sintomas_desinibicao_agitacao_idoso} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Físico / motor" name="sintomas_fisicos_motores_idoso"
-          items={['Tremor', 'Rigidez', 'Marcha instável', 'Quedas', 'Fraqueza', 'Incontinência urinária', 'Incontinência fecal']}
+          items={['Tremor', 'Rigidez', 'Marcha instável', 'Quedas', 'Fraqueza', 'Incontinência urinária', 'Incontinência fecal', 'Dores de cabeça', 'Tonturas', 'Enjoos ou vômitos', 'Fadiga excessiva', 'Problemas intestinais', 'Fraqueza de um lado do corpo', 'Coordenação motora fina prejudicada', 'Tiques ou movimentos estranhos', 'Problemas de equilíbrio', 'Tropeça com frequência', 'Desmaios', 'Mudança na marcha']}
           value={form.sintomas_fisicos_motores_idoso} onChange={ch} /></div>
         <div style={FULL}><ChkArr label="Sensorial" name="sintomas_sensoriais_idoso"
-          items={['Baixa visão', 'Perda auditiva', 'Alteração de olfato', 'Alteração de paladar', 'Dor crônica']}
+          items={['Baixa visão', 'Perda auditiva', 'Alteração de olfato', 'Alteração de paladar', 'Dor crônica', 'Perda de sensações / dormência', 'Formigamento ou sensações estranhas', 'Dificuldade de diferenciar quente e frio', 'Problemas de visão em um lado', 'Visão desfocada', 'Breves períodos de cegueira', 'Zumbido nos ouvidos', 'Escuta sons estranhos', 'Acredita em coisas que não são reais', 'Acha que alguém quer lhe fazer mal', 'Afirma que parentes não são quem dizem ser', 'Afirma que a casa não é sua', 'Relata ouvir vozes', 'Conversa sozinho', 'Vê pessoas ou animais invisíveis aos outros']}
           value={form.sintomas_sensoriais_idoso} onChange={ch} /></div>
       </Sec>
 
