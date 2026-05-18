@@ -1,7 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore'
 import { useSearchParams } from 'react-router-dom'
 import { db } from '@/lib/firebase'
+import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
 import { FlaskConical, CheckCircle2, Save, Camera, Lock } from 'lucide-react'
@@ -4208,6 +4209,7 @@ const TEST_CONFIG = [
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Tests() {
+  const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const urlPatient = searchParams.get('paciente') || ''
   const [patients,  setPatients]  = useState([])
@@ -4218,11 +4220,16 @@ export default function Tests() {
   const session = useTestSession(patientId)
 
   useEffect(() => {
-    getDocs(query(collection(db, 'patients'), orderBy('createdAt', 'desc')))
+    if (!user) return
+    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
+    const base = collection(db, 'patients')
+    const q = isAdmin
+      ? query(base, orderBy('createdAt', 'desc'))
+      : query(base, where('createdBy', '==', user.id))
+    getDocs(q)
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => getDocs(collection(db, 'patients'))
-        .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
-  }, [])
+      .catch(() => getDocs(base).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
+  }, [user])
 
   useEffect(() => {
     if (patientId) session.loadSession()
