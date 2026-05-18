@@ -254,6 +254,7 @@ function SyncModal({ onClose, onSaved }) {
 
 function EditModal({ user: u, onClose, onSaved }) {
   const [name,    setName]    = useState(u.full_name || '')
+  const [email,   setEmail]   = useState(u.email || '')
   const [role,    setRole]    = useState(u.role || 'professional')
   const [active,  setActive]  = useState(u.active !== false)
   const [loading, setLoading] = useState(false)
@@ -262,10 +263,12 @@ function EditModal({ user: u, onClose, onSaved }) {
 
   const handleSave = async () => {
     if (!name.trim()) { setErr('Nome obrigatório.'); return }
+    if (!email.trim()) { setErr('E-mail obrigatório.'); return }
     setErr(''); setLoading(true)
     try {
       await updateDoc(doc(db, 'users', u.id), {
         full_name: name.trim(),
+        email: email.trim().toLowerCase(),
         role,
         active,
         updated_at: serverTimestamp(),
@@ -293,8 +296,8 @@ function EditModal({ user: u, onClose, onSaved }) {
               {err}
             </div>
           )}
-          <div style={{ fontSize: 11, color: S.muted, marginBottom: 10 }}>E-mail: <span style={{ color: '#fff' }}>{u.email}</span></div>
           <Fld label="NOME COMPLETO" value={name} onChange={setName} />
+          <Fld label="E-MAIL" value={email} onChange={setEmail} placeholder="usuario@email.com" />
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: S.muted, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 5 }}>CARGO / PERFIL</div>
             <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
