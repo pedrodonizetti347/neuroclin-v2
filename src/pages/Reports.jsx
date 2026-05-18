@@ -611,16 +611,24 @@ function buildBAMSSection(td) {
   const d = td?.BAMS
   if (!d) return ''
 
+  const row4 = (label, score, pct, cls, bold) =>
+    `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;${bold?'font-weight:bold;':''}">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">${pct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">${cls ?? '—'}</td></tr>`
+  const row2 = (label, score, indent) =>
+    `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;"><td style="border:1px solid #C5D9EF;padding:6px 10px;${indent?'padding-left:22px;':''}">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td></tr>`
+
   const rows = [
-    ['Escore Global BAMS', d.global_score, d.percentile, d.interpretation],
-  ].map((r, i) => {
-    return `<tr style="background:#fff;">
-      ${tdCell(r[0], 'font-weight:bold;')}
-      ${tdCell(r[1], 'text-align:center;font-weight:bold;')}
-      ${tdCell(r[2], 'text-align:center;')}
-      ${tdCell(r[3], 'text-align:center;')}
-    </tr>`
-  }).join('')
+    row4('Léxico (ND + NI)',                            d.lexico_score,               null, null, true),
+    row2('· Nomeação por Definição (ND)',               d.nd_total,                   true),
+    row2('· Nomeação por Identificação (NI)',           d.ni_total,                   true),
+    row4('Categorização (FV + CI + CV)',                d.categorization_score,        null, null, true),
+    row2('· Fluência Verbal Semântica (FV)',            d.fv_total,                   true),
+    row2('· Categorização por Identificação (CI)',      d.ci_total,                   true),
+    row2('· Categorização Verbal (CV)',                 d.cv_total,                   true),
+    row4('Conceitualização (CG + DP)',                  d.conceptualization_score,     null, null, true),
+    row2('· Conteúdo Geral (CG)',                       d.cg_total,                   true),
+    row2('· Definição de Palavras (DP)',                d.dp_total,                   true),
+    row4('ESCORE GLOBAL BAMS',                         d.global_score,               d.percentile, d.interpretation || d.classification, true),
+  ].join('')
 
   const head = `<thead>
     <tr><th colspan="4" style="border:1px solid #a5c6a5;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Bateria de Avaliação da Memória Semântica – BAMS</th></tr>
@@ -651,8 +659,33 @@ const wcstRespPct  = (n) => n <= 6 ? 95 : n <= 12 ? 75 : n <= 18 ? 50 : n <= 24 
 function buildWCSTSection(td) {
   const dN = td?.['WCST-N']
   const dF = td?.WCST
-  const d  = dN || dF
+  let d  = dN || dF
   if (!d) return ''
+
+  // Fallback: se os totais escalares estão ausentes mas o array trials existe, calcula a partir dele
+  const trials = Array.isArray(d.trials) ? d.trials : []
+  const scalarMissing = d.trials_administered == null || d.trials_administered === ''
+  if (trials.length > 0 && scalarMissing) {
+    let ta = 0, cc = 0, tc = 0, te = 0, tb = 0, pe = 0
+    let consec = 0
+    for (const t of trials) {
+      if (!t.response && !t.isCorrect) continue
+      ta++
+      if (t.isCorrect) { tc++; consec++ } else { te++; consec = 0; if (t.isPerseverative) pe++ }
+      if (t.isNewCategory) { cc++; consec = 0 }
+      if (t.cardType === 'B') tb++
+    }
+    d = {
+      ...d,
+      trials_administered:     ta  > 0 ? ta  : d.trials_administered,
+      categories_completed:    cc  > 0 ? cc  : d.categories_completed,
+      total_correct:           tc  > 0 ? tc  : d.total_correct,
+      total_errors:            te  > 0 ? te  : d.total_errors,
+      perseverative_errors:    pe  >= 0 ? pe : d.perseverative_errors,
+      non_perseverative_errors: te > 0 ? te - pe : d.non_perseverative_errors,
+      total_breaks:            tb  >= 0 ? tb : d.total_breaks,
+    }
+  }
 
   const isNelson   = !!dN
   const tableLabel = isNelson
