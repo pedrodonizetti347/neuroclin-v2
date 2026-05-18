@@ -277,19 +277,18 @@ export default function MedicalRecords() {
     setDeleteLoading(true)
     setDeleteErr('')
     try {
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, deletePass)
-      await reauthenticateWithCredential(auth.currentUser, credential)
+      const correct = import.meta.env.VITE_ADMIN_DELETE_PASSWORD
+      if (deletePass !== correct) {
+        setDeleteErr('Senha incorreta.')
+        setDeleteLoading(false)
+        return
+      }
       await deleteDoc(doc(db, 'reports', deleteTarget.id))
       setReports(prev => prev.filter(r => r.id !== deleteTarget.id))
       setDeleteTarget(null)
       setDeletePass('')
     } catch (e) {
-      const msgs = {
-        'auth/wrong-password':    'Senha incorreta.',
-        'auth/invalid-credential':'Senha incorreta.',
-        'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos.',
-      }
-      setDeleteErr(msgs[e.code] || 'Erro ao autenticar. Verifique a senha.')
+      setDeleteErr('Erro ao excluir laudo. Tente novamente.')
     } finally {
       setDeleteLoading(false)
     }
