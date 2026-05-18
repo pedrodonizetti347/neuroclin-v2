@@ -1158,7 +1158,12 @@ function buildConclusaoHtml(blocos, ad) {
   const paraStyle = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
   const secStyle  = `background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
   const sec = (title) => `<div style="${secStyle}">${title}</div>`
-  const p   = (text)  => `<p style="${paraStyle}">${text}</p>`
+  // Destaca em negrito preto sequências de palavras em MAIÚSCULAS (mínimo 4 letras)
+  const boldUpper = (text) => text.replace(
+    /\b([A-ZÁÉÍÓÚÀÃÕÂÊÎÔÛÇÑ]{4,}(?:[-\s][A-ZÁÉÍÓÚÀÃÕÂÊÎÔÛÇÑ]{2,})*)/g,
+    '<strong style="color:#000000;">$1</strong>'
+  )
+  const p = (text) => `<p style="${paraStyle}">${boldUpper(text)}</p>`
 
   const obsTexto = [
     ad?.observacoes_comportamentais,
