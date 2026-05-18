@@ -2508,39 +2508,154 @@ function WASIForm({ data, onChange, version }) {
 }
 
 // ─── WCST-N (Base44-compliant) ────────────────────────────────────────────────
-const WCST_SEQ = ['', 'C', 'F', 'N', 'O']
 const WCST_COLORS = {
   C: { bg: 'rgba(59,130,246,0.35)', text: '#93C5FD' },
   F: { bg: 'rgba(46,125,50,0.45)',  text: '#4CAF50' },
   N: { bg: 'rgba(245,158,11,0.35)', text: '#FCD34D' },
   O: { bg: 'rgba(239,68,68,0.35)',  text: '#F87171' },
-  '': { bg: 'rgba(255,255,255,0.05)', text: S.muted },
+  '': { bg: 'rgba(255,255,255,0.05)', text: '#9CA3AF' },
+}
+
+// Tabela normativa WCST-N — Zimmermann et al. (2015)
+// Percentis: [p95, p90, p75, p50, p25, p10, p5]
+const WCST_N_NORMAS = {
+  categorias:        { jovens: { baixa:[5,5,5,4,3,2,2],   alta:[6,6,6,6,6,5,4] }, intermediaria:{ baixa:[6,6,5,4,2,2,2],   alta:[6,6,6,6,4,3,2] }, idosos:{ baixa:[6,6,5,3,2,2,2],   alta:[6,6,6,6,6,5,5] } },
+  ensaios:           { jovens: { baixa:[39,48,48,48,48,48,48], alta:[36,36,37,42,48,48,48] }, intermediaria:{ baixa:[43,46,48,48,48,48,48], alta:[36,37,37,43,48,48,48] }, idosos:{ baixa:[39,40,48,48,48,48,48], alta:[36,38,40,44,48,48,48] } },
+  acertos:           { jovens: { baixa:[38,38,34,32,28,20,19], alta:[43,42,39,36,36,35,26] }, intermediaria:{ baixa:[40,40,37,29,25,20,19], alta:[40,40,37,36,34,30,26] }, idosos:{ baixa:[36,36,34,27,23,20,19], alta:[42,41,39,37,36,34,32] } },
+  erros:             { jovens: { baixa:[1,8,14,16,20,28,28],  alta:[0,0,0,4,8,13,22]  }, intermediaria:{ baixa:[6,7,10,19,23,28,28],  alta:[0,1,1,3,14,19,19] }, idosos:{ baixa:[3,4,14,21,25,28,28],  alta:[0,2,4,6,9,14,16] } },
+  perseverativos:    { jovens: { baixa:[0,4,8,12,18,20,20],  alta:[0,0,0,3,5,7,9]   }, intermediaria:{ baixa:[5,5,6,14,17,22,22],  alta:[0,0,1,2,11,14,14] }, idosos:{ baixa:[2,3,11,16,17,24,24],  alta:[0,1,2,3,6,8,13] } },
+  naoPerseverativos: { jovens: { baixa:[1,2,3,6,7,9,9],   alta:[0,0,2,4,7,14,14] }, intermediaria:{ baixa:[1,1,2,3,7,9,9],   alta:[0,0,0,1,3,7,7] }, idosos:{ baixa:[1,1,2,4,7,9,9],   alta:[0,0,1,2,4,5,6] } },
+  rupturas:          { jovens: { baixa:[0,0,0,1,1,2,2],   alta:[0,0,0,0,1,2,3] }, intermediaria:{ baixa:[0,0,0,1,1,2,2],   alta:[0,0,0,0,1,2,2] }, idosos:{ baixa:[0,0,0,1,1,3,3],   alta:[0,0,0,0,1,1,2] } },
+}
+const WCST_N_PCTS = [95, 90, 75, 50, 25, 10, 5]
+
+function wcstGetGrupo(age) {
+  const a = Number(age)
+  if (a <= 39) return 'jovens'
+  if (a <= 59) return 'intermediaria'
+  return 'idosos'
+}
+function wcstGetEsc(edu) {
+  if (!edu) return 'alta'
+  return (String(edu).includes('baixa') || String(edu).includes('2-7')) ? 'baixa' : 'alta'
+}
+function wcstCalcPct(score, normArray, inverse) {
+  if (score == null || score === '' || !normArray) return null
+  const s = Number(score)
+  if (!inverse) {
+    for (let i = 0; i < WCST_N_PCTS.length; i++) { if (s >= normArray[i]) return WCST_N_PCTS[i] }
+    return 1
+  } else {
+    for (let i = 0; i < WCST_N_PCTS.length; i++) { if (s <= normArray[i]) return WCST_N_PCTS[i] }
+    return 1
+  }
+}
+function wcstClassFromPct(pct) {
+  if (pct == null) return null
+  if (pct >= 95) return { label: 'MUITO SUPERIOR', type: 'preserved'  }
+  if (pct >= 90) return { label: 'SUPERIOR',        type: 'preserved'  }
+  if (pct >= 75) return { label: 'MÉDIA SUPERIOR',  type: 'preserved'  }
+  if (pct >  25) return { label: 'MÉDIA',            type: 'preserved'  }
+  if (pct >= 10) return { label: 'MÉDIA INFERIOR',  type: 'borderline' }
+  if (pct >= 5)  return { label: 'LIMÍTROFE',        type: 'impaired'   }
+  return               { label: 'INFERIOR',          type: 'impaired'   }
+}
+
+function initWCSTTrials(existing) {
+  if (Array.isArray(existing) && existing.length > 0) {
+    return existing.map((t, i) => ({
+      number: i + 1, response: t.response || '',
+      isCorrect: t.isCorrect ?? null, isPerseverative: t.isPerseverative ?? false,
+      isNewCategory: t.isNewCategory ?? (i === 0), cardType: t.cardType ?? '',
+    }))
+  }
+  return Array.from({ length: 48 }, (_, i) => ({
+    number: i + 1, response: '', isCorrect: null, isPerseverative: false,
+    isNewCategory: i === 0, cardType: '',
+  }))
+}
+
+function calcWCSTScores(trials) {
+  let ta = 0, cc = 0, tc = 0, te = 0, tb = 0, pe = 0
+  let consec = 0, catCorrects = 0
+  trials.forEach((t, i) => {
+    if (t.isNewCategory && i > 0) { catCorrects = 0; consec = 0 }
+    if (t.response && t.response !== '') {
+      ta++
+      if (t.isCorrect === true)  { tc++; catCorrects++; consec++; if (catCorrects === 6) { cc++; catCorrects = 0 } }
+      if (t.isCorrect === false) { te++; if (t.isPerseverative) pe++; if (consec >= 5) tb++; consec = 0; catCorrects = 0 }
+    }
+  })
+  return {
+    trials_administered: ta || null, categories_completed: cc || null,
+    total_correct: tc || null, total_errors: te || null, total_breaks: tb || null,
+    perseverative_errors: pe || null, non_perseverative_errors: te > 0 ? te - pe : null,
+  }
 }
 
 function WCSTForm({ data, onChange }) {
   const d = data || {}
   const [tab, setTab] = React.useState('tentativas')
 
+  const trials = initWCSTTrials(d.trials)
+  const auto   = calcWCSTScores(trials)
+
   const update = (changes) => {
     const n = { ...d, ...changes }
-    const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
-    const pe = num('perseverative_errors'), te = num('total_errors')
-    if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
-    const catComp = num('categories_completed')
-    if (catComp != null) n.classification = classify.wcst_cat(catComp)?.label || ''
+    if (changes.trials) {
+      const a = calcWCSTScores(changes.trials)
+      if (a.trials_administered != null) Object.assign(n, a)
+    } else {
+      const pe = n.perseverative_errors != null && n.perseverative_errors !== '' ? Number(n.perseverative_errors) : null
+      const te = n.total_errors != null && n.total_errors !== '' ? Number(n.total_errors) : null
+      if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    }
+    if (n.categories_completed != null)
+      n.classification = classify.wcst_cat(n.categories_completed)?.label || ''
     onChange(n)
   }
 
   const setTrialResponse = (i, resp) => {
-    const arr = Array.isArray(d.trials) ? [...d.trials] : Array.from({ length: 48 }, (_, j) => ({ number: j + 1, response: '' }))
-    arr[i] = { number: i + 1, response: resp }
+    const arr = [...trials]
+    arr[i] = { ...arr[i], response: resp }
+    if (resp === 'O') { arr[i].isCorrect = false }
+    else if (resp && arr[i].cardType) { arr[i].isCorrect = resp === arr[i].cardType }
+    else if (!resp) { arr[i].isCorrect = null; arr[i].isPerseverative = false }
     update({ trials: arr })
   }
 
-  const trials = Array.from({ length: 48 }, (_, i) => {
-    const t = Array.isArray(d.trials) ? d.trials[i] : null
-    return t?.response || ''
-  })
+  const toggleCorrect = (i) => {
+    const arr = [...trials]
+    const t = arr[i]
+    if (t.isCorrect === null)  arr[i] = { ...t, isCorrect: true }
+    else if (t.isCorrect === true) arr[i] = { ...t, isCorrect: false }
+    else arr[i] = { ...t, isCorrect: null, isPerseverative: false }
+    update({ trials: arr })
+  }
+
+  const togglePerseverative = (i) => {
+    const arr = [...trials]
+    arr[i] = { ...arr[i], isPerseverative: !arr[i].isPerseverative }
+    update({ trials: arr })
+  }
+
+  const toggleNewCategory = (i) => {
+    const arr = [...trials]
+    const was = arr[i].isNewCategory
+    arr[i] = { ...arr[i], isNewCategory: !was, cardType: was ? '' : arr[i].cardType }
+    update({ trials: arr })
+  }
+
+  const setCardType = (i, ct) => {
+    const arr = [...trials]
+    arr[i] = { ...arr[i], cardType: ct }
+    for (let j = i; j < arr.length; j++) {
+      if (j > i && arr[j].isNewCategory) break
+      if (arr[j].response && arr[j].response !== 'O')
+        arr[j] = { ...arr[j], isCorrect: arr[j].response === ct }
+    }
+    update({ trials: arr })
+  }
 
   const tabStyle = (t) => ({
     padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 11,
@@ -2549,10 +2664,19 @@ function WCSTForm({ data, onChange }) {
     color: tab === t ? '#fff' : S.muted,
   })
 
-  const cc      = classify.wcst_cat(d.categories_completed)
-  const cPe     = classify.wcst_pe(d.perseverative_errors)
-  const cBreak  = classify.wcst_break(d.total_breaks)
-  const answered = trials.filter(r => r !== '').length
+  const answered = trials.filter(t => t.response !== '').length
+  const grupo = wcstGetGrupo(d.age)
+  const esc   = wcstGetEsc(d.education)
+  const NR    = WCST_N_NORMAS
+  const getVal = (key) => d[key] != null && d[key] !== '' ? d[key] : auto[key]
+  const pctCat  = wcstCalcPct(getVal('categories_completed'), NR.categorias[grupo][esc],        false)
+  const pctEns  = wcstCalcPct(getVal('trials_administered'),  NR.ensaios[grupo][esc],            true)
+  const pctAce  = wcstCalcPct(getVal('total_correct'),         NR.acertos[grupo][esc],            false)
+  const pctErr  = wcstCalcPct(getVal('total_errors'),          NR.erros[grupo][esc],              true)
+  const pctPe   = wcstCalcPct(getVal('perseverative_errors'),  NR.perseverativos[grupo][esc],     true)
+  const pctNPe  = wcstCalcPct(getVal('non_perseverative_errors'), NR.naoPerseverativos[grupo][esc], true)
+  const pctRupt = wcstCalcPct(getVal('total_breaks'),          NR.rupturas[grupo][esc],           true)
+  const grupoLabel = { jovens:'Jovens (≤39)', intermediaria:'Intermediária (40–59)', idosos:'Idosos (60+)' }[grupo]
 
   return (
     <div>
@@ -2561,8 +2685,12 @@ function WCSTForm({ data, onChange }) {
         <NumField label="Idade" value={d.age} onChange={v => update({ age: v })} min={0} max={120} hint="anos" />
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Escolaridade</div>
-          <input value={d.education || ''} onChange={e => update({ education: e.target.value })}
-            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }} placeholder="Ex: 12 anos" />
+          <select value={d.education || ''} onChange={e => update({ education: e.target.value })}
+            style={{ ...inputStyle, textAlign: 'left', paddingLeft: 8 }}>
+            <option value="">Selecione</option>
+            <option value="baixa">Baixa (2–7 anos)</option>
+            <option value="alta">Alta (8+ anos)</option>
+          </select>
         </div>
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Data de nascimento</div>
@@ -2585,40 +2713,88 @@ function WCSTForm({ data, onChange }) {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
         <button style={tabStyle('tentativas')} onClick={() => setTab('tentativas')}>Tentativas ({answered}/48)</button>
-        <button style={tabStyle('pontuacao')} onClick={() => setTab('pontuacao')}>Pontuação</button>
-        <button style={tabStyle('resultado')} onClick={() => setTab('resultado')}>Resultado</button>
+        <button style={tabStyle('pontuacao')}  onClick={() => setTab('pontuacao')}>Pontuação</button>
+        <button style={tabStyle('resultado')}  onClick={() => setTab('resultado')}>Resultado</button>
       </div>
 
       {/* ── Tab: Tentativas ────────────────────────────────────────────────────── */}
       {tab === 'tentativas' && (
         <div>
-          <div style={{ fontSize: 11, color: S.muted, marginBottom: 8 }}>
-            Clique para ciclar: vazio → <span style={{ color: '#93C5FD' }}>C</span>or → <span style={{ color: '#4CAF50' }}>F</span>orma → <span style={{ color: '#FCD34D' }}>N</span>úmero → <span style={{ color: '#F87171' }}>O</span>utro → vazio
+          <div style={{ fontSize: 10, color: S.muted, marginBottom: 8 }}>
+            Resp: <span style={{color:'#93C5FD'}}>C</span>or · <span style={{color:'#4CAF50'}}>F</span>orma · <span style={{color:'#FCD34D'}}>N</span>úm · <span style={{color:'#F87171'}}>O</span>utro &nbsp;|&nbsp;
+            ✓/✗ correto/erro &nbsp;|&nbsp; <span style={{color:'#FB923C'}}>⚠Pers</span> = erro perseverativo &nbsp;|&nbsp; 🔄 nova categoria
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 4 }}>
-            {trials.map((resp, i) => {
-              const c = WCST_COLORS[resp] || WCST_COLORS['']
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {trials.map((trial, i) => {
               return (
-                <button key={i} type="button"
-                  onClick={() => setTrialResponse(i, WCST_SEQ[(WCST_SEQ.indexOf(resp) + 1) % WCST_SEQ.length])}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    height: 42, borderRadius: 5, border: 'none', cursor: 'pointer',
-                    background: c.bg, color: c.text,
-                  }}>
-                  <span style={{ fontSize: 9, lineHeight: 1, opacity: 0.7 }}>{i + 1}</span>
-                  <span style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.2 }}>{resp || '·'}</span>
-                </button>
+                <div key={i}>
+                  {trial.isNewCategory && (
+                    <div style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.35)', borderRadius: 5, padding: '3px 8px', margin: '4px 0 2px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#93C5FD' }}>NOVA CATEGORIA</span>
+                      {i > 0 && (
+                        <button type="button" onClick={() => toggleNewCategory(i)}
+                          style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: S.red, cursor: 'pointer' }}>
+                          ✕
+                        </button>
+                      )}
+                      <span style={{ fontSize: 10, color: S.muted }}>Tipo:</span>
+                      {['C','F','N'].map(ct => (
+                        <button key={ct} type="button" onClick={() => setCardType(i, trial.cardType === ct ? '' : ct)}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 3, cursor: 'pointer', border: 'none',
+                            background: trial.cardType === ct ? '#3B82F6' : 'rgba(255,255,255,0.08)',
+                            color: trial.cardType === ct ? '#fff' : '#93C5FD' }}>
+                          {ct}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 4px', borderRadius: 3, background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                    <span style={{ fontSize: 10, color: S.muted, width: 20, textAlign: 'right', flexShrink: 0 }}>{String(i+1).padStart(2,'0')}</span>
+                    {!trial.isNewCategory && i > 0 && (
+                      <button type="button" onClick={() => toggleNewCategory(i)} title="Nova categoria"
+                        style={{ fontSize: 10, padding: '1px 3px', borderRadius: 3, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, cursor: 'pointer', flexShrink: 0 }}>
+                        🔄
+                      </button>
+                    )}
+                    {['C','F','N','O'].map(opt => {
+                      const c = WCST_COLORS[opt]
+                      return (
+                        <button key={opt} type="button" onClick={() => setTrialResponse(i, trial.response === opt ? '' : opt)}
+                          style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 3, border: 'none', cursor: 'pointer',
+                            background: trial.response === opt ? c.bg : 'rgba(255,255,255,0.05)',
+                            color: trial.response === opt ? c.text : S.muted,
+                            outline: trial.response === opt ? `1px solid ${c.text}` : 'none' }}>
+                          {opt}
+                        </button>
+                      )
+                    })}
+                    {trial.response && (
+                      <button type="button" onClick={() => toggleCorrect(i)}
+                        style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 3, border: 'none', cursor: 'pointer', minWidth: 26,
+                          background: trial.isCorrect === true ? 'rgba(46,125,50,0.35)' : trial.isCorrect === false ? 'rgba(239,68,68,0.35)' : 'rgba(255,255,255,0.07)',
+                          color: trial.isCorrect === true ? '#4CAF50' : trial.isCorrect === false ? '#F87171' : S.muted }}>
+                        {trial.isCorrect === true ? '✓' : trial.isCorrect === false ? '✗' : '?'}
+                      </button>
+                    )}
+                    {trial.isCorrect === false && (
+                      <button type="button" onClick={() => togglePerseverative(i)}
+                        style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 3, border: 'none', cursor: 'pointer',
+                          background: trial.isPerseverative ? 'rgba(251,146,60,0.45)' : 'rgba(255,255,255,0.05)',
+                          color: trial.isPerseverative ? '#FB923C' : S.muted }}>
+                        {trial.isPerseverative ? '⚠Pers' : 'Pers?'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               )
             })}
           </div>
-          <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 11, color: S.muted }}>
-            {['C','F','N','O'].map(r => {
-              const n = trials.filter(t => t === r).length
-              const c = WCST_COLORS[r]
-              return <span key={r} style={{ color: c.text }}>{r}: {n}</span>
-            })}
+          <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11, color: S.muted, flexWrap: 'wrap', padding: '6px 4px', borderTop: `1px solid ${S.border}` }}>
+            {['C','F','N','O'].map(r => <span key={r} style={{ color: WCST_COLORS[r].text }}>{r}: {trials.filter(t => t.response === r).length}</span>)}
             <span>Total: {answered}</span>
+            <span style={{ color: S.greenL }}>Cat.: {auto.categories_completed ?? 0}</span>
+            <span style={{ color: '#F87171' }}>Erros: {auto.total_errors ?? 0}</span>
+            <span style={{ color: '#FB923C' }}>Persev.: {auto.perseverative_errors ?? 0}</span>
           </div>
         </div>
       )}
@@ -2626,72 +2802,70 @@ function WCSTForm({ data, onChange }) {
       {/* ── Tab: Pontuação ─────────────────────────────────────────────────────── */}
       {tab === 'pontuacao' && (
         <div>
+          <div style={{ fontSize: 11, color: '#93C5FD', marginBottom: 8, padding: '5px 10px', background: 'rgba(59,130,246,0.07)', borderRadius: 6 }}>
+            Valores calculados automaticamente das tentativas. Edite só se precisar corrigir manualmente.
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-            <div>
-              <NumField label="Categorias completadas" value={d.categories_completed}
-                onChange={v => update({ categories_completed: v })} min={0} max={6} hint="0-6" />
-              {cc && <div style={{ marginTop: 4 }}><Badge {...cc} /></div>}
-            </div>
-            <NumField label="Ensaios administrados" value={d.trials_administered}
-              onChange={v => update({ trials_administered: v })} min={0} max={48} hint="0-48" />
-            <NumField label="Total de acertos" value={d.total_correct}
-              onChange={v => update({ total_correct: v })} min={0} hint="total" />
-            <NumField label="Total de erros" value={d.total_errors}
-              onChange={v => update({ total_errors: v })} min={0} hint="total" />
-            <div>
-              <NumField label="Total de rupturas" value={d.total_breaks}
-                onChange={v => update({ total_breaks: v })} min={0} hint="total" />
-              {cBreak && <div style={{ marginTop: 4 }}><Badge {...cBreak} /></div>}
-            </div>
-            <div>
-              <NumField label="Erros perseverativos" value={d.perseverative_errors}
-                onChange={v => update({ perseverative_errors: v })} min={0} hint="total" />
-              {cPe && <div style={{ marginTop: 4 }}><Badge {...cPe} /></div>}
-            </div>
+            <NumField label="Categorias completadas" value={getVal('categories_completed')} onChange={v => update({ categories_completed: v })} min={0} max={6} hint="0-6" />
+            <NumField label="Ensaios administrados"  value={getVal('trials_administered')}  onChange={v => update({ trials_administered: v })}  min={0} max={48} hint="0-48" />
+            <NumField label="Total de acertos"        value={getVal('total_correct')}         onChange={v => update({ total_correct: v })}         min={0} hint="total" />
+            <NumField label="Total de erros"          value={getVal('total_errors')}          onChange={v => update({ total_errors: v })}          min={0} hint="total" />
+            <NumField label="Erros perseverativos"    value={getVal('perseverative_errors')}  onChange={v => update({ perseverative_errors: v })}  min={0} hint="total" />
             <div>
               <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Erros não-perseverativos</div>
-              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: d.non_perseverative_errors != null ? S.greenL : S.muted }}>
-                {d.non_perseverative_errors ?? '—'}
+              <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textAlign: 'center', fontSize: 14, fontWeight: 700, color: S.greenL }}>
+                {getVal('non_perseverative_errors') ?? '—'}
               </div>
               <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>auto (erros − persev.)</div>
             </div>
+            <NumField label="Total de rupturas" value={getVal('total_breaks')} onChange={v => update({ total_breaks: v })} min={0} hint="total" />
           </div>
           <div style={{ marginTop: 10 }}>
             <div style={{ fontSize: 11, color: S.muted, marginBottom: 3 }}>Observações</div>
             <textarea rows={3} value={d.observations || ''} onChange={e => update({ observations: e.target.value })}
               style={{ ...inputStyle, textAlign: 'left', resize: 'vertical', padding: '8px 10px', lineHeight: 1.5 }} />
           </div>
-          <p style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>
-            Categorias: ≥5 Preservado · 3–4 Limítrofe · ≤2 Comprometido &nbsp;|&nbsp;
-            Erros persev.: ≤10 Preservado · 11–16 Limítrofe · ≥17 Comprometido &nbsp;|&nbsp;
-            Rupturas: 0 Preservado · 1–2 Limítrofe · ≥3 Comprometido
-          </p>
         </div>
       )}
 
+      {/* ── Tab: Resultado ─────────────────────────────────────────────────────── */}
       {tab === 'resultado' && (
-        <div style={{ padding: '12px 0' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Resumo WCST-N</div>
+        <div style={{ padding: '4px 0' }}>
+          <div style={{ fontSize: 10, color: '#93C5FD', marginBottom: 8, padding: '5px 10px', background: 'rgba(59,130,246,0.07)', borderRadius: 6 }}>
+            Zimmermann et al. (2015) · {grupoLabel} · Escolaridade {wcstGetEsc(d.education) === 'baixa' ? 'Baixa (2–7 anos)' : 'Alta (8+ anos)'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr', gap: 4, padding: '5px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: '6px 6px 0 0', fontSize: 10, fontWeight: 700, color: S.muted, textTransform: 'uppercase' }}>
+            <span>Variável</span>
+            <span style={{ textAlign: 'center' }}>Escore</span>
+            <span style={{ textAlign: 'center' }}>Percentil</span>
+            <span style={{ textAlign: 'center' }}>Classificação</span>
+          </div>
           {[
-            ['Ensaios administrados', d.trials_administered, null, null],
-            ['Categorias completadas', d.categories_completed, '/6', cc],
-            ['Total de acertos', d.total_correct, null, null],
-            ['Total de erros', d.total_errors, null, null],
-            ['Erros perseverativos', d.perseverative_errors, null, cPe],
-            ['Erros não-perseverativos', d.non_perseverative_errors, null, null],
-            ['Rupturas de set', d.total_breaks, null, cBreak],
-          ].map(([lbl, val, suffix, cls]) => val != null && (
-            <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${S.border}` }}>
-              <span style={{ fontSize: 12, color: '#fff' }}>{lbl}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: S.greenL }}>{val}{suffix || ''}</span>
-                {cls && <Badge {...cls} />}
+            { label: 'Categorias completadas',  val: getVal('categories_completed'),     pct: pctCat,  bold: true  },
+            { label: 'Ensaios administrados',    val: getVal('trials_administered'),      pct: pctEns,  bold: false },
+            { label: 'Total de acertos',         val: getVal('total_correct'),             pct: pctAce,  bold: false },
+            { label: 'Total de erros',           val: getVal('total_errors'),             pct: pctErr,  bold: false },
+            { label: 'Erros perseverativos',     val: getVal('perseverative_errors'),     pct: pctPe,   bold: true  },
+            { label: 'Erros não perseverativos', val: getVal('non_perseverative_errors'), pct: pctNPe,  bold: false },
+            { label: 'Rupturas de set',          val: getVal('total_breaks'),             pct: pctRupt, bold: false },
+          ].map(({ label, val, pct, bold }, i) => {
+            const cls = wcstClassFromPct(pct)
+            const badgeColor = !cls ? S.muted : cls.type === 'preserved' ? S.greenL : cls.type === 'borderline' ? '#FCD34D' : S.red
+            return (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr', gap: 4, padding: '6px 8px', borderBottom: `1px solid ${S.border}`, background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: bold ? 700 : 400, color: '#fff' }}>{label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: S.greenL, textAlign: 'center' }}>{val ?? '—'}</span>
+                <span style={{ fontSize: 12, color: S.muted, textAlign: 'center' }}>{pct ?? '—'}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: badgeColor, textAlign: 'center' }}>{cls?.label ?? '—'}</span>
               </div>
+            )
+          })}
+          {d.observations && (
+            <div style={{ marginTop: 8, padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, fontSize: 11, color: S.muted }}>
+              {d.observations}
             </div>
-          ))}
-          {!d.categories_completed && !d.trials_administered && (
-            <p style={{ fontSize: 12, color: S.muted }}>Nenhum dado preenchido ainda.</p>
           )}
+          {!d.age && <p style={{ fontSize: 11, color: S.muted, marginTop: 8, fontStyle: 'italic' }}>Preencha a idade e escolaridade para calcular percentis.</p>}
         </div>
       )}
     </div>
