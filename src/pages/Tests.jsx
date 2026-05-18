@@ -297,6 +297,38 @@ const DEFAULT_RAVLT_RECOGNITION = [
   { word: 'letra',   origin: 'new', marked: false },
 ]
 
+// ─── RAVLT — Normas por Faixa Etária (Manual RAVLT, Tabelas 15–26) ─────────
+const RAVLT_NORMAS = {
+  idade_6_8:    { faixa:'6–8 anos',   media:{a1:4.5,  a2:6.0,  a3:7.0,  a4:7.9,  a5:8.4,  b1:4.3,  a6:7.2,  a7:7.6,  reconhecimento:10.3, escoreTotal:33.7,  ALT:11.2,  velEsquecimento:1.09, intProativa:1.09, intRetroativa:0.87}, dp:{a1:1.9, a2:2.1, a3:2.5, a4:2.8, a5:2.8, b1:1.6, a6:2.7, a7:2.7, reconhecimento:6.9,  escoreTotal:9.9,  ALT:8.2, velEsquecimento:0.37, intProativa:0.55, intRetroativa:0.24} },
+  idade_9_11:   { faixa:'9–11 anos',  media:{a1:5.4,  a2:7.1,  a3:8.2,  a4:9.2,  a5:10.0, b1:5.0,  a6:8.7,  a7:8.7,  reconhecimento:11.7, escoreTotal:39.9,  ALT:12.8,  velEsquecimento:1.03, intProativa:1.00, intRetroativa:0.91}, dp:{a1:1.8, a2:2.2, a3:2.8, a4:2.8, a5:2.7, b1:1.5, a6:2.7, a7:2.7, reconhecimento:5.5,  escoreTotal:10.1, ALT:8.1, velEsquecimento:0.25, intProativa:0.46, intRetroativa:0.38} },
+  idade_12_14:  { faixa:'12–14 anos', media:{a1:6.3,  a2:8.1,  a3:9.5,  a4:10.0, a5:10.9, b1:5.6,  a6:9.6,  a7:9.6,  reconhecimento:12.5, escoreTotal:44.8,  ALT:13.3,  velEsquecimento:1.01, intProativa:0.92, intRetroativa:0.91}, dp:{a1:1.7, a2:2.6, a3:2.9, a4:2.7, a5:2.5, b1:1.7, a6:2.2, a7:3.0, reconhecimento:5.0,  escoreTotal:9.6,  ALT:7.8, velEsquecimento:0.29, intProativa:0.28, intRetroativa:0.29} },
+  idade_15_17:  { faixa:'15–17 anos', media:{a1:6.1,  a2:8.1,  a3:9.6,  a4:11.1, a5:11.6, b1:5.4,  a6:10.6, a7:10.5, reconhecimento:12.6, escoreTotal:46.4,  ALT:16.1,  velEsquecimento:1.01, intProativa:0.91, intRetroativa:0.93}, dp:{a1:1.4, a2:2.2, a3:2.4, a4:2.4, a5:2.3, b1:1.7, a6:2.5, a7:2.9, reconhecimento:3.1,  escoreTotal:8.6,  ALT:7.3, velEsquecimento:0.25, intProativa:0.27, intRetroativa:0.17} },
+  idade_18_20:  { faixa:'18–20 anos', media:{a1:6.8,  a2:9.5,  a3:11.0, a4:11.8, a5:12.2, b1:6.3,  a6:11.1, a7:11.0, reconhecimento:10.0, escoreTotal:51.4,  ALT:17.3,  velEsquecimento:1.00, intProativa:0.96, intRetroativa:0.96}, dp:{a1:1.7, a2:2.2, a3:2.2, a4:2.4, a5:2.4, b1:1.8, a6:2.5, a7:2.7, reconhecimento:5.7,  escoreTotal:8.7,  ALT:7.3, velEsquecimento:0.20, intProativa:0.33, intRetroativa:0.68} },
+  idade_21_30:  { faixa:'21–30 anos', media:{a1:6.5,  a2:8.9,  a3:10.4, a4:11.4, a5:12.2, b1:5.7,  a6:10.9, a7:10.7, reconhecimento:11.4, escoreTotal:49.3,  ALT:16.8,  velEsquecimento:1.00, intProativa:0.92, intRetroativa:0.89}, dp:{a1:1.7, a2:2.2, a3:2.4, a4:2.4, a5:2.2, b1:1.8, a6:2.6, a7:2.7, reconhecimento:4.7,  escoreTotal:8.6,  ALT:6.5, velEsquecimento:0.27, intProativa:0.37, intRetroativa:0.17} },
+  idade_31_40:  { faixa:'31–40 anos', media:{a1:6.1,  a2:8.7,  a3:10.3, a4:11.4, a5:12.2, b1:5.3,  a6:10.8, a7:10.3, reconhecimento:11.1, escoreTotal:48.6,  ALT:17.9,  velEsquecimento:0.97, intProativa:0.91, intRetroativa:0.94}, dp:{a1:1.6, a2:2.0, a3:2.1, a4:2.1, a5:2.2, b1:1.6, a6:2.4, a7:2.4, reconhecimento:4.7,  escoreTotal:8.0,  ALT:7.0, velEsquecimento:0.19, intProativa:0.33, intRetroativa:0.74} },
+  idade_41_50:  { faixa:'41–50 anos', media:{a1:6.0,  a2:8.5,  a3:9.8,  a4:10.7, a5:11.7, b1:4.9,  a6:9.8,  a7:9.6,  reconhecimento:9.9,  escoreTotal:46.7,  ALT:16.5,  velEsquecimento:1.01, intProativa:0.86, intRetroativa:0.84}, dp:{a1:1.6, a2:2.0, a3:2.5, a4:2.7, a5:2.6, b1:1.6, a6:2.8, a7:2.8, reconhecimento:5.6,  escoreTotal:9.6,  ALT:7.3, velEsquecimento:0.34, intProativa:0.31, intRetroativa:0.18} },
+  idade_51_60:  { faixa:'51–60 anos', media:{a1:6.0,  a2:8.2,  a3:9.6,  a4:10.6, a5:11.3, b1:4.8,  a6:9.4,  a7:9.5,  reconhecimento:10.9, escoreTotal:45.7,  ALT:15.6,  velEsquecimento:1.02, intProativa:0.82, intRetroativa:0.82}, dp:{a1:1.9, a2:2.3, a3:2.5, a4:2.4, a5:2.3, b1:1.7, a6:3.1, a7:3.2, reconhecimento:5.2,  escoreTotal:9.7,  ALT:7.4, velEsquecimento:0.19, intProativa:0.29, intRetroativa:0.19} },
+  idade_61_70:  { faixa:'61–70 anos', media:{a1:5.5,  a2:7.8,  a3:9.1,  a4:10.3, a5:11.3, b1:4.7,  a6:9.5,  a7:9.4,  reconhecimento:10.4, escoreTotal:44.0,  ALT:16.4,  velEsquecimento:1.01, intProativa:0.92, intRetroativa:0.84}, dp:{a1:1.6, a2:1.9, a3:2.0, a4:1.9, a5:2.0, b1:1.4, a6:2.6, a7:2.6, reconhecimento:3.8,  escoreTotal:7.6,  ALT:6.1, velEsquecimento:0.24, intProativa:0.61, intRetroativa:0.16} },
+  idade_71_79:  { faixa:'71–79 anos', media:{a1:5.09, a2:6.96, a3:7.98, a4:9.19, a5:10.27,b1:4.05, a6:8.29, a7:8.05, reconhecimento:7.72, escoreTotal:39.48, ALT:14.04, velEsquecimento:0.84, intProativa:0.81, intRetroativa:1.00}, dp:{a1:1.46,a2:1.74,a3:1.99,a4:2.30,a5:2.16,b1:1.75,a6:2.37,a7:2.39,reconhecimento:3.99, escoreTotal:8.23, ALT:5.70,velEsquecimento:0.39, intProativa:0.19, intRetroativa:0.29} },
+  idade_80mais: { faixa:'80+ anos',   media:{a1:4.1,  a2:6.0,  a3:6.9,  a4:7.9,  a5:9.6,  b1:3.2,  a6:7.5,  a7:6.7,  reconhecimento:5.8,  escoreTotal:34.5,  ALT:13.9,  velEsquecimento:0.91, intProativa:0.81, intRetroativa:0.79}, dp:{a1:1.4, a2:1.5, a3:1.7, a4:1.6, a5:2.1, b1:1.7, a6:2.2, a7:2.0, reconhecimento:5.4,  escoreTotal:6.3,  ALT:5.5, velEsquecimento:0.23, intProativa:0.41, intRetroativa:0.22} },
+}
+function ravltGetFaixaId(age) {
+  const a = Number(age)
+  if (a >= 6  && a <= 8)  return 'idade_6_8'
+  if (a >= 9  && a <= 11) return 'idade_9_11'
+  if (a >= 12 && a <= 14) return 'idade_12_14'
+  if (a >= 15 && a <= 17) return 'idade_15_17'
+  if (a >= 18 && a <= 20) return 'idade_18_20'
+  if (a >= 21 && a <= 30) return 'idade_21_30'
+  if (a >= 31 && a <= 40) return 'idade_31_40'
+  if (a >= 41 && a <= 50) return 'idade_41_50'
+  if (a >= 51 && a <= 60) return 'idade_51_60'
+  if (a >= 61 && a <= 70) return 'idade_61_70'
+  if (a >= 71 && a <= 79) return 'idade_71_79'
+  if (a >= 80) return 'idade_80mais'
+  return null
+}
+
 // ─── RAVLT (Base44-compliant) ─────────────────────────────────────────────────
 function RAVLTForm({ data, onChange }) {
   const d = data || {}
@@ -322,7 +354,27 @@ function RAVLTForm({ data, onChange }) {
     const recognition_score          = (recognition_hits!=null&&recognition_false!=null) ? recognition_hits-recognition_false : null
     const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : (n.classification || '')
 
-    onChange({ ...n, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_hits, recognition_false, recognition_score, classification })
+    const faixaId = n.age ? ravltGetFaixaId(n.age) : null
+    const normaR  = faixaId ? RAVLT_NORMAS[faixaId] : null
+    let autoZ = {}
+    if (normaR) {
+      const zOf = (score, key) => (score != null && normaR.dp[key] > 0) ? ((Number(score) - normaR.media[key]) / normaR.dp[key]).toFixed(2) : null
+      const zA7  = zOf(a7, 'a7')
+      const zA6  = zOf(a6, 'a6')
+      const zTot = zOf(total_score, 'escoreTotal')
+      const zRec = recognition_score != null ? zOf(recognition_score, 'reconhecimento') : null
+      const zALT = zOf(alt_score, 'ALT')
+      const pct  = zA7 != null ? bamsZToPercentil(Number(zA7)) : null
+      autoZ = {
+        a7_zscore:          zA7  != null ? zA7  : (n.a7_zscore || ''),
+        a6_zscore:          zA6  != null ? zA6  : (n.a6_zscore || ''),
+        total_zscore:       zTot != null ? zTot : (n.total_zscore || ''),
+        recognition_zscore: zRec != null ? zRec : (n.recognition_zscore || ''),
+        alt_zscore:         zALT != null ? zALT : (n.alt_zscore || ''),
+        percentile:         pct  != null ? pct  : (n.percentile || ''),
+      }
+    }
+    onChange({ ...n, ...autoZ, total_score, alt_score, forgetting_speed, proactive_interference, retroactive_interference, recognition_hits, recognition_false, recognition_score, classification })
   }
 
   const gn = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
@@ -613,27 +665,65 @@ function RAVLTForm({ data, onChange }) {
           </div>
 
           {/* ── Z-scores → classificação normativa ── */}
-          <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:6 }}>Z-SCORES (tabela normativa)</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
-            {[
-              { label:'Z-score A7',            key:'a7_zscore' },
-              { label:'Z-score A6',            key:'a6_zscore' },
-              { label:'Z-score Total A1-A5',   key:'total_zscore' },
-              { label:'Z-score Reconhecimento',key:'recognition_zscore' },
-            ].map(({ label, key }) => {
-              const c = classify.zscore(d[key])
-              return (
-                <div key={key}>
-                  <NumField label={label} value={d[key]} onChange={v => update({ [key]: v })} min={-5} max={3} step={0.01} hint="-5 a 3" />
-                  {c && <div style={{ marginTop:2 }}><Badge {...c} /></div>}
+          {(() => {
+            const fId = d.age ? ravltGetFaixaId(d.age) : null
+            const normaDisp = fId ? RAVLT_NORMAS[fId] : null
+            const zItems = [
+              { label:'z A7',        key:'a7_zscore' },
+              { label:'z A6',        key:'a6_zscore' },
+              { label:'z Total',     key:'total_zscore' },
+              { label:'z Reconhec.', key:'recognition_zscore' },
+              { label:'z ALT',       key:'alt_zscore' },
+            ]
+            return normaDisp ? (
+              <>
+                <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:4 }}>Z-SCORES — Faixa: {normaDisp.faixa}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:6, marginBottom:12 }}>
+                  {zItems.map(item => {
+                    const zv = (d[item.key] !== '' && d[item.key] != null) ? Number(d[item.key]) : null
+                    const col = zv == null ? S.muted : zv >= -1 ? S.greenL : zv >= -1.5 ? '#FFC107' : '#F44336'
+                    return (
+                      <div key={item.key} style={{ background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'8px 6px', textAlign:'center' }}>
+                        <div style={{ fontSize:10, color:S.muted, marginBottom:2 }}>{item.label}</div>
+                        <div style={{ fontSize:16, fontWeight:700, color: col }}>{zv != null ? zv.toFixed(2) : '—'}</div>
+                      </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
-          </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize:10, fontWeight:700, color:S.muted, letterSpacing:'0.06em', marginBottom:6 }}>Z-SCORES (manual — informe a idade para cálculo automático)</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+                  {[
+                    { label:'Z-score A7',            key:'a7_zscore' },
+                    { label:'Z-score A6',            key:'a6_zscore' },
+                    { label:'Z-score Total A1-A5',   key:'total_zscore' },
+                    { label:'Z-score Reconhecimento',key:'recognition_zscore' },
+                  ].map(({ label, key }) => {
+                    const c = classify.zscore(d[key])
+                    return (
+                      <div key={key}>
+                        <NumField label={label} value={d[key]} onChange={v => update({ [key]: v })} min={-5} max={3} step={0.01} hint="-5 a 3" />
+                        {c && <div style={{ marginTop:2 }}><Badge {...c} /></div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )
+          })()}
 
           {/* ── Percentil e Classificação geral ── */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
-            <NumField label="Percentil (A7)" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
+            {(d.age && ravltGetFaixaId(d.age)) ? (
+              <div>
+                <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Percentil A7 (calculado)</div>
+                <div style={{ background:'rgba(255,255,255,0.05)', border:`1px solid ${S.border}`, borderRadius:6, padding:'8px 10px', fontSize:20, fontWeight:700, color:S.greenL }}>{d.percentile || '—'}</div>
+              </div>
+            ) : (
+              <NumField label="Percentil (A7)" value={d.percentile} onChange={v => update({ percentile: v })} min={0} max={100} hint="0-100" />
+            )}
             <div>
               <div style={{ fontSize:11, color:S.muted, marginBottom:3 }}>Classificação Geral</div>
               <input value={a7c ? a7c.label : (d.classification||'')} onChange={e => update({ classification: e.target.value })}
