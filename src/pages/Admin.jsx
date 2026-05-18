@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary, sendPasswordResetEmail } from 'firebase/auth'
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore'
 import { firebaseConfig } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
@@ -329,65 +329,59 @@ function EditModal({ user: u, onClose, onSaved }) {
 }
 
 function ResetPasswordModal({ user: u, onClose }) {
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [err,      setErr]      = useState('')
-  const [ok,       setOk]       = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [err,     setErr]     = useState('')
+  const [ok,      setOk]      = useState(false)
 
-  const handleReset = async () => {
-    if (password.length < 6) { setErr('Senha deve ter no mínimo 6 caracteres.'); return }
+  const handleSend = async () => {
     setErr(''); setLoading(true)
     try {
-      const secondaryAuth = getSecondaryAuth()
-      const { signInWithEmailAndPassword } = await import('firebase/auth')
-      const cred = await signInWithEmailAndPassword(secondaryAuth, u.email, password)
-      await updatePassword(cred.user, password)
-      await signOutSecondary(secondaryAuth)
+      const { auth } = await import('@/lib/firebase')
+      await sendPasswordResetEmail(auth, u.email)
       setOk(true)
-      setTimeout(onClose, 1500)
     } catch (e) {
-      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-        // Can't reset without re-auth — use a different approach
-        setErr('Não é possível redefinir a senha diretamente. O profissional deve usar a opção "Esqueci minha senha" na tela de login, ou você pode recriar o acesso com nova senha.')
-      } else {
-        setErr(e.message)
-      }
+      setErr('Erro ao enviar o e-mail. Verifique se o endereço está correto.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Modal title="Redefinir Senha" onClose={onClose}>
+    <Modal title="Enviar link de redefinição" onClose={onClose}>
       {ok ? (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <CheckCircle2 size={36} color={S.greenL} style={{ margin: '0 auto 12px', display: 'block' }} />
-          <div style={{ color: '#fff', fontSize: 14 }}>Senha redefinida!</div>
+          <div style={{ color: '#fff', fontSize: 14, marginBottom: 6 }}>Link enviado!</div>
+          <div style={{ color: S.muted, fontSize: 12 }}>Peça para <strong style={{ color: '#fff' }}>{u.full_name}</strong> verificar a caixa de entrada e o spam.</div>
+          <button onClick={onClose} style={{ marginTop: 16, padding: '9px 24px', borderRadius: 8, border: 'none', background: S.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Fechar</button>
         </div>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: S.muted, marginBottom: 16 }}>
-            Profissional: <span style={{ color: '#fff' }}>{u.full_name}</span><br />
-            E-mail: <span style={{ color: '#fff' }}>{u.email}</span>
+          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: S.muted, marginBottom: 4 }}>Profissional</div>
+            <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>{u.full_name}</div>
+            <div style={{ fontSize: 12, color: S.greenL, marginTop: 2 }}>{u.email}</div>
           </div>
+          <p style={{ fontSize: 12, color: S.muted, marginBottom: 16 }}>
+            Um link de redefinição de senha será enviado para o e-mail acima. O link expira em 1 hora.
+          </p>
           {err && (
             <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
               {err}
             </div>
           )}
-          <Fld label="NOVA SENHA" type="password" value={password} onChange={setPassword} placeholder="Mínimo 6 caracteres" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <button onClick={onClose} style={{
               padding: '11px', borderRadius: 9, border: `1px solid ${S.border}`,
               background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer',
             }}>Cancelar</button>
-            <button onClick={handleReset} disabled={loading} style={{
+            <button onClick={handleSend} disabled={loading} style={{
               padding: '11px', borderRadius: 9, border: 'none',
               background: loading ? 'rgba(46,125,50,0.5)' : S.green,
               color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
-              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Aguarde...</> : 'Redefinir'}
+              {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</> : 'Enviar link'}
             </button>
           </div>
         </>
