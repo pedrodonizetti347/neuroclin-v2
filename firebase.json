@@ -1,4 +1,17 @@
 {
+  "_stable": {
+    "version": "v1.0-stable",
+    "commit": "d3da0bb1cdf3a7b0bf0827e54d0de6b56f132a8f",
+    "approved_by": "Pedro Donizetti",
+    "approved_at": "2026-05-18",
+    "features": [
+      "BAMS percentil/classificação completo (todas as linhas)",
+      "education sincronizado anamnese → patients",
+      "RAVLT reconhecimento com migração 3-way",
+      "WCST-N normas Zimmermann 2015 no laudo",
+      "Cache busting + version polling + auto-reload 45s"
+    ]
+  },
   "hosting": {
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
