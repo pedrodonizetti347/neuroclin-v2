@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { useSearchParams } from 'react-router-dom'
 import { db } from '@/lib/firebase'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
@@ -4207,8 +4208,9 @@ const TEST_CONFIG = [
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Tests() {
+  const [searchParams] = useSearchParams()
   const [patients,  setPatients]  = useState([])
-  const [patientId, setPatientId] = useState('')
+  const [patientId, setPatientId] = useState(searchParams.get('paciente') || '')
   const [activeKey, setActiveKey] = useState('')
   const [justSaved, setJustSaved] = useState({})
 

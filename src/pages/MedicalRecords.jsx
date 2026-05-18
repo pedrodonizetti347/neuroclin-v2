@@ -6,6 +6,7 @@ import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { exportToDocx } from '@/utils/generateDocx'
 import AnamneseForm from '@/components/AnamneseForm'
+import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, FileText, FlaskConical, Save,
   ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus,
@@ -250,6 +251,7 @@ function NoteEditor({ patientId }) {
 
 export default function MedicalRecords() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { id: paramId } = useParams()
   const [searchParams] = useSearchParams()
   const urlId = paramId || searchParams.get('id') || ''
@@ -416,7 +418,24 @@ export default function MedicalRecords() {
               </div>
             ) : (
               <>
-                {tab === 'anamnese' && <AnamneseForm patientId={patientId} />}
+                {tab === 'anamnese' && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                      <button
+                        onClick={() => navigate(`/testes?paciente=${patientId}`)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 7,
+                          padding: '8px 18px', borderRadius: 8, border: 'none',
+                          background: S.green, color: '#fff',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        <FlaskConical size={14} /> Ir para Testes →
+                      </button>
+                    </div>
+                    <AnamneseForm patientId={patientId} />
+                  </>
+                )}
 
                 {tab === 'testes' && (
                   testEntries.length === 0 ? (
