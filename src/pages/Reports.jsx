@@ -9,6 +9,9 @@ import { TestsDataForm } from '@/components/TestsDataForm'
 import { logAction } from '@/lib/auditLog'
 import { generateTextoConclusao } from '../utils/generateTextoConclusao'
 
+const EDU_MAP = { fundamental_incompleto: 'Fundamental incompleto', fundamental_completo: 'Fundamental completo', medio_incompleto: 'Médio incompleto', medio_completo: 'Médio completo', superior_incompleto: 'Superior incompleto', superior_completo: 'Superior completo' }
+const fmtEducation = v => EDU_MAP[v] || v || '—'
+
 const SUPERVISOR = {
   name:   'Dr. Pedro Donizetti',
   crp:    'CRP 06/82060',
@@ -1373,7 +1376,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
       </tr>
       <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
         ${tdCell('<strong>Escolaridade</strong>', 'font-weight:bold;')}
-        ${tdCell(patient?.education || ad?.escolaridade || '—')}
+        ${tdCell(fmtEducation(patient?.education || ad?.escolaridade))}
         ${tdCell('<strong>Lateralidade</strong>', 'font-weight:bold;')}
         ${tdCell(ad?.lateralidade || patient?.lateralidade || '—')}
       </tr>
