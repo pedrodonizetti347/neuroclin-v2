@@ -4327,7 +4327,10 @@ export default function Tests() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
                   <h2 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>{activeConf.label}</h2>
-                  <p style={{ fontSize: 11, color: S.muted, marginTop: 3 }}>Classificação automática ao digitar</p>
+                  {patient && (
+                    <p style={{ fontSize: 12, color: S.greenL, marginTop: 2, fontWeight: 600 }}>{patient.full_name}</p>
+                  )}
+                  <p style={{ fontSize: 11, color: S.muted, marginTop: 2 }}>Classificação automática ao digitar</p>
                 </div>
                 {justSaved[activeKey] && (
                   <span style={{ fontSize: 11, color: S.greenL, display: 'flex', alignItems: 'center', gap: 4 }}>
