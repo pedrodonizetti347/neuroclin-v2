@@ -297,10 +297,7 @@ export default function MedicalRecords() {
 
   useEffect(() => {
     if (!user) return
-    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
-    const base = collection(db, 'patients')
-    const q = isAdmin ? base : query(base, where('createdBy', '==', user.id))
-    getDocs(q).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    getDocs(collection(db, 'patients')).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
   }, [user])
 
   useEffect(() => {
