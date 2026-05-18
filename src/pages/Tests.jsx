@@ -4220,13 +4220,8 @@ export default function Tests() {
   const session = useTestSession(patientId)
 
   useEffect(() => {
-    if (!user) return
-    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
     const base = collection(db, 'patients')
-    const q = isAdmin
-      ? query(base, orderBy('createdAt', 'desc'))
-      : query(base, where('createdBy', '==', user.id))
-    getDocs(q)
+    getDocs(query(base, orderBy('createdAt', 'desc')))
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => getDocs(base).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
   }, [user])
