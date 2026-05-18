@@ -88,12 +88,19 @@ function stripHtml(html) {
 
 function parseInlineHtml(html, size = 22) {
   const runs = []
-  let bold = false, italic = false, under = false
-  const parts = (html || '').split(/(<\/?strong>|<\/?b>|<\/?em>|<\/?i>|<\/?u>|<span[^>]*>|<\/span>|<br\s*\/?>)/i)
+  let bold = false, italic = false, under = false, strongColor = null
+  const parts = (html || '').split(/(<strong[^>]*>|<\/strong>|<b>|<\/b>|<\/?em>|<\/?i>|<\/?u>|<span[^>]*>|<\/span>|<br\s*\/?>)/i)
   for (const part of parts) {
     if (!part) continue
-    if (/<(strong|b)>/i.test(part)) { bold = true; continue }
-    if (/<\/(strong|b)>/i.test(part)) { bold = false; continue }
+    if (/^<strong/i.test(part)) {
+      bold = true
+      const m = part.match(/color\s*:\s*#?([0-9A-Fa-f]{6})/i)
+      strongColor = m ? m[1] : null
+      continue
+    }
+    if (/^<\/strong>/i.test(part)) { bold = false; strongColor = null; continue }
+    if (/^<b>/i.test(part)) { bold = true; continue }
+    if (/^<\/b>/i.test(part)) { bold = false; continue }
     if (/<(em|i)>/i.test(part)) { italic = true; continue }
     if (/<\/(em|i)>/i.test(part)) { italic = false; continue }
     if (/<u>/i.test(part)) { under = true; continue }
@@ -102,7 +109,8 @@ function parseInlineHtml(html, size = 22) {
     if (/<br/i.test(part)) { runs.push(new TextRun({ break: 1 })); continue }
     const text = part.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
     if (!text.trim()) continue
-    runs.push(new TextRun({ text, bold, italics: italic, underline: under ? {} : undefined, font: 'Arial', size, color: C.text }))
+    const color = (bold && strongColor) ? strongColor : C.text
+    runs.push(new TextRun({ text, bold, italics: italic, underline: under ? {} : undefined, font: 'Arial', size, color }))
   }
   return runs.length ? runs : [new TextRun({ text: '', font: 'Arial', size })]
 }

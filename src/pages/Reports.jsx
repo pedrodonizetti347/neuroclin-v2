@@ -1158,10 +1158,17 @@ function buildConclusaoHtml(blocos, ad) {
   const paraStyle = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
   const secStyle  = `background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
   const sec = (title) => `<div style="${secStyle}">${title}</div>`
-  // Destaca em negrito preto sequências de palavras em MAIÚSCULAS (mínimo 4 letras)
+  // Destaca em negrito maiúsculas; classificações recebem suas cores padrão
   const boldUpper = (text) => text.replace(
     /\b([A-ZÁÉÍÓÚÀÃÕÂÊÎÔÛÇÑ]{4,}(?:[-\s][A-ZÁÉÍÓÚÀÃÕÂÊÎÔÛÇÑ]{2,})*)/g,
-    '<strong style="color:#000000;">$1</strong>'
+    (match) => {
+      const u = match.toUpperCase()
+      let color = '#000000'
+      if (u.includes('PRESERVAD')) color = '#1F3864'
+      else if (u.includes('LIMÍTROFE') || u.includes('LIMITROFE')) color = '#E8821A'
+      else if (u.includes('COMPROMETID')) color = '#C00000'
+      return `<strong style="color:${color};">${match}</strong>`
+    }
   )
   const p = (text) => `<p style="${paraStyle}">${boldUpper(text)}</p>`
 
