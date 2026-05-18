@@ -24,11 +24,10 @@ service cloud.firestore {
       allow write: if isAdminOrSupervisor();
     }
 
-    // Pacientes — admin/supervisor vê todos; profissional só vê os seus (createdBy)
+    // Pacientes — qualquer autenticado lê; só admin/supervisor escreve
     match /patients/{patientId} {
-      allow read, write: if isAdminOrSupervisor();
-      allow read, update, delete: if isAuth() && resource.data.createdBy == request.auth.uid;
-      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow read: if isAuth();
+      allow write: if isAdminOrSupervisor();
     }
 
     // Sessões de testes — admin vê todas; profissional só vê as suas
