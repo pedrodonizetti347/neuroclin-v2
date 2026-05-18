@@ -607,27 +607,59 @@ function buildWASISection(td, selectedTests) {
 }
 
 // ── Tabela BAMS ───────────────────────────────────────────────────────────────
+function rptBamsZToPct(z) {
+  if (z == null) return null
+  const t = 1 / (1 + 0.2316419 * Math.abs(z))
+  const dd = 0.3989423 * Math.exp(-z * z / 2)
+  const p = dd * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))))
+  const pct = z >= 0 ? Math.round((1 - p) * 100) : Math.round(p * 100)
+  return Math.max(1, Math.min(99, pct))
+}
+function rptBamsCls(pct) {
+  if (pct === '' || pct == null) return null
+  const v = Number(pct)
+  if (v >= 25) return { label: 'PRESERVADO',               color: '#2E7D32' }
+  if (v >= 10) return { label: 'LIMÍTROFE',                color: '#E8821A' }
+  if (v >= 5)  return { label: 'COMPROMETIMENTO LEVE',     color: '#C00000' }
+  return             { label: 'COMPROMETIMENTO MOD/GRAVE', color: '#C00000' }
+}
 function buildBAMSSection(td) {
   const d = td?.BAMS
   if (!d) return ''
 
-  const row4 = (label, score, pct, cls, bold) =>
-    `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;${bold?'font-weight:bold;':''}">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">${pct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">${cls ?? '—'}</td></tr>`
-  const row2 = (label, score, indent) =>
-    `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;"><td style="border:1px solid #C5D9EF;padding:6px 10px;${indent?'padding-left:22px;':''}">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td></tr>`
+  const rowComp = (label, score, zKey) => {
+    const z   = d[zKey] != null && d[zKey] !== '' ? Number(d[zKey]) : null
+    const pct = z != null ? rptBamsZToPct(z) : null
+    const cls = pct != null ? rptBamsCls(pct) : null
+    const clr = cls?.color ?? '#374151'
+    return `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;font-weight:bold;">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${clr};">${pct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${clr};">${cls?.label ?? '—'}</td></tr>`
+  }
+  const rowSub = (label, score, level) => {
+    const pl = 10 + (level ?? 1) * 14
+    return `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;"><td style="border:1px solid #C5D9EF;padding:6px 10px;padding-left:${pl}px;">${label}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;">${score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;">—</td></tr>`
+  }
+
+  const gPct = d.percentile != null && d.percentile !== '' ? Number(d.percentile) : null
+  const gCls = gPct != null ? rptBamsCls(gPct) : null
+  const gLbl = d.interpretation || d.classification || gCls?.label || '—'
+  const gClr = gCls?.color ?? '#374151'
 
   const rows = [
-    row4('Léxico (ND + NI)',                            d.lexico_score,               null, null, true),
-    row2('· Nomeação por Definição (ND)',               d.nd_total,                   true),
-    row2('· Nomeação por Identificação (NI)',           d.ni_total,                   true),
-    row4('Categorização (FV + CI + CV)',                d.categorization_score,        null, null, true),
-    row2('· Fluência Verbal Semântica (FV)',            d.fv_total,                   true),
-    row2('· Categorização por Identificação (CI)',      d.ci_total,                   true),
-    row2('· Categorização Verbal (CV)',                 d.cv_total,                   true),
-    row4('Conceitualização (CG + DP)',                  d.conceptualization_score,     null, null, true),
-    row2('· Conteúdo Geral (CG)',                       d.cg_total,                   true),
-    row2('· Definição de Palavras (DP)',                d.dp_total,                   true),
-    row4('ESCORE GLOBAL BAMS',                         d.global_score,               d.percentile, d.interpretation || d.classification, true),
+    rowComp('Léxico (ND + NI)',                       d.lexico_score,          'z_lexico'),
+    rowSub('· Nomeação por Definição (ND)',            d.nd_total),
+    rowSub('· Nomeação por Identificação (NI)',        d.ni_total),
+    rowComp('Categorização (FV + CI + CV)',            d.categorization_score,  'z_categorizacao'),
+    rowSub('· Fluência Verbal Semântica (FV)',         d.fv_total),
+    rowSub('· · FV Animais',                          d.fv_animals_hits,       2),
+    rowSub('· · FV Frutas',                           d.fv_fruits_hits,        2),
+    rowSub('· · FV Utensílios',                       d.fv_utensils_hits,      2),
+    rowSub('· · FV Roupas',                           d.fv_clothes_hits,       2),
+    rowSub('· Categorização por Identificação (CI)',   d.ci_total),
+    rowSub('· Categorização Verbal (CV)',              d.cv_total),
+    rowComp('Conceitualização (CG + DP)',              d.conceptualization_score, 'z_conceitualizacao'),
+    rowSub('· Conteúdo Geral (CG)',                   d.cg_total),
+    rowSub('· Definição de Palavras (DP)',             d.dp_total),
+    `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;font-weight:bold;font-size:11pt;">ESCORE GLOBAL BAMS</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;font-size:11pt;">${d.global_score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gPct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gLbl}</td></tr>`,
   ].join('')
 
   const head = `<thead>
@@ -644,17 +676,48 @@ function buildBAMSSection(td) {
 }
 
 // ── Tabela WCST-N ─────────────────────────────────────────────────────────────
-const clsWCST_pct = (pct) => {
-  if (pct <  5) return { label: 'LIMÍTROFE',      color: '#C00000' }
-  if (pct < 10) return { label: 'ABAIXO DA MÉDIA',color: '#E8821A' }
-  if (pct < 25) return { label: 'MÉDIA INFERIOR', color: '#E8821A' }
-  if (pct < 75) return { label: 'MÉDIA',          color: '#1F3864' }
-  if (pct < 90) return { label: 'MÉDIA SUPERIOR', color: '#1F3864' }
-  return              { label: 'SUPERIOR',        color: '#1F3864' }
+// Normas Zimmermann et al. (2015) — replicado de Tests.jsx para uso no builder de laudo
+const WCST_N_NORMAS_RPT = {
+  categorias:        { jovens: { baixa:[5,5,5,4,3,2,2],   alta:[6,6,6,6,6,5,4] }, intermediaria:{ baixa:[6,6,5,4,2,2,2],   alta:[6,6,6,6,4,3,2] }, idosos:{ baixa:[6,6,5,3,2,2,2],   alta:[6,6,6,6,6,5,5] } },
+  ensaios:           { jovens: { baixa:[39,48,48,48,48,48,48], alta:[36,36,37,42,48,48,48] }, intermediaria:{ baixa:[43,46,48,48,48,48,48], alta:[36,37,37,43,48,48,48] }, idosos:{ baixa:[39,40,48,48,48,48,48], alta:[36,38,40,44,48,48,48] } },
+  acertos:           { jovens: { baixa:[38,38,34,32,28,20,19], alta:[43,42,39,36,36,35,26] }, intermediaria:{ baixa:[40,40,37,29,25,20,19], alta:[40,40,37,36,34,30,26] }, idosos:{ baixa:[36,36,34,27,23,20,19], alta:[42,41,39,37,36,34,32] } },
+  erros:             { jovens: { baixa:[1,8,14,16,20,28,28],  alta:[0,0,0,4,8,13,22]  }, intermediaria:{ baixa:[6,7,10,19,23,28,28],  alta:[0,1,1,3,14,19,19] }, idosos:{ baixa:[3,4,14,21,25,28,28],  alta:[0,2,4,6,9,14,16] } },
+  perseverativos:    { jovens: { baixa:[0,4,8,12,18,20,20],  alta:[0,0,0,3,5,7,9]   }, intermediaria:{ baixa:[5,5,6,14,17,22,22],  alta:[0,0,1,2,11,14,14] }, idosos:{ baixa:[2,3,11,16,17,24,24],  alta:[0,1,2,3,6,8,13] } },
+  naoPerseverativos: { jovens: { baixa:[1,2,3,6,7,9,9],   alta:[0,0,2,4,7,14,14] }, intermediaria:{ baixa:[1,1,2,3,7,9,9],   alta:[0,0,0,1,3,7,7] }, idosos:{ baixa:[1,1,2,4,7,9,9],   alta:[0,0,1,2,4,5,6] } },
+  rupturas:          { jovens: { baixa:[0,0,0,1,1,2,2],   alta:[0,0,0,0,1,2,3] }, intermediaria:{ baixa:[0,0,0,1,1,2,2],   alta:[0,0,0,0,1,2,2] }, idosos:{ baixa:[0,0,0,1,1,3,3],   alta:[0,0,0,0,1,1,2] } },
 }
-const wcstCatPct   = (n) => n >= 6 ? 95 : n >= 5 ? 75 : n >= 4 ? 50 : n >= 3 ? 25 : n >= 2 ? 10 : n >= 1 ? 5 : 2
-const wcstPersPct  = (n) => n <= 5 ? 95 : n <= 10 ? 75 : n <= 16 ? 50 : n <= 22 ? 25 : n <= 30 ? 10 : n <= 41 ? 5 : 2
-const wcstRespPct  = (n) => n <= 6 ? 95 : n <= 12 ? 75 : n <= 18 ? 50 : n <= 24 ? 25 : n <= 32 ? 10 : 5
+const WCST_N_PCTS_RPT = [95, 90, 75, 50, 25, 10, 5]
+function wcstGetGrupoRpt(age) {
+  const a = Number(age)
+  if (a <= 39) return 'jovens'
+  if (a <= 59) return 'intermediaria'
+  return 'idosos'
+}
+function wcstGetEscRpt(edu) {
+  if (!edu) return 'alta'
+  return (String(edu).includes('baixa') || String(edu).includes('2-7')) ? 'baixa' : 'alta'
+}
+function wcstCalcPctRpt(score, normArray, inverse) {
+  if (score == null || score === '' || !normArray) return null
+  const s = Number(score)
+  if (!inverse) {
+    for (let i = 0; i < WCST_N_PCTS_RPT.length; i++) { if (s >= normArray[i]) return WCST_N_PCTS_RPT[i] }
+    return 1
+  } else {
+    for (let i = 0; i < WCST_N_PCTS_RPT.length; i++) { if (s <= normArray[i]) return WCST_N_PCTS_RPT[i] }
+    return 1
+  }
+}
+function wcstClassFromPctRpt(pct) {
+  if (pct == null) return { label: '—', color: '#6b7280' }
+  if (pct >= 95) return { label: 'MUITO SUPERIOR', color: '#1F3864' }
+  if (pct >= 90) return { label: 'SUPERIOR',        color: '#1F3864' }
+  if (pct >= 75) return { label: 'MÉDIA SUPERIOR',  color: '#1F3864' }
+  if (pct >  25) return { label: 'MÉDIA',            color: '#1F3864' }
+  if (pct >= 10) return { label: 'MÉDIA INFERIOR',  color: '#E8821A' }
+  if (pct >=  5) return { label: 'LIMÍTROFE',        color: '#C00000' }
+  return               { label: 'INFERIOR',          color: '#C00000' }
+}
 
 function buildWCSTSection(td) {
   const dN = td?.['WCST-N']
@@ -667,12 +730,11 @@ function buildWCSTSection(td) {
   const scalarMissing = d.trials_administered == null || d.trials_administered === ''
   if (trials.length > 0 && scalarMissing) {
     let ta = 0, cc = 0, tc = 0, te = 0, tb = 0, pe = 0
-    let consec = 0
     for (const t of trials) {
       if (!t.response && !t.isCorrect) continue
       ta++
-      if (t.isCorrect) { tc++; consec++ } else { te++; consec = 0; if (t.isPerseverative) pe++ }
-      if (t.isNewCategory) { cc++; consec = 0 }
+      if (t.isCorrect) { tc++ } else { te++; if (t.isPerseverative) pe++ }
+      if (t.isNewCategory) cc++
       if (t.cardType === 'B') tb++
     }
     d = {
@@ -692,23 +754,36 @@ function buildWCSTSection(td) {
     ? 'Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)'
     : 'Teste Wisconsin de Classificação de Cartas (WCST)'
 
-  const wcstBreakPct = (n) => n === 0 ? 95 : n <= 1 ? 75 : n <= 2 ? 50 : n <= 4 ? 25 : 10
-
   const ensaiosVal = isNelson ? d.trials_administered : d.total_trials
 
+  // Percentis via normas Zimmermann et al. (2015) — apenas para WCST-N
+  let pctCat = null, pctEns = null, pctAce = null, pctErr = null, pctPe = null, pctNPe = null, pctRupt = null
+  if (isNelson) {
+    const grupo = wcstGetGrupoRpt(d.age)
+    const esc   = wcstGetEscRpt(d.education)
+    const NR    = WCST_N_NORMAS_RPT
+    pctCat  = wcstCalcPctRpt(d.categories_completed,     NR.categorias[grupo][esc],        false)
+    pctEns  = wcstCalcPctRpt(ensaiosVal,                 NR.ensaios[grupo][esc],            true)
+    pctAce  = wcstCalcPctRpt(d.total_correct,            NR.acertos[grupo][esc],            false)
+    pctErr  = wcstCalcPctRpt(d.total_errors,             NR.erros[grupo][esc],              true)
+    pctPe   = wcstCalcPctRpt(d.perseverative_errors,     NR.perseverativos[grupo][esc],     true)
+    pctNPe  = wcstCalcPctRpt(d.non_perseverative_errors, NR.naoPerseverativos[grupo][esc],  true)
+    pctRupt = wcstCalcPctRpt(d.total_breaks,             NR.rupturas[grupo][esc],           true)
+  }
+
   const rows_data = [
-    { label: 'Ensaios administrados',           val: ensaiosVal,                 pctFn: null,          note: isNelson ? '(máx 48)' : '(máx 128)' },
-    { label: 'Categorias completadas',          val: d.categories_completed,     pctFn: wcstCatPct,    note: '(0–6, maior = melhor)' },
-    { label: 'Total de acertos',                val: d.total_correct,            pctFn: null,          note: '' },
-    { label: 'Total de erros',                  val: d.total_errors,             pctFn: null,          note: '' },
-    { label: 'Erros perseverativos',            val: d.perseverative_errors,     pctFn: wcstPersPct,   note: '(menor = melhor)' },
-    { label: 'Erros não-perseverativos',        val: d.non_perseverative_errors, pctFn: null,          note: '' },
+    { label: 'Ensaios administrados',     val: ensaiosVal,                 pct: isNelson ? pctEns  : null, note: isNelson ? '(máx 48)' : '(máx 128)' },
+    { label: 'Categorias completadas',    val: d.categories_completed,     pct: isNelson ? pctCat  : null, note: '(0–6, maior = melhor)' },
+    { label: 'Total de acertos',          val: d.total_correct,            pct: isNelson ? pctAce  : null, note: '' },
+    { label: 'Total de erros',            val: d.total_errors,             pct: isNelson ? pctErr  : null, note: '' },
+    { label: 'Erros perseverativos',      val: d.perseverative_errors,     pct: isNelson ? pctPe   : null, note: '(menor = melhor)' },
+    { label: 'Erros não-perseverativos',  val: d.non_perseverative_errors, pct: isNelson ? pctNPe  : null, note: '' },
     ...( isNelson
-      ? [{ label: 'Total de rupturas', val: d.total_breaks, pctFn: wcstBreakPct, note: '(menor = melhor)' }]
+      ? [{ label: 'Total de rupturas', val: d.total_breaks, pct: pctRupt, note: '(menor = melhor)' }]
       : [
-          { label: 'Respostas perseverativas',       val: d.perseverative_responses,     pctFn: wcstRespPct, note: '(menor = melhor)' },
-          { label: 'Respostas nível conceitual',     val: d.conceptual_level_responses,  pctFn: null,        note: '' },
-          { label: 'Falha em manter contexto',       val: d.failure_to_maintain_set,     pctFn: null,        note: '' },
+          { label: 'Respostas perseverativas',   val: d.perseverative_responses,    pct: null, note: '(menor = melhor)' },
+          { label: 'Respostas nível conceitual', val: d.conceptual_level_responses, pct: null, note: '' },
+          { label: 'Falha em manter contexto',   val: d.failure_to_maintain_set,    pct: null, note: '' },
         ]
     ),
   ].filter(r => r.val != null && r.val !== '')
@@ -716,21 +791,22 @@ function buildWCSTSection(td) {
   if (rows_data.length === 0) return ''
 
   const rows = rows_data.map((r, i) => {
-    const pct  = r.pctFn ? r.pctFn(Number(r.val)) : null
-    const cls  = pct != null ? clsWCST_pct(pct) : { label: '—', color: '#6b7280' }
-    const bg   = i % 2 === 0 ? '#fff' : HR
+    const cls = wcstClassFromPctRpt(r.pct)
+    const bg  = i % 2 === 0 ? '#fff' : HR
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(`${r.label} <span style="color:#888;font-size:9pt;">${r.note}</span>`)}
       ${tdCell(r.val, 'text-align:center;font-weight:bold;')}
-      ${tdCell(pct != null ? `<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>` : '—', 'text-align:center;')}
+      ${tdCell(r.pct != null ? `<span style="color:${cls.color};font-weight:bold;">${r.pct}</span>` : '—', 'text-align:center;')}
+      ${tdCell(r.pct != null ? `<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>` : '—', 'text-align:center;')}
     </tr>`
   }).join('')
 
   const head = `<thead>
-    <tr><th colspan="3" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${tableLabel}</th></tr>
+    <tr><th colspan="4" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${tableLabel}</th></tr>
     <tr>
       ${thCell('Fator')}
       ${thCell('Escore', 'text-align:center;')}
+      ${thCell('Percentil', 'text-align:center;')}
       ${thCell('Classificação', 'text-align:center;')}
     </tr>
   </thead>`
