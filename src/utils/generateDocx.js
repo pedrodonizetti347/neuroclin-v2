@@ -6,7 +6,7 @@ import { saveAs } from 'file-saver'
 
 // ── Paleta de cores do template ───────────────────────────────────────────────
 const C = {
-  sectionBg:    '5B83A5',
+  sectionBg:    '4472C4',
   tableHeader:  '4472C4',
   comprometido: 'E8821A',
   deficitario:  'C00000',
@@ -299,7 +299,7 @@ function htmlResultsTablesToDocx(html) {
       const tag = el.tagName?.toUpperCase()
       const style = (el.getAttribute?.('style') || '').toLowerCase()
       const text = (el.textContent || '').trim()
-      if (tag === 'DIV' && style.includes('5b83a5') && text.startsWith('TABELA')) {
+      if (tag === 'DIV' && (style.includes('5b83a5') || style.includes('4472c4')) && text.startsWith('TABELA')) {
         elements.push(secHeader(text))
         return
       }
