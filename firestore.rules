@@ -21,7 +21,10 @@ service cloud.firestore {
     // Perfis de usuário
     match /users/{userId} {
       allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
-      allow write: if isAdminOrSupervisor();
+      allow create: if isAuth() && request.auth.uid == userId
+                    && request.resource.data.role == 'professional'
+                    && request.resource.data.active == true;
+      allow update, delete: if isAdminOrSupervisor();
     }
 
     // Pacientes — qualquer autenticado lê; só admin/supervisor escreve
@@ -58,6 +61,12 @@ service cloud.firestore {
     // Configurações da clínica — apenas admin/supervisor
     match /clinic_settings/{doc} {
       allow read, write: if isAdminOrSupervisor();
+    }
+
+    // Log de auditoria — qualquer autenticado grava; só admin/supervisor lê
+    match /audit_logs/{logId} {
+      allow read: if isAdminOrSupervisor();
+      allow create: if isAuth();
     }
   }
 }
