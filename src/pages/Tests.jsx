@@ -786,6 +786,14 @@ function RAVLTForm({ data, onChange }) {
   )
 }
 
+// Converte número de vocábulos (fluência verbal NEUPSILIN) para pontuação (1–11)
+function fluencyWordsToScore(w) {
+  if (w == null || w === '') return null
+  const v = Number(w)
+  if (isNaN(v) || v < 0) return null
+  return Math.min(11, Math.floor(v / 3) + 1)
+}
+
 // ─── NEUPSILIN ────────────────────────────────────────────────────────────────
 function NEUPSILINForm({ data, onChange }) {
   const d = data || {}
@@ -805,7 +813,7 @@ function NEUPSILINForm({ data, onChange }) {
     const language_written_total = (Number(n.lang_leitura)||0) + (Number(n.lang_compreensao_escrita)||0) + (Number(n.lang_escrita_espontanea)||0) + (Number(n.lang_escrita_copiada)||0) + (Number(n.lang_ditada)||0)
     const language_total      = language_oral_total + language_written_total
     const praxis_total        = (Number(n.praxis_ideomotor)||0) + (Number(n.praxis_constructive)||0) + (Number(n.praxis_reflexive)||0)
-    const executive_total     = (Number(n.executive_problem_solving)||0) + (Number(n.executive_verbal_fluency)||0)
+    const executive_total     = (Number(n.executive_problem_solving)||0) + (fluencyWordsToScore(n.executive_verbal_fluency) || 0)
     onChange({ ...n, orientation_time_total, orientation_space_total, attention_total, perception_total, memory_total, language_oral_total, language_written_total, language_total, praxis_total, executive_total })
   }
 
@@ -820,7 +828,7 @@ function NEUPSILINForm({ data, onChange }) {
   const langEsc     = (Number(d.lang_leitura)||0) + (Number(d.lang_compreensao_escrita)||0) + (Number(d.lang_escrita_espontanea)||0) + (Number(d.lang_escrita_copiada)||0) + (Number(d.lang_ditada)||0)
   const langTotal   = langOral + langEsc
   const praxTotal   = (Number(d.praxis_ideomotor)||0) + (Number(d.praxis_constructive)||0) + (Number(d.praxis_reflexive)||0)
-  const execTotal   = (Number(d.executive_problem_solving)||0) + (Number(d.executive_verbal_fluency)||0)
+  const execTotal   = (Number(d.executive_problem_solving)||0) + (fluencyWordsToScore(d.executive_verbal_fluency) || 0)
 
   const tabs = [
     { id: 'orientacao', label: '1.Orient.',  tot: orientTotal, max: 8  },
@@ -2641,6 +2649,8 @@ function WCSTForm({ data, onChange }) {
       const pe = n.perseverative_errors != null && n.perseverative_errors !== '' ? Number(n.perseverative_errors) : null
       const te = n.total_errors != null && n.total_errors !== '' ? Number(n.total_errors) : null
       if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+      const ta = n.trials_administered != null && n.trials_administered !== '' ? Number(n.trials_administered) : null
+      if (ta != null && te != null) n.total_correct = Math.max(0, ta - te)
     }
     if (n.categories_completed != null)
       n.classification = classify.wcst_cat(n.categories_completed)?.label || ''
@@ -2914,6 +2924,8 @@ function WCSTFullForm({ data, onChange }) {
     const num = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : null
     const pe = num('perseverative_errors'), te = num('total_errors')
     if (pe != null && te != null) n.non_perseverative_errors = Math.max(0, te - pe)
+    const ta = num('total_trials')
+    if (ta != null && te != null) n.total_correct = Math.max(0, ta - te)
     const catComp = num('categories_completed')
     if (catComp != null) n.classification = classify.wcst_cat(catComp)?.label || ''
     onChange(n)
@@ -3285,11 +3297,11 @@ function BAMSForm({ data, onChange }) {
       {tab==='sem' && (
         <div>
           <p style={{ fontSize:11, color:S.muted, marginBottom:8 }}>Clique para marcar acerto (verde) ou erro</p>
-          {sec(`CG — Categorização (${cgTot}/10)`)}
+          {sec(`CG — Conhecimentos Gerais (${cgTot}/10)`)}
           <ItemGrid values={cgArr} count={10} onChangeFn={arr=>update({cg_scores:arr})} />
           {sec(`DP — Definição de Palavras (${dpTot}/10)`)}
           <ItemGrid values={dpArr} count={10} onChangeFn={arr=>update({dp_scores:arr})} />
-          {sec(`CI — Classificação de Imagens (${ciTot}/10)`)}
+          {sec(`CI — Categorização de Imagens (${ciTot}/10)`)}
           <ItemGrid values={ciArr} count={10} onChangeFn={arr=>update({ci_scores:arr})} />
           {sec(`CV — Correspondência Visual (${cvTot}/10)`)}
           <ItemGrid values={cvArr} count={10} onChangeFn={arr=>update({cv_scores:arr})} />
@@ -3456,27 +3468,29 @@ function MoCAForm({ data, onChange }) {
 
 // ─── DEX (Base44-compliant, 20 itens × 2 respondentes) ───────────────────────
 const DEX_ITEMS = [
-  { n: 1,  label: 'Pensamento Abstrato' },
+  { n: 1,  label: 'Abstração' },
   { n: 2,  label: 'Impulsividade' },
   { n: 3,  label: 'Confabulação' },
   { n: 4,  label: 'Planejamento' },
   { n: 5,  label: 'Euforia' },
-  { n: 6,  label: 'Comportamento Inapropriado' },
-  { n: 7,  label: 'Inibição de Respostas' },
-  { n: 8,  label: 'Insight / Autoconsciência' },
-  { n: 9,  label: 'Apatia / Motivação' },
-  { n: 10, label: 'Distrabilidade' },
-  { n: 11, label: 'Agressividade' },
-  { n: 12, label: 'Perseveração' },
-  { n: 13, label: 'Motivação Variável' },
-  { n: 14, label: 'Afeto Superficial' },
-  { n: 15, label: 'Memória Temporal' },
-  { n: 16, label: 'Consciência Social' },
-  { n: 17, label: 'Sugestionabilidade' },
-  { n: 18, label: 'Desinibição Social' },
-  { n: 19, label: 'Inquietação / Agitação' },
-  { n: 20, label: 'Regulação Emocional' },
+  { n: 6,  label: 'Sequência temporal' },
+  { n: 7,  label: 'Autocrítica' },
+  { n: 8,  label: 'Apatia' },
+  { n: 9,  label: 'Desinibição' },
+  { n: 10, label: 'Memória' },
+  { n: 11, label: 'Embotamento' },
+  { n: 12, label: 'Descontrole' },
+  { n: 13, label: 'Autocrítica' },
+  { n: 14, label: 'Inquietude/Perseveração' },
+  { n: 15, label: 'Inquietação' },
+  { n: 16, label: 'Dissociação' },
+  { n: 17, label: 'Distração' },
+  { n: 18, label: 'Concentração' },
+  { n: 19, label: 'Tomada de decisão' },
+  { n: 20, label: 'Cognição social' },
 ]
+// Itens 1, 4, 10, 17 são perguntas controle — não entram no total
+const DEX_SCORE_ITEMS = DEX_ITEMS.filter(it => ![1, 4, 10, 17].includes(it.n))
 
 function DEXForm({ data, onChange, onSave }) {
   const d = data || {}
@@ -3485,10 +3499,10 @@ function DEXForm({ data, onChange, onSave }) {
 
   const update = (changes) => {
     const next = { ...d, ...changes }
-    const patTotal = DEX_ITEMS.reduce((s, it) => s + (Number(next[`patient_q${it.n}`]) || 0), 0)
-    const famTotal = DEX_ITEMS.reduce((s, it) => s + (Number(next[`family_q${it.n}`])  || 0), 0)
-    const patAns = DEX_ITEMS.filter(it => next[`patient_q${it.n}`] != null).length
-    const famAns = DEX_ITEMS.filter(it => next[`family_q${it.n}`]  != null).length
+    const patTotal = DEX_SCORE_ITEMS.reduce((s, it) => s + (Number(next[`patient_q${it.n}`]) || 0), 0)
+    const famTotal = DEX_SCORE_ITEMS.reduce((s, it) => s + (Number(next[`family_q${it.n}`])  || 0), 0)
+    const patAns = DEX_SCORE_ITEMS.filter(it => next[`patient_q${it.n}`] != null).length
+    const famAns = DEX_SCORE_ITEMS.filter(it => next[`family_q${it.n}`]  != null).length
     onChange({
       ...next,
       patient_total: patTotal,
@@ -3501,10 +3515,10 @@ function DEXForm({ data, onChange, onSave }) {
     })
   }
 
-  const patTotal = DEX_ITEMS.reduce((s, it) => s + (Number(d[`patient_q${it.n}`]) || 0), 0)
-  const famTotal = DEX_ITEMS.reduce((s, it) => s + (Number(d[`family_q${it.n}`])  || 0), 0)
-  const patAns = DEX_ITEMS.filter(it => d[`patient_q${it.n}`] != null).length
-  const famAns = DEX_ITEMS.filter(it => d[`family_q${it.n}`]  != null).length
+  const patTotal = DEX_SCORE_ITEMS.reduce((s, it) => s + (Number(d[`patient_q${it.n}`]) || 0), 0)
+  const famTotal = DEX_SCORE_ITEMS.reduce((s, it) => s + (Number(d[`family_q${it.n}`])  || 0), 0)
+  const patAns = DEX_SCORE_ITEMS.filter(it => d[`patient_q${it.n}`] != null).length
+  const famAns = DEX_SCORE_ITEMS.filter(it => d[`family_q${it.n}`]  != null).length
   const cPat = patAns > 0 ? classify.dex(patTotal) : null
   const cFam = famAns > 0 ? classify.dex(famTotal) : null
   const disc = patAns > 0 && famAns > 0 ? patTotal - famTotal : null

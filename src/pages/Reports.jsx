@@ -249,47 +249,36 @@ function buildEscalasSection(td) {
     </tr>`)
   }
 
+  // Ordem: GDS → GAI → IQCODE → B-ADL → Pfeffer → demais
   let i = 0
-  if (td?.['GDS-15']?.total_score != null) {
+  if (td?.['GDS-15']?.total_score != null)
     addRow('Escala de Depressão Geriátrica (GDS-15)', td['GDS-15'].total_score, td['GDS-15'].classification, i++ % 2 === 1)
-  }
-  if (td?.GAI?.total_score != null) {
+  if (td?.GAI?.total_score != null)
     addRow('Inventário de Ansiedade Geriátrica (GAI)', td.GAI.total_score, td.GAI.classification, i++ % 2 === 1)
-  }
-  if (td?.['BDI-II']?.total_score != null) {
-    addRow('Inventário de Depressão de Beck II (BDI-II)', td['BDI-II'].total_score, td['BDI-II'].classification, i++ % 2 === 1)
-  }
-  if (td?.HAD?.anxiety_score != null) {
-    addRow(`HAD — Ansiedade`, td.HAD.anxiety_score, td.HAD.anxiety_classification, i++ % 2 === 1)
-    addRow(`HAD — Depressão`, td.HAD.depression_score, td.HAD.depression_classification, i++ % 2 === 1)
-  }
-  if (td?.IQCODE?.total_score != null) {
+  if (td?.IQCODE?.total_score != null)
     addRow('IQCODE', td.IQCODE.total_score, td.IQCODE.classification, i++ % 2 === 1)
-  }
-  if (td?.['B-ADL']?.total_score != null) {
+  if (td?.['B-ADL']?.total_score != null)
     addRow('Escala Bayer (B-ADL)', td['B-ADL'].total_score, td['B-ADL'].classification, i++ % 2 === 1)
-  }
-  if (td?.Pfeffer?.total_score != null) {
+  if (td?.Pfeffer?.total_score != null)
     addRow('Questionário de Pfeffer', td.Pfeffer.total_score, td.Pfeffer.classification, i++ % 2 === 1)
+  if (td?.['BDI-II']?.total_score != null)
+    addRow('Inventário de Depressão de Beck II (BDI-II)', td['BDI-II'].total_score, td['BDI-II'].classification, i++ % 2 === 1)
+  if (td?.HAD?.anxiety_score != null) {
+    addRow('HAD — Ansiedade', td.HAD.anxiety_score, td.HAD.anxiety_classification, i++ % 2 === 1)
+    addRow('HAD — Depressão', td.HAD.depression_score, td.HAD.depression_classification, i++ % 2 === 1)
   }
-  if (td?.Lawton?.total_score != null) {
+  if (td?.Lawton?.total_score != null)
     addRow('Escala de Lawton', td.Lawton.total_score, td.Lawton.classification, i++ % 2 === 1)
-  }
-  if (td?.BADL?.total_score != null) {
+  if (td?.BADL?.total_score != null)
     addRow('BADL (Índice de Katz)', td.BADL.total_score, td.BADL.classification, i++ % 2 === 1)
-  }
-  if (td?.FAB?.total_score != null) {
+  if (td?.FAB?.total_score != null)
     addRow('Bateria de Avaliação Frontal (FAB)', td.FAB.total_score, td.FAB.classification, i++ % 2 === 1)
-  }
-  if (td?.MoCA?.total_score != null) {
+  if (td?.MoCA?.total_score != null)
     addRow('MoCA (Avaliação Cognitiva Montreal)', td.MoCA.total_score, td.MoCA.classification, i++ % 2 === 1)
-  }
-  if (td?.['IDATE-E']?.total_score != null) {
+  if (td?.['IDATE-E']?.total_score != null)
     addRow('IDATE — Estado', td['IDATE-E'].total_score, td['IDATE-E'].classification, i++ % 2 === 1)
-  }
-  if (td?.['IDATE-T']?.total_score != null) {
+  if (td?.['IDATE-T']?.total_score != null)
     addRow('IDATE — Traço', td['IDATE-T'].total_score, td['IDATE-T'].classification, i++ % 2 === 1)
-  }
 
   if (rows.length === 0) return ''
 
@@ -299,7 +288,16 @@ function buildEscalasSection(td) {
     ${thCell('Classificação', 'text-align:center;')}
   </tr></thead>`
 
-  return secHead('TABELA DE RESULTADOS – ESCALAS') + tableWrap(rows.join(''), head)
+  // Retorna apenas a tabela — secHead é adicionado em buildFullDocument
+  return tableWrap(rows.join(''), head)
+}
+
+// Converte número de vocábulos (fluência verbal NEUPSILIN) para pontuação (1–11)
+function fluencyWordsToScore(w) {
+  if (w == null || w === '') return null
+  const v = Number(w)
+  if (isNaN(v) || v < 0) return null
+  return Math.min(11, Math.floor(v / 3) + 1)
 }
 
 // ── Tabela NEUPSILIN (sub-domínios completos com NORMAS) ─────────────────────
@@ -356,7 +354,7 @@ function buildNeupsilinSection(td, patient) {
   const langEsc     = (Number(d.lang_leitura)||0) + (Number(d.lang_compreensao_escrita)||0) + (Number(d.lang_escrita_espontanea)||0) + (Number(d.lang_escrita_copiada)||0) + (Number(d.lang_ditada)||0)
   const langTotal   = langOral + langEsc
   const praxTotal   = (Number(d.praxis_ideomotor)||0) + (Number(d.praxis_constructive)||0) + (Number(d.praxis_reflexive)||0)
-  const execTotal   = (Number(d.executive_problem_solving)||0) + (Number(d.executive_verbal_fluency)||0)
+  const execTotal   = (Number(d.executive_problem_solving)||0) + (fluencyWordsToScore(d.executive_verbal_fluency) || 0)
 
   const zRow = (score, domain, inv=false) => {
     const z = npCalcZ(score, domain, ageG, eduG, inv)
@@ -459,6 +457,17 @@ function buildNeupsilinSection(td, patient) {
 }
 
 // ── Tabela RAVLT ──────────────────────────────────────────────────────────────
+// Classificação por percentil (derivada do z-score armazenado)
+const clsRAVLTFromPct = (pct) => {
+  if (pct == null) return null
+  if (pct >= 90) return { label: 'Superior',        color: '#15803d' }
+  if (pct >= 75) return { label: 'Acima da Média',  color: '#059669' }
+  if (pct >= 25) return { label: 'Média',           color: '#1d4ed8' }
+  if (pct >= 10) return { label: 'Média Inferior',  color: '#d97706' }
+  if (pct >=  5) return { label: 'Limítrofe',       color: '#C00000' }
+  return              { label: 'Déficit',           color: '#dc2626' }
+}
+// Classificação por escore bruto (usada quando não há z-score individual)
 const clsRAVLT = (s) => {
   if (s == null || s === '') return { label: '—', color: '#6b7280' }
   const v = Number(s)
@@ -466,13 +475,6 @@ const clsRAVLT = (s) => {
   if (v >= 11) return { label: 'Acima da Média',  color: '#059669' }
   if (v >= 8)  return { label: 'Média',           color: '#1d4ed8' }
   if (v >= 5)  return { label: 'Abaixo da Média', color: '#d97706' }
-  return             { label: 'Déficit',          color: '#dc2626' }
-}
-const clsRAVLT_total = (v) => {
-  if (v == null) return { label: '—', color: '#6b7280' }
-  if (v >= 50) return { label: 'Superior',        color: '#15803d' }
-  if (v >= 40) return { label: 'Média',           color: '#1d4ed8' }
-  if (v >= 30) return { label: 'Abaixo da Média', color: '#d97706' }
   return             { label: 'Déficit',          color: '#dc2626' }
 }
 const clsRAVLT_rec = (v) => {
@@ -487,36 +489,43 @@ function buildRAVLTSection(td) {
   const d = td?.RAVLT
   if (!d) return ''
 
-  // Base44 field names: a1_score … a7_score, b1_score, recognition_hits, recognition_false, recognition_score
-  const g = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
+  const g  = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
+  const zp = (zkey) => { const z = g(zkey); return z != null ? rptBamsZToPct(z) : null }
+
+  // Percentis a partir dos z-scores armazenados
+  const pctA7  = zp('a7_zscore')
+  const pctA6  = zp('a6_zscore')
+  const pctTot = zp('total_zscore')
+  const pctRec = zp('recognition_zscore')
+  const pctALT = zp('alt_zscore')
 
   const trialList = [
-    { label: 'A1 — Tentativa 1',                          score: g('a1_score') },
-    { label: 'A2 — Tentativa 2',                          score: g('a2_score') },
-    { label: 'A3 — Tentativa 3',                          score: g('a3_score') },
-    { label: 'A4 — Tentativa 4',                          score: g('a4_score') },
-    { label: 'A5 — Tentativa 5',                          score: g('a5_score') },
-    { label: 'B1 — Lista Distratora',                     score: g('b1_score') },
-    { label: 'A6 — Evocação Imediata após Interferência', score: g('a6_score') },
-    { label: 'A7 — Evocação Tardia',                      score: g('a7_score') },
+    { label: 'A1 — Tentativa 1',                          score: g('a1_score'), pct: null },
+    { label: 'A2 — Tentativa 2',                          score: g('a2_score'), pct: null },
+    { label: 'A3 — Tentativa 3',                          score: g('a3_score'), pct: null },
+    { label: 'A4 — Tentativa 4',                          score: g('a4_score'), pct: null },
+    { label: 'A5 — Tentativa 5',                          score: g('a5_score'), pct: null },
+    { label: 'B1 — Lista Distratora',                     score: g('b1_score'), pct: null },
+    { label: 'A6 — Evocação Imediata após Interferência', score: g('a6_score'), pct: pctA6 },
+    { label: 'A7 — Evocação Tardia',                      score: g('a7_score'), pct: pctA7 },
   ]
 
-  // Use pre-computed total_score from form; fallback to manual sum
   const total    = g('total_score') ?? [g('a1_score'),g('a2_score'),g('a3_score'),g('a4_score'),g('a5_score')]
                     .reduce((s,v) => s + (v ?? 0), 0)
   const hasTotal = trialList.slice(0,5).some(t => t.score != null)
 
   const trialRows = trialList.map((t, i) => {
-    const cls = clsRAVLT(t.score)
-    const bg  = i % 2 === 0 ? '#fff' : HR
+    const pctCls = t.pct != null ? clsRAVLTFromPct(t.pct) : null
+    const cls    = pctCls ?? clsRAVLT(t.score)
+    const bg     = i % 2 === 0 ? '#fff' : HR
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(t.label)}
       ${tdCell(t.score ?? '—', 'text-align:center;font-weight:bold;')}
+      ${tdCell(t.pct != null ? String(t.pct) : '—', 'text-align:center;')}
       ${tdCell(`<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>`, 'text-align:center;')}
     </tr>`
   }).join('')
 
-  // Pre-computed indices from form (Base44 fields)
   const altScore    = g('alt_score')    ?? (g('a1_score')!=null && g('a5_score')!=null ? g('a5_score')-g('a1_score') : null)
   const forgSpeed   = g('forgetting_speed')
   const proactive   = g('proactive_interference')
@@ -525,46 +534,54 @@ function buildRAVLTSection(td) {
   const recHits     = g('recognition_hits')
   const recFalse    = g('recognition_false')
 
-  const totalCls = clsRAVLT_total(hasTotal ? total : null)
-  const recCls   = clsRAVLT_rec(recScore)
+  const totalCls = (hasTotal && pctTot != null) ? clsRAVLTFromPct(pctTot) : (hasTotal ? { label: '—', color: '#6b7280' } : { label: '—', color: '#6b7280' })
+  const recCls   = pctRec != null ? clsRAVLTFromPct(pctRec) : clsRAVLT_rec(recScore)
+  const altCls   = pctALT != null ? clsRAVLTFromPct(pctALT) : (altScore != null ? (altScore >= 7 ? { label: 'Adequada', color: '#15803d' } : { label: 'Abaixo do Esperado', color: '#d97706' }) : null)
 
   const summaryRows = `
   <tr style="background:#dce8dc;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('<strong>Total A1–A5 (Aprendizagem Total)</strong>')}
     ${tdCell(hasTotal ? total : '—', 'text-align:center;font-weight:bold;')}
+    ${tdCell(pctTot != null ? String(pctTot) : '—', 'text-align:center;')}
     ${tdCell(`<span style="color:${totalCls.color};font-weight:bold;">${totalCls.label}</span>`, 'text-align:center;')}
   </tr>
   ${altScore != null ? `<tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('ALT — Aprendizagem ao Longo das Tentativas (A5−A1)')}
     ${tdCell(altScore >= 0 ? '+'+altScore : altScore, 'text-align:center;font-weight:bold;')}
-    ${tdCell(altScore >= 7 ? '<span style="color:#15803d;font-weight:bold;">Adequada</span>' : '<span style="color:#d97706;font-weight:bold;">Abaixo do Esperado</span>', 'text-align:center;')}
+    ${tdCell(pctALT != null ? String(pctALT) : '—', 'text-align:center;')}
+    ${tdCell(altCls ? `<span style="color:${altCls.color};font-weight:bold;">${altCls.label}</span>` : '—', 'text-align:center;')}
   </tr>` : ''}
   ${forgSpeed != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Velocidade de Esquecimento (A7/A6) <span style="color:#888;font-size:9pt;">≈1,0 sem esquecimento</span>')}
     ${tdCell(forgSpeed, 'text-align:center;font-weight:bold;')}
+    ${tdCell('—', 'text-align:center;')}
     ${tdCell(forgSpeed >= 0.9 ? '<span style="color:#15803d;font-weight:bold;">Preservada</span>' : forgSpeed >= 0.7 ? '<span style="color:#d97706;font-weight:bold;">Leve Declínio</span>' : '<span style="color:#dc2626;font-weight:bold;">Esquecimento Acelerado</span>', 'text-align:center;')}
   </tr>` : ''}
   ${retroactive != null ? `<tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Interferência Retroativa (A6/A5) <span style="color:#888;font-size:9pt;">efeito de B1 sobre A6</span>')}
     ${tdCell(retroactive, 'text-align:center;font-weight:bold;')}
+    ${tdCell('—', 'text-align:center;')}
     ${tdCell(retroactive >= 0.8 ? '<span style="color:#15803d;font-weight:bold;">Baixa</span>' : retroactive >= 0.6 ? '<span style="color:#d97706;font-weight:bold;">Moderada</span>' : '<span style="color:#dc2626;font-weight:bold;">Alta</span>', 'text-align:center;')}
   </tr>` : ''}
   ${proactive != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Interferência Proativa (B1/A1) <span style="color:#888;font-size:9pt;">efeito de A sobre B</span>')}
     ${tdCell(proactive, 'text-align:center;font-weight:bold;')}
     ${tdCell('—', 'text-align:center;')}
+    ${tdCell('—', 'text-align:center;')}
   </tr>` : ''}
   <tr style="background:#dce8dc;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell(`<strong>Reconhecimento</strong> <span style="color:#888;font-size:9pt;">${recHits!=null?'hits='+recHits:''} ${recFalse!=null?'FP='+recFalse:''}</span>`)}
     ${tdCell(recScore ?? '—', 'text-align:center;font-weight:bold;')}
+    ${tdCell(pctRec != null ? String(pctRec) : '—', 'text-align:center;')}
     ${tdCell(`<span style="color:${recCls.color};font-weight:bold;">${recCls.label}</span>`, 'text-align:center;')}
   </tr>`
 
   const head = `<thead>
-    <tr><th colspan="3" style="border:1px solid #a5c6a5;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT</th></tr>
+    <tr><th colspan="4" style="border:1px solid #a5c6a5;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Teste de Aprendizagem Auditivo-Verbal de Rey – RAVLT</th></tr>
     <tr>
       ${thCell('Índice / Tentativa')}
-      ${thCell('Escore', 'text-align:center;')}
+      ${thCell('Escore Bruto', 'text-align:center;')}
+      ${thCell('Percentil', 'text-align:center;')}
       ${thCell('Classificação', 'text-align:center;')}
     </tr>
   </thead>`
@@ -719,17 +736,13 @@ function buildBAMSSection(td, patient) {
   const rows = [
     rowComp('Léxico (ND + NI)',                       d.lexico_score,            zL),
     rowSub('· Nomeação por Definição (ND)',            d.nd_total,       1,       zND),
-    rowSub('· Nomeação por Identificação (NI)',        d.ni_total,       1,       zNI),
+    rowSub('· Nomeação por Imagens (NI)',              d.ni_total,       1,       zNI),
     rowComp('Categorização (FV + CI + CV)',            d.categorization_score,    zC),
     rowSub('· Fluência Verbal Semântica (FV)',         d.fv_total,       1,       zFV),
-    rowSub('· · FV Animais',                          d.fv_animals_hits, 2,      zFVAni),
-    rowSub('· · FV Frutas',                           d.fv_fruits_hits,  2,      zFVFru),
-    rowSub('· · FV Utensílios',                       d.fv_utensils_hits,2,      zFVUte),
-    rowSub('· · FV Roupas',                           d.fv_clothes_hits, 2,      zFVRou),
-    rowSub('· Categorização por Identificação (CI)',   d.ci_total,       1,       zCI),
+    rowSub('· Categorização de Imagens (CI)',          d.ci_total,       1,       zCI),
     rowSub('· Categorização Verbal (CV)',              d.cv_total,       1,       zCV),
     rowComp('Conceitualização (CG + DP)',              d.conceptualization_score, zK),
-    rowSub('· Conteúdo Geral (CG)',                   d.cg_total,       1,       zCG),
+    rowSub('· Conhecimentos Gerais (CG)',              d.cg_total,       1,       zCG),
     rowSub('· Definição de Palavras (DP)',             d.dp_total,       1,       zDP),
     `<tr style="background:#fff;"><td style="border:1px solid #C5D9EF;padding:6px 10px;font-weight:bold;font-size:11pt;">ESCORE GLOBAL BAMS</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;font-size:11pt;">${d.global_score ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gPct ?? '—'}</td><td style="border:1px solid #C5D9EF;padding:6px 10px;text-align:center;font-weight:bold;color:${gClr};">${gLbl}</td></tr>`,
   ].join('')
@@ -828,6 +841,13 @@ function buildWCSTSection(td) {
 
   const ensaiosVal = isNelson ? d.trials_administered : d.total_trials
 
+  // Fallback: calcular total_correct se ausente (ensaios − erros)
+  const totalCorrectVal = (d.total_correct != null && d.total_correct !== '')
+    ? d.total_correct
+    : (ensaiosVal != null && d.total_errors != null)
+      ? Math.max(0, Number(ensaiosVal) - Number(d.total_errors))
+      : null
+
   // Percentis via normas Zimmermann et al. (2015) — apenas para WCST-N
   let pctCat = null, pctEns = null, pctAce = null, pctErr = null, pctPe = null, pctNPe = null, pctRupt = null
   if (isNelson) {
@@ -836,7 +856,7 @@ function buildWCSTSection(td) {
     const NR    = WCST_N_NORMAS_RPT
     pctCat  = wcstCalcPctRpt(d.categories_completed,     NR.categorias[grupo][esc],        false)
     pctEns  = wcstCalcPctRpt(ensaiosVal,                 NR.ensaios[grupo][esc],            true)
-    pctAce  = wcstCalcPctRpt(d.total_correct,            NR.acertos[grupo][esc],            false)
+    pctAce  = wcstCalcPctRpt(totalCorrectVal,            NR.acertos[grupo][esc],            false)
     pctErr  = wcstCalcPctRpt(d.total_errors,             NR.erros[grupo][esc],              true)
     pctPe   = wcstCalcPctRpt(d.perseverative_errors,     NR.perseverativos[grupo][esc],     true)
     pctNPe  = wcstCalcPctRpt(d.non_perseverative_errors, NR.naoPerseverativos[grupo][esc],  true)
@@ -844,9 +864,9 @@ function buildWCSTSection(td) {
   }
 
   const rows_data = [
-    { label: 'Ensaios administrados',     val: ensaiosVal,                 pct: isNelson ? pctEns  : null, note: isNelson ? '(máx 48)' : '(máx 128)' },
     { label: 'Categorias completadas',    val: d.categories_completed,     pct: isNelson ? pctCat  : null, note: '(0–6, maior = melhor)' },
-    { label: 'Total de acertos',          val: d.total_correct,            pct: isNelson ? pctAce  : null, note: '' },
+    { label: 'Ensaios administrados',     val: ensaiosVal,                 pct: isNelson ? pctEns  : null, note: isNelson ? '(máx 48)' : '(máx 128)' },
+    { label: 'Total de acertos',          val: totalCorrectVal,            pct: isNelson ? pctAce  : null, note: '' },
     { label: 'Total de erros',            val: d.total_errors,             pct: isNelson ? pctErr  : null, note: '' },
     { label: 'Erros perseverativos',      val: d.perseverative_errors,     pct: isNelson ? pctPe   : null, note: '(menor = melhor)' },
     { label: 'Erros não-perseverativos',  val: d.non_perseverative_errors, pct: isNelson ? pctNPe  : null, note: '' },
@@ -930,40 +950,37 @@ function buildTOKENSection(td) {
 }
 
 // ── Tabela DEX ────────────────────────────────────────────────────────────────
+// Itens 1, 4, 10, 17 são perguntas controle — não aparecem na tabela do laudo
 const DEX_DOMAINS = [
   {
     label: 'DOMÍNIO COMPORTAMENTAL',
     items: [
-      { idx: 1,  label: 'Planejamento' },
       { idx: 2,  label: 'Impulsividade' },
-      { idx: 6,  label: 'Autocrítica' },
-      { idx: 5,  label: 'Desinibição' },
-      { idx: 13, label: 'Descontrole Emocional' },
-      { idx: 16, label: 'Juízo Crítico' },
-      { idx: 14, label: 'Inquietação' },
-      { idx: 7,  label: 'Dissociação' },
-      { idx: 4,  label: 'Cognição Social' },
+      { idx: 7,  label: 'Autocrítica' },
+      { idx: 9,  label: 'Desinibição' },
+      { idx: 12, label: 'Descontrole' },
+      { idx: 13, label: 'Autocrítica' },
+      { idx: 15, label: 'Inquietação' },
+      { idx: 16, label: 'Dissociação' },
+      { idx: 20, label: 'Cognição social' },
     ],
   },
   {
     label: 'DOMÍNIO COGNITIVO',
     items: [
       { idx: 3,  label: 'Confabulação' },
-      { idx: 18, label: 'Sequência Temporal' },
-      { idx: 11, label: 'Perseveração' },
-      { idx: 15, label: 'Concentração' },
-      { idx: 20, label: 'Tomada de Decisão' },
-      { idx: 8,  label: 'Memória de Intenções' },
-      { idx: 9,  label: 'Distratibilidade' },
-      { idx: 19, label: 'Linguagem Espontânea' },
+      { idx: 6,  label: 'Sequência temporal' },
+      { idx: 14, label: 'Inquietude/Perseveração' },
+      { idx: 18, label: 'Concentração' },
+      { idx: 19, label: 'Tomada de decisão' },
     ],
   },
   {
     label: 'DOMÍNIO EMOÇÕES',
     items: [
-      { idx: 10, label: 'Euforia' },
-      { idx: 12, label: 'Apatia' },
-      { idx: 17, label: 'Embotamento Afetivo' },
+      { idx: 5,  label: 'Euforia' },
+      { idx: 8,  label: 'Apatia' },
+      { idx: 11, label: 'Embotamento' },
     ],
   },
 ]
@@ -1035,7 +1052,7 @@ function buildDEXSection(td) {
   const disc   = (patTotal != null && famTotal != null) ? Number(patTotal) - Number(famTotal) : null
 
   allRows += `<tr style="background:#e8f5e9;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-    ${tdCell('<strong>TOTAL (0–80)</strong>', 'font-weight:bold;')}
+    ${tdCell('<strong>TOTAL (0–64)</strong>', 'font-weight:bold;')}
     ${tdCell(famTotal != null ? `<strong>${famTotal}</strong>` : '—', 'text-align:center;font-weight:bold;')}
     ${tdCell(famTotal != null ? `<span style="color:${famCls.color};font-weight:bold;">${famCls.label}</span>` : '—', 'text-align:center;')}
     ${tdCell(patTotal != null ? `<strong>${patTotal}</strong>` : '—', 'text-align:center;font-weight:bold;')}
@@ -1427,7 +1444,7 @@ function buildAiBodyFromData(patient, ad, td) {
         const langO   = (Number(np.lang_nomeacao)||0) + (Number(np.lang_repeticao)||0) + (Number(np.lang_automatica)||0) + (Number(np.lang_compreensao_oral)||0) + (Number(np.lang_inferencias)||0)
         const langE   = (Number(np.lang_leitura)||0) + (Number(np.lang_compreensao_escrita)||0) + (Number(np.lang_escrita_espontanea)||0) + (Number(np.lang_escrita_copiada)||0) + (Number(np.lang_ditada)||0)
         const praxT   = (Number(np.praxis_ideomotor)||0) + (Number(np.praxis_constructive)||0) + (Number(np.praxis_reflexive)||0)
-        const execT   = (Number(np.executive_problem_solving)||0) + (Number(np.executive_verbal_fluency)||0)
+        const execT   = (Number(np.executive_problem_solving)||0) + (fluencyWordsToScore(np.executive_verbal_fluency) || 0)
         npZscores = {
           orientation: npCalcZ(orientT, 'orientation', nAge, nEdu),
           attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
@@ -1451,6 +1468,48 @@ function buildAiBodyFromData(patient, ad, td) {
   }
 }
 
+// ── PROCEDIMENTO — texto estruturado por grupos de instrumentos ───────────────
+function buildProcedimentoText(selectedTests) {
+  const has = k => selectedTests.includes(k)
+  const join = items => {
+    if (items.length === 0) return ''
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} e ${items[1]}`
+    return `${items.slice(0, -1).join(', ')} e ${items[items.length - 1]}`
+  }
+  const P = 'font-size:11pt;margin:6px 0 10px 0;text-align:justify;'
+
+  const quantItems = [
+    has('NEUPSILIN') && 'Instrumento de Avaliação Neuropsicológica Breve Adulto (NEUPSILIN)',
+    has('BAMS')      && 'Bateria de Avaliação da Memória Semântica (BAMS)',
+    has('RAVLT')     && 'Teste de Aprendizagem Auditivo-Verbal de Rey (RAVLT)',
+  ].filter(Boolean)
+
+  const qualItems = [
+    has('WCST-N') && 'Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)',
+    has('TOKEN')  && 'Token Test versão reduzida',
+  ].filter(Boolean)
+
+  const escalItems = [
+    has('GDS-15') && 'Escala de Depressão Geriátrica (GDS)',
+    has('GAI')    && 'Escala de Ansiedade Geriátrica (GAI)',
+    has('DEX')    && 'Questionário de Disfunção Executiva (DEX — versões paciente e familiar)',
+    has('MEMIMP') && 'Questionário de Memória Prospectiva e Retrospectiva (versões paciente e familiar)',
+    has('IQCODE') && 'Informant Questionnaire on Cognitive Decline in the Elderly (IQCODE)',
+    has('B-ADL')  && 'Escala Bayer de Atividades da Vida Diária (B-ADL)',
+    has('Pfeffer')&& 'Questionário de Atividades Funcionais de Pfeffer',
+  ].filter(Boolean)
+
+  let html = `<p style="${P}">Foram realizadas consultas para entrevista de anamnese e para aplicação de instrumentos neuropsicológicos, visando à investigação de Atenção, Memória, Funções Executivas, Habilidades Visuoespaciais e Linguagem.</p>`
+  if (quantItems.length)
+    html += `<p style="${P}">Para avaliação quantitativa foram utilizados: ${join(quantItems)}.</p>`
+  if (qualItems.length)
+    html += `<p style="${P}">Para avaliação qualitativa foram utilizados: ${join(qualItems)}.</p>`
+  if (escalItems.length)
+    html += `<p style="${P}">Para investigação de personalidade, funcionamento psicossocial, prejuízos funcionais e humor foram aplicados: ${join(escalItems)}.</p>`
+  return html
+}
+
 // ── Documento completo ────────────────────────────────────────────────────────
 function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada, approvalInfo = null }) {
   const age   = patient?.birth_date
@@ -1466,35 +1525,35 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   // Período do exame
   const mesAno = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
-  // PROCEDIMENTO — lista de testes
-  const procedimentoItems = selectedTests
-    .map(k => FULL_TEST_NAMES[k] || k)
-    .map(name => `<li style="margin-bottom:4px;">${name}</li>`)
-    .join('')
+  // PROCEDIMENTO — texto estruturado por grupos
+  const procedimentoHtml = buildProcedimentoText(selectedTests)
 
-  // ESCALAS e TESTES — exibe automaticamente quando há dados, sem exigir checkbox
-  const escalasSection = buildEscalasSection(td)
-  const hasNeupsilin   = !!td?.NEUPSILIN
-  const hasTRIACOG     = !!td?.TRIACOG && td.TRIACOG.total_score != null
-  const hasRAVLT       = !!td?.RAVLT
-  const hasMEMIMP      = !!td?.MEMIMP && (td.MEMIMP.patient_total != null || td.MEMIMP.family_total != null)
-  const hasWASI        = !!(td?.WASI || td?.['WASI-III'])
-  const hasBAMS        = !!td?.BAMS
-  const hasWCST        = !!(td?.['WCST-N'] || td?.WCST)
-  const hasTOKEN       = !!td?.TOKEN
-  const hasDEX         = !!td?.DEX
+  // ESCALAS — tabela simples (GDS→GAI→IQCODE→B-ADL→Pfeffer→…) + MEMIMP + DEX
+  const escalasTable = buildEscalasSection(td)
+  const memimpHtml   = buildMEMIMPSection(td)
+  const dexHtml      = buildDEXSection(td)
+  const escalasSection = (escalasTable || memimpHtml || dexHtml)
+    ? secHead('TABELA DE RESULTADOS – ESCALAS') + escalasTable + memimpHtml + dexHtml
+    : ''
 
-  const testesSection = (hasNeupsilin || hasTRIACOG || hasRAVLT || hasMEMIMP || hasWASI || hasBAMS || hasWCST || hasTOKEN || hasDEX)
+  // TESTES — ordem: TOKEN → TRIACOG → NEUPSILIN → BAMS → RAVLT → WASI → WCST-N
+  const hasNeupsilin = !!td?.NEUPSILIN
+  const hasTRIACOG   = !!td?.TRIACOG && td.TRIACOG.total_score != null
+  const hasRAVLT     = !!td?.RAVLT
+  const hasWASI      = !!(td?.WASI || td?.['WASI-III'])
+  const hasBAMS      = !!td?.BAMS
+  const hasWCST      = !!(td?.['WCST-N'] || td?.WCST)
+  const hasTOKEN     = !!td?.TOKEN
+
+  const testesSection = (hasTOKEN || hasTRIACOG || hasNeupsilin || hasBAMS || hasRAVLT || hasWASI || hasWCST)
     ? secHead('TABELA DE RESULTADOS – TESTES') +
       buildTOKENSection(td) +
       buildTRIACOGSection(td) +
       buildNeupsilinSection(td, patient) +
-      buildRAVLTSection(td) +
-      buildMEMIMPSection(td) +
-      buildWASISection(td, selectedTests) +
       buildBAMSSection(td, patient) +
-      buildWCSTSection(td) +
-      buildDEXSection(td)
+      buildRAVLTSection(td) +
+      buildWASISection(td, selectedTests) +
+      buildWCSTSection(td)
     : ''
 
   // INFORMAÇÕES GERAIS — construídas da anamnese
@@ -1589,8 +1648,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 
   <!-- PROCEDIMENTO -->
   ${secHead('PROCEDIMENTO')}
-  <p style="font-size:11pt;margin:8px 0;">Foram realizadas consultas para entrevista de anamnese e aplicação dos seguintes instrumentos neuropsicológicos:</p>
-  <ul style="margin:8px 0 12px 24px;font-size:11pt;">${procedimentoItems}</ul>
+  ${procedimentoHtml}
 
   <!-- TABELAS DE RESULTADOS -->
   ${escalasSection}
