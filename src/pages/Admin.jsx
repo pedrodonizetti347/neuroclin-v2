@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, updatePassword, signOut as signOutSecondary, sendPasswordResetEmail, fetchSignInMethodsForEmail } from 'firebase/auth'
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore'
@@ -121,12 +121,13 @@ function CreateModal({ onClose, onCreated }) {
       await signOutSecondary(secondaryAuth)
 
       await setDoc(doc(db, 'users', uid), {
-        email:      email.trim().toLowerCase(),
-        full_name:  name.trim(),
+        email:                email.trim().toLowerCase(),
+        full_name:            name.trim(),
         role,
-        active:     true,
-        created_at: serverTimestamp(),
-        last_login: null,
+        active:               true,
+        created_at:           serverTimestamp(),
+        last_login:           null,
+        must_change_password: true,
       })
       setOk(true)
       setTimeout(() => { onCreated(); onClose() }, 1200)
@@ -490,6 +491,57 @@ function CreateAuthForExistingModal({ user: u, onClose, onDone }) {
   )
 }
 
+function DeleteUserModal({ user: u, onClose, onDeleted }) {
+  const [loading, setLoading] = useState(false)
+  const [err,     setErr]     = useState('')
+
+  const handle = async () => {
+    setLoading(true)
+    try {
+      await deleteDoc(doc(db, 'users', u.id))
+      onDeleted()
+      onClose()
+    } catch (e) {
+      setErr(e.message)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal title="Excluir cadastro" onClose={onClose}>
+      <div style={{ textAlign: 'center', paddingBottom: 8 }}>
+        <AlertCircle size={32} color="#EF4444" style={{ margin: '0 auto 12px', display: 'block' }} />
+        <div style={{ fontSize: 14, color: '#fff', fontWeight: 600, marginBottom: 6 }}>Excluir {u.full_name}?</div>
+        <div style={{ fontSize: 12, color: S.muted, marginBottom: 4, lineHeight: 1.6 }}>
+          Remove o perfil do sistema. A conta de login (Firebase Auth) não é excluída.
+        </div>
+        <div style={{ fontSize: 11, color: '#EF4444', marginBottom: 20 }}>Esta ação não pode ser desfeita.</div>
+      </div>
+      {err && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
+          {err}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <button onClick={onClose} style={{
+          padding: '11px', borderRadius: 9, border: `1px solid ${S.border}`,
+          background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer',
+        }}>Cancelar</button>
+        <button onClick={handle} disabled={loading} style={{
+          padding: '11px', borderRadius: 9, border: 'none',
+          background: loading ? 'rgba(220,38,38,0.4)' : '#DC2626',
+          color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          {loading
+            ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Excluindo...</>
+            : <><Trash2 size={14} /> Excluir</>}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [users,       setUsers]       = useState([])
@@ -510,6 +562,13 @@ export default function Admin() {
   const [authStatus,     setAuthStatus]     = useState({})
   const [checkingAuth,   setCheckingAuth]   = useState(false)
   const [createAuthUser, setCreateAuthUser] = useState(null)
+  const [deleteUser,     setDeleteUser]     = useState(null)
+
+  const emailDupes = useMemo(() => {
+    const count = {}
+    users.forEach(u => { const e = (u.email || '').toLowerCase(); if (e) count[e] = (count[e] || 0) + 1 })
+    return new Set(Object.keys(count).filter(e => count[e] > 1))
+  }, [users])
 
   const loadAuditLogs = useCallback(async () => {
     setAuditLoading(true)
@@ -553,7 +612,7 @@ export default function Admin() {
       const orphans = rSnap.docs.filter(d => !patientIds.has(d.data().patientId))
 
       if (orphans.length === 0) {
-        setCleanResult({ deleted: 0 })
+        setCleanResult({ deleted: 0, total: rSnap.docs.length })
         return
       }
 
@@ -565,9 +624,10 @@ export default function Admin() {
         chunk.forEach(d => batch.delete(d.ref))
         await batch.commit()
       }
-      setCleanResult({ deleted: orphans.length })
+      setCleanResult({ deleted: orphans.length, total: rSnap.docs.length })
     } catch (e) {
-      setCleanResult({ error: e.message })
+      console.error('[cleanOrphanReports]', e)
+      setCleanResult({ error: e.code ? `${e.code}: ${e.message}` : e.message })
     } finally {
       setCleaning(false)
     }
@@ -743,7 +803,14 @@ export default function Admin() {
                       ) : null
                     })()}
                   </div>
-                  <div style={{ fontSize: 11, color: S.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                  <div>
+                    <div style={{ fontSize: 11, color: S.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                    {emailDupes.has((u.email || '').toLowerCase()) && (
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', marginTop: 2, display: 'inline-block' }}>
+                        E-MAIL DUPLICADO
+                      </span>
+                    )}
+                  </div>
                   <div>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 5,
@@ -753,7 +820,14 @@ export default function Admin() {
                     </span>
                     {inactive && <span style={{ fontSize: 9, color: '#EF4444', display: 'block', marginTop: 2 }}>Inativo</span>}
                   </div>
-                  <div style={{ fontSize: 11, color: S.muted }}>{formatDate(u.last_login)}</div>
+                  <div>
+                    <div style={{ fontSize: 11, color: S.muted }}>{formatDate(u.last_login)}</div>
+                    {!u.last_login && (
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(156,163,175,0.12)', color: '#9CA3AF', marginTop: 2, display: 'inline-block' }}>
+                        NUNCA ACESSOU
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     {authStatus[u.id] === 'none' && (
                       <button
@@ -775,6 +849,14 @@ export default function Admin() {
                       style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 11, cursor: 'pointer' }}>
                       Senha
                     </button>
+                    {u.id !== user?.id && (
+                      <button
+                        onClick={() => setDeleteUser(u)}
+                        title="Excluir cadastro"
+                        style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: '#EF4444', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -798,14 +880,17 @@ export default function Admin() {
             </div>
             {cleanResult && (
               <div style={{
-                marginTop: 10, fontSize: 12, fontWeight: 600,
+                marginTop: 10, fontSize: 12, fontWeight: 600, lineHeight: 1.6,
+                padding: '8px 12px', borderRadius: 7,
+                background: cleanResult.error ? 'rgba(239,68,68,0.08)' : 'rgba(46,125,50,0.08)',
+                border: `1px solid ${cleanResult.error ? 'rgba(239,68,68,0.25)' : 'rgba(46,125,50,0.25)'}`,
                 color: cleanResult.error ? '#EF4444' : S.greenL,
               }}>
                 {cleanResult.error
                   ? `Erro: ${cleanResult.error}`
                   : cleanResult.deleted === 0
-                    ? 'Nenhum laudo órfão encontrado.'
-                    : `${cleanResult.deleted} laudo${cleanResult.deleted !== 1 ? 's' : ''} deletado${cleanResult.deleted !== 1 ? 's' : ''} com sucesso.`
+                    ? `Tudo limpo — ${cleanResult.total} laudo${cleanResult.total !== 1 ? 's' : ''} verificado${cleanResult.total !== 1 ? 's' : ''}, nenhum órfão encontrado.`
+                    : `${cleanResult.deleted} laudo${cleanResult.deleted !== 1 ? 's' : ''} órfão${cleanResult.deleted !== 1 ? 's' : ''} removido${cleanResult.deleted !== 1 ? 's' : ''} (de ${cleanResult.total} verificados).`
                 }
               </div>
             )}
@@ -910,6 +995,7 @@ export default function Admin() {
       {editUser        && <EditModal   user={editUser}       onClose={() => setEditUser(null)}       onSaved={loadUsers} />}
       {resetUser       && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />}
       {createAuthUser  && <CreateAuthForExistingModal user={createAuthUser} onClose={() => setCreateAuthUser(null)} onDone={() => { setAuthStatus(prev => ({ ...prev, [createAuthUser.id]: 'email' })) }} />}
+      {deleteUser      && <DeleteUserModal user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={loadUsers} />}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
         select option { background: #1A2744; color: #fff; }
