@@ -485,6 +485,37 @@ const clsRAVLT_rec = (v) => {
   return             { label: 'Déficit',          color: '#dc2626' }
 }
 
+const RAVLT_NORMAS_RPT = {
+  idade_6_8:    { media:{a1:4.5,  a2:6.0,  a3:7.0,  a4:7.9,  a5:8.4,  b1:4.3,  a6:7.2,  a7:7.6,  reconhecimento:10.3, escoreTotal:33.7,  ALT:11.2 }, dp:{a1:1.9, a2:2.1, a3:2.5, a4:2.8, a5:2.8, b1:1.6, a6:2.7, a7:2.7, reconhecimento:6.9,  escoreTotal:9.9,  ALT:8.2 } },
+  idade_9_11:   { media:{a1:5.4,  a2:7.1,  a3:8.2,  a4:9.2,  a5:10.0, b1:5.0,  a6:8.7,  a7:8.7,  reconhecimento:11.7, escoreTotal:39.9,  ALT:12.8 }, dp:{a1:1.8, a2:2.2, a3:2.8, a4:2.8, a5:2.7, b1:1.5, a6:2.7, a7:2.7, reconhecimento:5.5,  escoreTotal:10.1, ALT:8.1 } },
+  idade_12_14:  { media:{a1:6.3,  a2:8.1,  a3:9.5,  a4:10.0, a5:10.9, b1:5.6,  a6:9.6,  a7:9.6,  reconhecimento:12.5, escoreTotal:44.8,  ALT:13.3 }, dp:{a1:1.7, a2:2.6, a3:2.9, a4:2.7, a5:2.5, b1:1.7, a6:2.2, a7:3.0, reconhecimento:5.0,  escoreTotal:9.6,  ALT:7.8 } },
+  idade_15_17:  { media:{a1:6.1,  a2:8.1,  a3:9.6,  a4:11.1, a5:11.6, b1:5.4,  a6:10.6, a7:10.5, reconhecimento:12.6, escoreTotal:46.4,  ALT:16.1 }, dp:{a1:1.4, a2:2.2, a3:2.4, a4:2.4, a5:2.3, b1:1.7, a6:2.5, a7:2.9, reconhecimento:3.1,  escoreTotal:8.6,  ALT:7.3 } },
+  idade_18_20:  { media:{a1:6.8,  a2:9.5,  a3:11.0, a4:11.8, a5:12.2, b1:6.3,  a6:11.1, a7:11.0, reconhecimento:10.0, escoreTotal:51.4,  ALT:17.3 }, dp:{a1:1.7, a2:2.2, a3:2.2, a4:2.4, a5:2.4, b1:1.8, a6:2.5, a7:2.7, reconhecimento:5.7,  escoreTotal:8.7,  ALT:7.3 } },
+  idade_21_30:  { media:{a1:6.5,  a2:8.9,  a3:10.4, a4:11.4, a5:12.2, b1:5.7,  a6:10.9, a7:10.7, reconhecimento:11.4, escoreTotal:49.3,  ALT:16.8 }, dp:{a1:1.7, a2:2.2, a3:2.4, a4:2.4, a5:2.2, b1:1.8, a6:2.6, a7:2.7, reconhecimento:4.7,  escoreTotal:8.6,  ALT:6.5 } },
+  idade_31_40:  { media:{a1:6.1,  a2:8.7,  a3:10.3, a4:11.4, a5:12.2, b1:5.3,  a6:10.8, a7:10.3, reconhecimento:11.1, escoreTotal:48.6,  ALT:17.9 }, dp:{a1:1.6, a2:2.0, a3:2.1, a4:2.1, a5:2.2, b1:1.6, a6:2.4, a7:2.4, reconhecimento:4.7,  escoreTotal:8.0,  ALT:7.0 } },
+  idade_41_50:  { media:{a1:6.0,  a2:8.5,  a3:9.8,  a4:10.7, a5:11.7, b1:4.9,  a6:9.8,  a7:9.6,  reconhecimento:9.9,  escoreTotal:46.7,  ALT:16.5 }, dp:{a1:1.6, a2:2.0, a3:2.5, a4:2.7, a5:2.6, b1:1.6, a6:2.8, a7:2.8, reconhecimento:5.6,  escoreTotal:9.6,  ALT:7.3 } },
+  idade_51_60:  { media:{a1:6.0,  a2:8.2,  a3:9.6,  a4:10.6, a5:11.3, b1:4.8,  a6:9.4,  a7:9.5,  reconhecimento:10.9, escoreTotal:45.7,  ALT:15.6 }, dp:{a1:1.9, a2:2.3, a3:2.5, a4:2.4, a5:2.3, b1:1.7, a6:3.1, a7:3.2, reconhecimento:5.2,  escoreTotal:9.7,  ALT:7.4 } },
+  idade_61_70:  { media:{a1:5.5,  a2:7.8,  a3:9.1,  a4:10.3, a5:11.3, b1:4.7,  a6:9.5,  a7:9.4,  reconhecimento:10.4, escoreTotal:44.0,  ALT:16.4 }, dp:{a1:1.6, a2:1.9, a3:2.0, a4:1.9, a5:2.0, b1:1.4, a6:2.6, a7:2.6, reconhecimento:3.8,  escoreTotal:7.6,  ALT:6.1 } },
+  idade_71_79:  { media:{a1:5.09, a2:6.96, a3:7.98, a4:9.19, a5:10.27,b1:4.05, a6:8.29, a7:8.05, reconhecimento:7.72, escoreTotal:39.48, ALT:14.04}, dp:{a1:1.46,a2:1.74,a3:1.99,a4:2.30,a5:2.16,b1:1.75,a6:2.37,a7:2.39,reconhecimento:3.99, escoreTotal:8.23, ALT:5.70} },
+  idade_80mais: { media:{a1:4.1,  a2:6.0,  a3:6.9,  a4:7.9,  a5:9.6,  b1:3.2,  a6:7.5,  a7:6.7,  reconhecimento:5.8,  escoreTotal:34.5,  ALT:13.9 }, dp:{a1:1.4, a2:1.5, a3:1.7, a4:1.6, a5:2.1, b1:1.7, a6:2.2, a7:2.0, reconhecimento:5.4,  escoreTotal:6.3,  ALT:5.5 } },
+}
+function ravltGetFaixaIdRpt(age) {
+  const a = Number(age)
+  if (a >= 6  && a <= 8)  return 'idade_6_8'
+  if (a >= 9  && a <= 11) return 'idade_9_11'
+  if (a >= 12 && a <= 14) return 'idade_12_14'
+  if (a >= 15 && a <= 17) return 'idade_15_17'
+  if (a >= 18 && a <= 20) return 'idade_18_20'
+  if (a >= 21 && a <= 30) return 'idade_21_30'
+  if (a >= 31 && a <= 40) return 'idade_31_40'
+  if (a >= 41 && a <= 50) return 'idade_41_50'
+  if (a >= 51 && a <= 60) return 'idade_51_60'
+  if (a >= 61 && a <= 70) return 'idade_61_70'
+  if (a >= 71 && a <= 79) return 'idade_71_79'
+  if (a >= 80) return 'idade_80mais'
+  return null
+}
+
 function buildRAVLTSection(td) {
   const d = td?.RAVLT
   if (!d) return ''
@@ -492,26 +523,39 @@ function buildRAVLTSection(td) {
   const g  = (k) => (d[k] != null && d[k] !== '') ? Number(d[k]) : null
   const zp = (zkey) => { const z = g(zkey); return z != null ? rptBamsZToPct(z) : null }
 
-  // Percentis a partir dos z-scores armazenados
-  const pctA7  = zp('a7_zscore')
-  const pctA6  = zp('a6_zscore')
-  const pctTot = zp('total_zscore')
-  const pctRec = zp('recognition_zscore')
-  const pctALT = zp('alt_zscore')
+  // Scores brutos pré-computados
+  const a1s = g('a1_score'), a2s = g('a2_score'), a3s = g('a3_score'), a4s = g('a4_score'), a5s = g('a5_score')
+  const b1s = g('b1_score'), a6s = g('a6_score'), a7s = g('a7_score')
+  const totalScoreVal = g('total_score') ?? (a1s!=null&&a2s!=null&&a3s!=null&&a4s!=null&&a5s!=null ? a1s+a2s+a3s+a4s+a5s : null)
+  const altScoreVal   = g('alt_score')   ?? (a1s!=null&&a5s!=null ? a5s-a1s : null)
+  const recScoreVal   = g('recognition_score')
+
+  // Norma por faixa etária — percentil calculado em tempo real
+  const faixaRpt = d.age ? ravltGetFaixaIdRpt(Number(d.age)) : null
+  const normaRpt = faixaRpt ? RAVLT_NORMAS_RPT[faixaRpt] : null
+  const pctOf = (score, normKey) => {
+    if (!normaRpt || score == null || normaRpt.dp[normKey] <= 0) return null
+    return rptBamsZToPct((score - normaRpt.media[normKey]) / normaRpt.dp[normKey])
+  }
+
+  const pctA7  = pctOf(a7s, 'a7')                    ?? zp('a7_zscore')
+  const pctA6  = pctOf(a6s, 'a6')                    ?? zp('a6_zscore')
+  const pctTot = pctOf(totalScoreVal, 'escoreTotal')  ?? zp('total_zscore')
+  const pctRec = pctOf(recScoreVal, 'reconhecimento') ?? zp('recognition_zscore')
+  const pctALT = pctOf(altScoreVal, 'ALT')            ?? zp('alt_zscore')
 
   const trialList = [
-    { label: 'A1 — Tentativa 1',                          score: g('a1_score'), pct: null },
-    { label: 'A2 — Tentativa 2',                          score: g('a2_score'), pct: null },
-    { label: 'A3 — Tentativa 3',                          score: g('a3_score'), pct: null },
-    { label: 'A4 — Tentativa 4',                          score: g('a4_score'), pct: null },
-    { label: 'A5 — Tentativa 5',                          score: g('a5_score'), pct: null },
-    { label: 'B1 — Lista Distratora',                     score: g('b1_score'), pct: null },
-    { label: 'A6 — Evocação Imediata após Interferência', score: g('a6_score'), pct: pctA6 },
-    { label: 'A7 — Evocação Tardia',                      score: g('a7_score'), pct: pctA7 },
+    { label: 'A1 — Tentativa 1',                          score: a1s, pct: pctOf(a1s, 'a1') },
+    { label: 'A2 — Tentativa 2',                          score: a2s, pct: pctOf(a2s, 'a2') },
+    { label: 'A3 — Tentativa 3',                          score: a3s, pct: pctOf(a3s, 'a3') },
+    { label: 'A4 — Tentativa 4',                          score: a4s, pct: pctOf(a4s, 'a4') },
+    { label: 'A5 — Tentativa 5',                          score: a5s, pct: pctOf(a5s, 'a5') },
+    { label: 'B1 — Lista Distratora',                     score: b1s, pct: pctOf(b1s, 'b1') },
+    { label: 'A6 — Evocação Imediata após Interferência', score: a6s, pct: pctA6 },
+    { label: 'A7 — Evocação Tardia',                      score: a7s, pct: pctA7 },
   ]
 
-  const total    = g('total_score') ?? [g('a1_score'),g('a2_score'),g('a3_score'),g('a4_score'),g('a5_score')]
-                    .reduce((s,v) => s + (v ?? 0), 0)
+  const total    = totalScoreVal ?? [a1s, a2s, a3s, a4s, a5s].reduce((s,v) => s + (v ?? 0), 0)
   const hasTotal = trialList.slice(0,5).some(t => t.score != null)
 
   const trialRows = trialList.map((t, i) => {
@@ -526,11 +570,11 @@ function buildRAVLTSection(td) {
     </tr>`
   }).join('')
 
-  const altScore    = g('alt_score')    ?? (g('a1_score')!=null && g('a5_score')!=null ? g('a5_score')-g('a1_score') : null)
+  const altScore    = altScoreVal
   const forgSpeed   = g('forgetting_speed')
   const proactive   = g('proactive_interference')
   const retroactive = g('retroactive_interference')
-  const recScore    = g('recognition_score')
+  const recScore    = recScoreVal
   const recHits     = g('recognition_hits')
   const recFalse    = g('recognition_false')
 
