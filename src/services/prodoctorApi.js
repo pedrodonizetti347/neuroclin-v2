@@ -246,14 +246,21 @@ function isDevolutiva(ag) {
  * POST /api/v1/Agenda/Listar
  */
 export async function getAgendaDay(usuarioCodigo, date) {
+  const dateStr = formatDateBR(date)
   try {
     const data = await request('/api/v1/Agenda/Listar', 'POST', {
       Usuario: { Codigo: Number(usuarioCodigo) },
-      Data: formatDateBR(date),
+      Data: dateStr,
       LocalProDoctor: { Codigo: 1 },
     })
-    return data?.payload?.diaAgendaConsulta?.agendamentos ?? []
-  } catch {
+    const ags = data?.payload?.diaAgendaConsulta?.agendamentos ?? []
+    if (ags.length > 0) {
+      console.log(`[ProDoctor Agenda] prof=${usuarioCodigo} data=${dateStr} → ${ags.length} agendamentos`)
+      console.log('[ProDoctor Agenda] Exemplo de agendamento (1º):', JSON.stringify(ags[0]))
+    }
+    return ags
+  } catch (err) {
+    console.warn(`[ProDoctor Agenda] prof=${usuarioCodigo} data=${dateStr} ERRO:`, err.message)
     return []
   }
 }
@@ -273,10 +280,12 @@ export async function getDevolutivas14Days(forceRefresh = false) {
   }
 
   const profData = await listProfessionals()
+  console.log('[ProDoctor Devolutivas] Profissionais brutos recebidos:', JSON.stringify(profData.slice(0, 2)))
   const professionals = profData.map(p => ({
     prodoctor_id: String(p.codigo ?? p.id ?? ''),
     name:         p.nome ?? p.nomeCivil ?? '',
   })).filter(p => p.prodoctor_id)
+  console.log('[ProDoctor Devolutivas] Profissionais mapeados:', professionals.map(p => `${p.name} (${p.prodoctor_id})`).join(', '))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
