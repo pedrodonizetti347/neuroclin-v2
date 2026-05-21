@@ -6,6 +6,7 @@ import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
 import { TestsDataForm } from '@/components/TestsDataForm'
+import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import { logAction } from '@/lib/auditLog'
 import { generateTextoConclusao } from '../utils/generateTextoConclusao'
 
@@ -2216,6 +2217,8 @@ export default function Reports() {
               </div>
             )}
           </div>
+
+          {patientId && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
 
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>2. TESTES APLICADOS POR</div>

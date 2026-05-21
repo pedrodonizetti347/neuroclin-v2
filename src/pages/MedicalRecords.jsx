@@ -6,6 +6,7 @@ import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { exportToDocx } from '@/utils/generateDocx'
 import AnamneseForm from '@/components/AnamneseForm'
+import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, FileText, FlaskConical, Save,
@@ -389,6 +390,8 @@ export default function MedicalRecords() {
               </div>
             </div>
           )}
+
+          <TestStatusPanel sessionTests={session?.tests} patientName={patient?.full_name} />
 
           {/* Abas */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.04)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
