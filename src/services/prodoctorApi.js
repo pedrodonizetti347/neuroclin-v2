@@ -254,10 +254,6 @@ export async function getAgendaDay(usuarioCodigo, date) {
       LocalProDoctor: { Codigo: 1 },
     })
     const ags = data?.payload?.diaAgendaConsulta?.agendamentos ?? []
-    if (ags.length > 0) {
-      console.log(`[ProDoctor Agenda] prof=${usuarioCodigo} data=${dateStr} → ${ags.length} agendamentos`)
-      console.log('[ProDoctor Agenda] Exemplo de agendamento (1º):', JSON.stringify(ags[0]))
-    }
     return ags
   } catch (err) {
     console.warn(`[ProDoctor Agenda] prof=${usuarioCodigo} data=${dateStr} ERRO:`, err.message)
@@ -269,9 +265,12 @@ let _devolutivasCache   = null
 let _devCacheTimestamp  = 0
 const DEV_CACHE_TTL_MS  = 15 * 60 * 1000 // 15 min
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
 /**
  * Busca todas as devolutivas dos próximos 14 dias para todos os profissionais.
- * Faz chamadas paralelas (14 dias × N profissionais) e filtra client-side.
+ * Processa profissionais sequencialmente (1s entre cada) para evitar rate limit.
+ * Dentro de cada profissional, os 14 dias são consultados em paralelo.
  */
 export async function getDevolutivas14Days(forceRefresh = false) {
   const now = Date.now()
@@ -280,12 +279,10 @@ export async function getDevolutivas14Days(forceRefresh = false) {
   }
 
   const profData = await listProfessionals()
-  console.log('[ProDoctor Devolutivas] Profissionais brutos recebidos:', JSON.stringify(profData.slice(0, 2)))
   const professionals = profData.map(p => ({
     prodoctor_id: String(p.codigo ?? p.id ?? ''),
     name:         p.nome ?? p.nomeCivil ?? '',
   })).filter(p => p.prodoctor_id)
-  console.log('[ProDoctor Devolutivas] Profissionais mapeados:', professionals.map(p => `${p.name} (${p.prodoctor_id})`).join(', '))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -295,28 +292,34 @@ export async function getDevolutivas14Days(forceRefresh = false) {
     return d
   })
 
-  const allPromises = professionals.flatMap(prof =>
-    days.map(async day => {
-      const ags = await getAgendaDay(prof.prodoctor_id, day)
-      return ags
-        .filter(ag => ag.paciente && isDevolutiva(ag))
-        .map(ag => ({
-          date:         new Date(day),
-          hora:         ag.hora ?? '',
-          paciente: {
-            nome:   ag.paciente.nome ?? ag.paciente.nomeCivil ?? '',
-            codigo: String(ag.paciente.codigo ?? ag.paciente.id ?? ''),
-          },
-          professional: prof,
-          raw:          ag,
-        }))
-    })
-  )
+  const all = []
 
-  const results = await Promise.all(allPromises)
-  const devolutivas = results
-    .flat()
-    .sort((a, b) => a.date - b.date || a.hora.localeCompare(b.hora))
+  for (let i = 0; i < professionals.length; i++) {
+    const prof = professionals[i]
+    // Pausa entre profissionais para não estourar o rate limit
+    if (i > 0) await sleep(1000)
+
+    const dayResults = await Promise.all(
+      days.map(async day => {
+        const ags = await getAgendaDay(prof.prodoctor_id, day)
+        return ags
+          .filter(ag => ag.paciente && isDevolutiva(ag))
+          .map(ag => ({
+            date:         new Date(day),
+            hora:         ag.hora ?? '',
+            paciente: {
+              nome:   ag.paciente.nome ?? ag.paciente.nomeCivil ?? '',
+              codigo: String(ag.paciente.codigo ?? ag.paciente.id ?? ''),
+            },
+            professional: prof,
+            raw:          ag,
+          }))
+      })
+    )
+    all.push(...dayResults.flat())
+  }
+
+  const devolutivas = all.sort((a, b) => a.date - b.date || a.hora.localeCompare(b.hora))
 
   _devolutivasCache  = devolutivas
   _devCacheTimestamp = Date.now()
