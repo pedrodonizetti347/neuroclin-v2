@@ -11,8 +11,28 @@
       "Bash(npm install *)",
       "Bash(firebase functions:log --project neuroclin-f55a5 --only prodoctorProxy)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Pedro Donizetti\\\\Desktop\\\\NEUROCLIN\\\\home\\\\claude\\\\neuroclin-v2\\\\functions\" -Force | Where-Object { !$_.PSIsContainer } | Select-Object Name, Length | Format-Table -AutoSize)",
+      "PowerShell(firebase deploy *)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\Pedro Donizetti\\\\Downloads\\\\neuroclin\\\\home\\\\claude\\\\neuroclin-v2\\\\public\")",
+      "Bash(echo \"neuroclinlaudos.com.br\")",
+      "Bash(npx gh-pages *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(ping *)",
+      "Bash(set NODE_OPTIONS=--max-old-space-size=4096)",
+      "PowerShell(npm run *)",
+      "PowerShell($env:NODE_OPTIONS = '--max-old-space-size=8192'; Set-Location \"C:\\\\Users\\\\Pedro Donizetti\\\\Downloads\\\\neuroclin\\\\home\\\\claude\\\\neuroclin-v2\"; npx vite build 2>&1 | Select-Object -Last 30)",
+      "PowerShell(Get-CimInstance *)",
+      "Bash(git ls-remote *)",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\Pedro Donizetti\\\\Downloads\\\\neuroclin\\\\home\\\\claude\\\\neuroclin-v2\"; \\(Get-Item \"dist_deploy2\\\\index.html\"\\).LastWriteTime; \\(Get-Item \"dist\\\\index.html\"\\).LastWriteTime)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Pedro Donizetti\" -Recurse -Include \"logo_neuroavaliacao.png\",\"assinatura_pedro.jpeg\",\"carimbo_neuroavaliacao.jpeg\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(git stash *)",
+      "Bash(node --max-old-space-size=512 node_modules/.bin/vite build)",
+      "Bash(set NODE_OPTIONS=--max-old-space-size=512)",
+      "Bash(git commit *)"
     ]
   }
 }

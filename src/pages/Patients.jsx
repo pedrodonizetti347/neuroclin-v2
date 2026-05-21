@@ -7,7 +7,8 @@ import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownl
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
-  education: '', phone: '', email: '', notes: '', prodoctor_id: ''
+  education: '', phone: '', email: '', address: '',
+  card_number: '', notes: '', prodoctor_id: ''
 }
 
 function Modal({ open, onClose, title, children }) {
@@ -240,6 +241,8 @@ export default function Patients() {
       education:    p.education   || '',
       phone:        p.phone       || '',
       email:        p.email       || '',
+      address:      p.address     || '',
+      card_number:  p.card_number || '',
       notes:        '',
       prodoctor_id: p.prodoctor_id || '',
     })
@@ -523,13 +526,12 @@ export default function Patients() {
           <Field label="Escolaridade">
             <select style={inputStyle} value={form.education} onChange={e => setField('education', e.target.value)}>
               <option value="">Selecionar</option>
-              <option value="analfabeto">Analfabeto</option>
-              <option value="fundamental_incompleto">Fundamental incompleto</option>
-              <option value="fundamental_completo">Fundamental completo</option>
-              <option value="medio_incompleto">Médio incompleto</option>
-              <option value="medio_completo">Médio completo</option>
-              <option value="superior_incompleto">Superior incompleto</option>
-              <option value="superior_completo">Superior completo</option>
+              <option value="1-4 anos">1–4 anos</option>
+              <option value="5-8 anos">5–8 anos</option>
+              <option value="9+ anos">9+ anos</option>
+              <option value="Ensino Fundamental">Ensino Fundamental</option>
+              <option value="Ensino Médio">Ensino Médio</option>
+              <option value="Ensino Superior">Ensino Superior</option>
               <option value="pos_graduacao">Pós-graduação</option>
             </select>
           </Field>
@@ -538,6 +540,14 @@ export default function Patients() {
           </Field>
           <Field label="E-mail">
             <input style={inputStyle} type="email" value={form.email} onChange={e => setField('email', e.target.value)} placeholder="email@exemplo.com" />
+          </Field>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <Field label="Endereço">
+              <input style={inputStyle} value={form.address || ''} onChange={e => setField('address', e.target.value)} placeholder="Rua, número, bairro, cidade..." />
+            </Field>
+          </div>
+          <Field label="Nº Carteirinha (plano de saúde)">
+            <input style={inputStyle} value={form.card_number || ''} onChange={e => setField('card_number', e.target.value)} placeholder="número da carteirinha" />
           </Field>
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label="Observações">

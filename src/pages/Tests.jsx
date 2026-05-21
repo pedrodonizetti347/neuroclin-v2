@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
+import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import { FlaskConical, CheckCircle2, Save, Camera, Lock } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
@@ -4736,6 +4737,7 @@ export default function Tests() {
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>TESTES</h1>
         <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Registro e classificação automática em tempo real</p>
