@@ -6,7 +6,7 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
-  FlaskConical, BookOpen, BarChart3,
+  FlaskConical, BookOpen, BarChart3, CalendarClock,
   LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff
 } from 'lucide-react'
 
@@ -16,6 +16,7 @@ const NAV = [
   { label: 'Laudos',          icon: FileText,         path: '/laudos' },
   { label: 'Testes',          icon: FlaskConical,     path: '/testes' },
   { label: 'Prontuário',      icon: BookOpen,         path: '/prontuario' },
+  { label: 'Devolutivas',     icon: CalendarClock,    path: '/devolutivas' },
   { label: 'Relatórios',      icon: BarChart3,        path: '/relatorios' },
 ]
 

@@ -215,6 +215,111 @@ export async function listProfessionals() {
 }
 
 /**
+ * Formata uma Date como DD/MM/YYYY (formato aceito pela API ProDoctor)
+ */
+function formatDateBR(date) {
+  const d = String(date.getDate()).padStart(2, '0')
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const y = date.getFullYear()
+  return `${d}/${m}/${y}`
+}
+
+/**
+ * Verifica se um agendamento é do tipo "Devolutiva"
+ * Tenta múltiplos campos possíveis e faz fallback para busca no JSON completo
+ */
+function isDevolutiva(ag) {
+  const tipo = (
+    ag.tipoConsulta?.nome ??
+    ag.tipo?.nome ??
+    ag.tipoAtendimento?.nome ??
+    ag.descricaoTipo ??
+    ag.descricao ??
+    ''
+  )
+  if (tipo.toLowerCase().includes('devolutiva')) return true
+  return JSON.stringify(ag).toLowerCase().includes('devolutiva')
+}
+
+/**
+ * Busca a agenda de um profissional em um dia específico.
+ * POST /api/v1/Agenda/Listar
+ */
+export async function getAgendaDay(usuarioCodigo, date) {
+  try {
+    const data = await request('/api/v1/Agenda/Listar', 'POST', {
+      Usuario: { Codigo: Number(usuarioCodigo) },
+      Data: formatDateBR(date),
+      LocalProDoctor: { Codigo: 1 },
+    })
+    return data?.payload?.diaAgendaConsulta?.agendamentos ?? []
+  } catch {
+    return []
+  }
+}
+
+let _devolutivasCache   = null
+let _devCacheTimestamp  = 0
+const DEV_CACHE_TTL_MS  = 15 * 60 * 1000 // 15 min
+
+/**
+ * Busca todas as devolutivas dos próximos 14 dias para todos os profissionais.
+ * Faz chamadas paralelas (14 dias × N profissionais) e filtra client-side.
+ */
+export async function getDevolutivas14Days(forceRefresh = false) {
+  const now = Date.now()
+  if (!forceRefresh && _devolutivasCache && (now - _devCacheTimestamp) < DEV_CACHE_TTL_MS) {
+    return _devolutivasCache
+  }
+
+  const profData = await listProfessionals()
+  const professionals = profData.map(p => ({
+    prodoctor_id: String(p.codigo ?? p.id ?? ''),
+    name:         p.nome ?? p.nomeCivil ?? '',
+  })).filter(p => p.prodoctor_id)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() + i)
+    return d
+  })
+
+  const allPromises = professionals.flatMap(prof =>
+    days.map(async day => {
+      const ags = await getAgendaDay(prof.prodoctor_id, day)
+      return ags
+        .filter(ag => ag.paciente && isDevolutiva(ag))
+        .map(ag => ({
+          date:         new Date(day),
+          hora:         ag.hora ?? '',
+          paciente: {
+            nome:   ag.paciente.nome ?? ag.paciente.nomeCivil ?? '',
+            codigo: String(ag.paciente.codigo ?? ag.paciente.id ?? ''),
+          },
+          professional: prof,
+          raw:          ag,
+        }))
+    })
+  )
+
+  const results = await Promise.all(allPromises)
+  const devolutivas = results
+    .flat()
+    .sort((a, b) => a.date - b.date || a.hora.localeCompare(b.hora))
+
+  _devolutivasCache  = devolutivas
+  _devCacheTimestamp = Date.now()
+  return devolutivas
+}
+
+export function clearDevolutivasCache() {
+  _devolutivasCache  = null
+  _devCacheTimestamp = 0
+}
+
+/**
  * Detalha um usuário/profissional pelo código ProDoctor.
  * GET /api/v1/Usuarios/Detalhar/{codigo}
  */

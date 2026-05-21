@@ -11,7 +11,8 @@ import MedicalRecords from '@/pages/MedicalRecords'
 import Analytics from '@/pages/Analytics'
 import AdminSetup from '@/pages/AdminSetup'
 import Admin      from '@/pages/Admin'
-import Settings   from '@/pages/Settings'
+import Settings    from '@/pages/Settings'
+import Devolutivas from '@/pages/Devolutivas'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } }
@@ -28,6 +29,7 @@ function AppRoutes() {
         <Route path="/testes"     element={<Tests />} />
         <Route path="/prontuario" element={<MedicalRecords />} />
         <Route path="/relatorios"    element={<Analytics />} />
+        <Route path="/devolutivas"   element={<Devolutivas />} />
         <Route path="/configuracoes" element={<Settings />} />
         <Route path="/admin"         element={<Admin />} />
         <Route path="/admin-setup"   element={<AdminSetup />} />
