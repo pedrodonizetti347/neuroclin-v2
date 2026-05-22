@@ -27,6 +27,11 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow read: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
       allow create: if request.auth != null && request.auth.uid == userId;
+      // Usuário pode atualizar apenas campos não sensíveis do próprio documento
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['last_login', 'must_change_password', 'photo_url']);
+      // Admin pode tudo
       allow update, delete: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
     }
 

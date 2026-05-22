@@ -183,10 +183,14 @@ export function AuthProvider({ children }) {
               return
             }
             const role = ADMIN_UIDS.includes(fu.uid) ? 'admin' : (data.role || 'professional')
-            if (ADMIN_UIDS.includes(fu.uid) && data.role !== 'admin') {
-              await setDoc(ref, { role: 'admin', last_login: serverTimestamp() }, { merge: true })
-            } else {
-              await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+            try {
+              if (ADMIN_UIDS.includes(fu.uid) && data.role !== 'admin') {
+                await setDoc(ref, { role: 'admin', last_login: serverTimestamp() }, { merge: true })
+              } else {
+                await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
+              }
+            } catch (updateErr) {
+              console.warn('[AuthContext] last_login não atualizado:', updateErr?.code)
             }
             const resolvedUser = { id: fu.uid, ...data, role, roleLabel: getRoleLabel(role) }
             setUser(resolvedUser)
