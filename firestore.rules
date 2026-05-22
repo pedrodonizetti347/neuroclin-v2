@@ -51,9 +51,10 @@ service cloud.firestore {
       allow read, write: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
     }
 
-    // Anamneses clínicas — qualquer autenticado lê e escreve
+    // Anamneses clínicas — profissional escreve apenas se for dono do paciente
     match /anamneses/{patientId} {
-      allow read, write: if isAuth();
+      allow read: if isAuth();
+      allow write: if isAdminOrSupervisor() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
     }
 
     // Configurações da clínica — apenas admin/supervisor

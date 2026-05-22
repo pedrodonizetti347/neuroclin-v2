@@ -15,26 +15,16 @@ export function usePatients() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
-
   const load = async () => {
     if (!user) return
     setLoading(true)
     try {
-      // Admin/supervisor vê todos; profissional só vê os seus
       const base = collection(db, 'patients')
-      const q = isAdmin
-        ? query(base, orderBy('createdAt', 'desc'))
-        : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
-      const snap = await getDocs(q)
+      const snap = await getDocs(query(base, orderBy('createdAt', 'desc')))
       setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       try {
-        const base = collection(db, 'patients')
-        const q = isAdmin
-          ? base
-          : query(base, where('createdBy', '==', user.id))
-        const snap = await getDocs(q)
+        const snap = await getDocs(collection(db, 'patients'))
         setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))
       } catch (e2) { setError(e2.message) }
     } finally {

@@ -4714,6 +4714,13 @@ export default function Tests() {
       .catch(() => getDocs(base).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
   }, [user])
 
+  const activeConf     = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
+  const patient        = patients.find(p => p.id === patientId)
+  const isProfessional = user?.role === 'professional'
+  const isLocked       = session.getTest(activeKey)?.status === 'concluido'
+  const formBlocked    = isLocked || isProfessional
+  const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
+
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
   useEffect(() => {
     if (patientId) session.flushBackup()
@@ -4757,11 +4764,6 @@ export default function Tests() {
   useEffect(() => {
     return () => { sessionRef.current?.flushSave() }
   }, [])
-
-  const activeConf = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
-  const patient    = patients.find(p => p.id === patientId)
-  const isLocked   = session.getTest(activeKey)?.status === 'concluido'
-  const canReopen  = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   const handleChange = (key, data) => {
     const hasClassification = !!(data.classification && data.classification.trim())
@@ -4872,6 +4874,13 @@ export default function Tests() {
                   </span>
                 )}
               </div>
+              {/* Banner somente leitura — profissional */}
+              {isProfessional && (
+                <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Lock size={14} color={S.blue} />
+                  <span style={{ fontSize: 12, color: S.blue, fontWeight: 600 }}>Somente leitura — visualização sem edição.</span>
+                </div>
+              )}
               {/* Banner de bloqueio */}
               {isLocked && (
                 <div style={{
@@ -4916,16 +4925,16 @@ export default function Tests() {
                 </div>
               )}
 
-              {/* Formulário com overlay de bloqueio quando concluído */}
+              {/* Formulário com overlay de bloqueio quando concluído ou somente leitura */}
               <div style={{ position: 'relative' }}>
-                <div style={{ opacity: isLocked ? 0.7 : 1 }}>
+                <div style={{ opacity: formBlocked ? 0.7 : 1 }}>
                   <activeConf.Form
                     data={session.getTest(activeKey)}
                     onChange={(data) => handleChange(activeKey, data)}
                     onSave={() => session.flushSave()}
                   />
                 </div>
-                {isLocked && (
+                {formBlocked && (
                   <div style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,

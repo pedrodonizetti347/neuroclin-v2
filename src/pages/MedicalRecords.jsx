@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, FileText, FlaskConical, Save,
   ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus,
-  Trash2, X, Eye, EyeOff, AlertTriangle, Printer, FileDown,
+  Trash2, X, Eye, EyeOff, AlertTriangle, Printer, FileDown, Lock,
 } from 'lucide-react'
 
 const S = {
@@ -273,6 +273,7 @@ export default function MedicalRecords() {
 
   const isSupervisor    = user?.role === 'admin' || user?.role === 'supervisor'
   const isAdmin         = user?.role === 'admin'
+  const isProfessional  = user?.role === 'professional'
   const canDeleteReport = user?.uid === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   const handleDeleteReport = async () => {
@@ -310,8 +311,8 @@ export default function MedicalRecords() {
     Promise.all([
       // Busca todas as sessões deste paciente
       getDocs(collection(db, 'sessions')),
-      // Busca todos os laudos
-      getDocs(collection(db, 'reports')),
+      // Laudos: profissional não tem acesso à coleção completa
+      isProfessional ? Promise.resolve({ docs: [] }) : getDocs(collection(db, 'reports')),
     ]).then(([sessSnap, repSnap]) => {
       const patSessions = sessSnap.docs
         .filter(d => d.id.startsWith(patientId + '_'))
@@ -338,6 +339,7 @@ export default function MedicalRecords() {
   const age = patient?.birth_date
     ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
     : null
+  const canEditAnamnese = !isProfessional || patient?.createdBy === user?.id || patient?.assignedTo === user?.id
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -400,7 +402,8 @@ export default function MedicalRecords() {
               { key: 'testes', label: 'Testes Aplicados', icon: FlaskConical },
               { key: 'laudos', label: 'Laudos', icon: FileText },
               { key: 'notas', label: 'Notas clínicas', icon: BookOpen },
-            ].map(({ key, label, icon: Icon }) => (
+            ].filter(t => !isProfessional || ['anamnese', 'testes'].includes(t.key))
+            .map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setTab(key)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px',
                 borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
@@ -422,20 +425,33 @@ export default function MedicalRecords() {
               <>
                 {tab === 'anamnese' && (
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-                      <button
-                        onClick={() => navigate(`/testes?paciente=${patientId}`)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 7,
-                          padding: '8px 18px', borderRadius: 8, border: 'none',
-                          background: S.green, color: '#fff',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        }}
-                      >
-                        <FlaskConical size={14} /> Ir para Testes →
-                      </button>
+                    {!isProfessional && (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                        <button
+                          onClick={() => navigate(`/testes?paciente=${patientId}`)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 7,
+                            padding: '8px 18px', borderRadius: 8, border: 'none',
+                            background: S.green, color: '#fff',
+                            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          <FlaskConical size={14} /> Ir para Testes →
+                        </button>
+                      </div>
+                    )}
+                    {isProfessional && !canEditAnamnese && (
+                      <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Lock size={14} color={S.blue} />
+                        <span style={{ fontSize: 12, color: S.blue, fontWeight: 600 }}>Você pode visualizar mas não editar a anamnese deste paciente.</span>
+                      </div>
+                    )}
+                    <div style={{ position: 'relative' }}>
+                      <AnamneseForm patientId={patientId} />
+                      {isProfessional && !canEditAnamnese && (
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', cursor: 'not-allowed', zIndex: 10 }} />
+                      )}
                     </div>
-                    <AnamneseForm patientId={patientId} />
                   </>
                 )}
 
