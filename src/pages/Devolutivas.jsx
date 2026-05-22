@@ -303,20 +303,20 @@ export default function Devolutivas() {
             <div style={{ width: 1, background: S.border }} />
             <div style={{ textAlign: 'center' }} title="Estagiário precisa lançar os testes">
               <div style={{ fontSize: 20, fontWeight: 700, color: S.amber }}>{totalCorrecao}</div>
-              <div style={{ fontSize: 10, color: S.amber, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ag. Correção</div>
+              <div style={{ fontSize: 10, color: S.amber, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Corrigir Testes</div>
             </div>
             <div style={{ textAlign: 'center' }} title="Neuropsicólogo precisa preencher a anamnese">
               <div style={{ fontSize: 20, fontWeight: 700, color: '#60A5FA' }}>{totalAnamnese}</div>
-              <div style={{ fontSize: 10, color: '#60A5FA', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ag. Anamnese</div>
+              <div style={{ fontSize: 10, color: '#60A5FA', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Preencher Anamnese</div>
             </div>
             <div style={{ textAlign: 'center' }} title="Devolutiva pode acontecer">
               <div style={{ fontSize: 20, fontWeight: 700, color: S.greenL }}>{totalPronto}</div>
-              <div style={{ fontSize: 10, color: S.greenL, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Prontos</div>
+              <div style={{ fontSize: 10, color: S.greenL, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Prontos p/ Devolutiva</div>
             </div>
             {totalSemVincul > 0 && (
               <div style={{ textAlign: 'center' }} title="Não cadastrado no NeuroClin">
                 <div style={{ fontSize: 20, fontWeight: 700, color: S.muted }}>{totalSemVincul}</div>
-                <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Não vinc.</div>
+                <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Não Cadastrados</div>
               </div>
             )}
           </div>
