@@ -4882,13 +4882,24 @@ export default function Tests() {
                 </div>
               )}
 
-              {/* Formulário — bloqueado por pointer-events quando concluído */}
-              <div style={{ pointerEvents: isLocked ? 'none' : 'auto', opacity: isLocked ? 0.7 : 1 }}>
-                <activeConf.Form
-                  data={session.getTest(activeKey)}
-                  onChange={(data) => handleChange(activeKey, data)}
-                  onSave={() => session.flushSave()}
-                />
+              {/* Formulário com overlay de bloqueio quando concluído */}
+              <div style={{ position: 'relative' }}>
+                <div style={{ opacity: isLocked ? 0.7 : 1 }}>
+                  <activeConf.Form
+                    data={session.getTest(activeKey)}
+                    onChange={(data) => handleChange(activeKey, data)}
+                    onSave={() => session.flushSave()}
+                  />
+                </div>
+                {isLocked && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'transparent',
+                    cursor: 'not-allowed',
+                    zIndex: 10,
+                  }} />
+                )}
               </div>
               {isTestFilled(session.getTest(activeKey)) ? (
                 <TestScanUpload
