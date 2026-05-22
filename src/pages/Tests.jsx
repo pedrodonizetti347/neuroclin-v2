@@ -4719,6 +4719,40 @@ export default function Tests() {
     if (patientId) session.flushBackup()
   }, [patientId])
 
+  // Pré-preenche campos demográficos ao abrir um teste (só preenche campos ainda vazios)
+  useEffect(() => {
+    if (!activeKey || !patient || !session.sessionLoaded) return
+    const cur = sessionRef.current.getTest(activeKey)
+
+    const birthDate = patient.birth_date || ''
+    const birthYear = birthDate ? new Date(birthDate + 'T00:00:00').getFullYear() : null
+    const age       = birthYear ? new Date().getFullYear() - birthYear : null
+    const edu       = patient.education || ''
+
+    const prefill = {}
+    if (!cur.age && age)              prefill.age = age
+    if (!cur.sex && patient.sex)      prefill.sex = patient.sex
+    if (!cur.birth_date && birthDate) prefill.birth_date = birthDate
+
+    if (edu) {
+      if (activeKey === 'NEUPSILIN') {
+        if (!cur.education_years)
+          prefill.education_years = edu === 'Ensino Fundamental' ? '5-8' : '9+'
+      } else if (activeKey === 'WCST') {
+        if (!cur.education)
+          prefill.education = edu === 'Ensino Fundamental' ? 'baixa' : 'alta'
+      } else if (activeKey === 'WCST-N') {
+        if (!cur.education_level) prefill.education_level = edu
+      } else {
+        if (!cur.education) prefill.education = edu
+      }
+    }
+
+    if (Object.keys(prefill).length > 0) {
+      sessionRef.current.updateTest(activeKey, prefill)
+    }
+  }, [activeKey, patient?.id, session.sessionLoaded])
+
   // Salva imediatamente ao desmontar a página — sessionRef evita stale closure
   useEffect(() => {
     return () => { sessionRef.current?.flushSave() }

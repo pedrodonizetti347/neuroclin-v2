@@ -167,6 +167,7 @@ function DevolutivaRow({ item }) {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const isAdminOrSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
   const [loading,       setLoading]       = useState(true)
   const [devolvLoading, setDevolvLoading] = useState(true)
   const [devolvError,   setDevolvError]   = useState('')
@@ -178,16 +179,19 @@ export default function Dashboard() {
 
     async function loadAll() {
       try {
-        // Fase 1: Firestore (rápido)
-        const [patientsSnap, reportsSnap, sessionsSnap] = await Promise.all([
-          getDocs(collection(db, 'patients')),
-          getDocs(collection(db, 'reports')),
-          getDocs(collection(db, 'sessions')),
-        ])
-
+        // Fase 1: pacientes — disponível para todos os autenticados
+        const patientsSnap = await getDocs(collection(db, 'patients'))
         const patientsData = patientsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         setPatients(patientsData)
         setLoading(false)
+
+        // Fase 2: ProDoctor + dados complementares — apenas admin/supervisor
+        if (!isAdminOrSupervisor) return
+
+        const [reportsSnap, sessionsSnap] = await Promise.all([
+          getDocs(collection(db, 'reports')),
+          getDocs(collection(db, 'sessions')),
+        ])
 
         const pdMap = {}
         patientsData.forEach(p => { if (p.prodoctor_id) pdMap[p.prodoctor_id] = p })
@@ -215,7 +219,6 @@ export default function Dashboard() {
           if (hasAnamnesis) sessionsStatusMap[pid].hasAnamnesis = true
         })
 
-        // Fase 2: ProDoctor (usa cache 15 min se visitou Devolutivas recentemente)
         const devs = await getDevolutivas14Days()
 
         const enriched = devs.map(dv => {
@@ -262,8 +265,8 @@ export default function Dashboard() {
   const nextDevs = [...enrichedDevs].sort((a, b) => a.date - b.date).slice(0, 8)
 
   const QUICK_ACTIONS = [
-    { label: 'NOVO PACIENTE',  sub: 'Cadastrar registro',    path: '/pacientes',  icon: Users,        color: S.greenL,  bg: 'rgba(46,125,50,0.15)' },
-    { label: 'GERAR LAUDO',    sub: 'Relatório clínico',     path: '/laudos',     icon: FileText,     color: S.blue,    bg: 'rgba(96,165,250,0.1)'  },
+    { label: 'NOVO PACIENTE',  sub: 'Cadastrar registro',    path: '/pacientes',  icon: Users,        color: S.greenL,  bg: 'rgba(46,125,50,0.15)', adminOnly: true },
+    { label: 'GERAR LAUDO',    sub: 'Relatório clínico',     path: '/laudos',     icon: FileText,     color: S.blue,    bg: 'rgba(96,165,250,0.1)',  adminOnly: true },
     { label: 'APLICAR TESTE',  sub: 'Iniciar avaliação',     path: '/testes',     icon: FlaskConical, color: S.amber,   bg: 'rgba(245,158,11,0.1)'  },
     { label: 'PRONTUÁRIOS',    sub: 'Histórico do paciente', path: '/prontuario', icon: Clock,        color: '#C084FC', bg: 'rgba(192,132,252,0.1)' },
   ]
@@ -279,6 +282,7 @@ export default function Dashboard() {
         <p style={{ fontSize: 12, color: S.muted, marginTop: 4, textTransform: 'capitalize' }}>{dateLbl}</p>
       </div>
 
+      {isAdminOrSupervisor && (<>
       {/* ── Painel: Ações Necessárias ─────────────────────────────────── */}
       <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, marginBottom: 14, overflow: 'hidden' }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -351,6 +355,7 @@ export default function Dashboard() {
           nextDevs.map((item, i) => <DevolutivaRow key={i} item={item} />)
         )}
       </div>
+      </>)}
 
       {/* ── Pacientes recentes + Atalhos rápidos ─────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
@@ -370,7 +375,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {QUICK_ACTIONS.map(({ label, sub, path, icon: Icon, color, bg }) => (
+          {QUICK_ACTIONS.filter(a => !a.adminOnly || isAdminOrSupervisor).map(({ label, sub, path, icon: Icon, color, bg }) => (
             <Link key={path} to={path}>
               <div style={{
                 background: S.card, borderRadius: 10, border: `1px solid ${S.border}`,
