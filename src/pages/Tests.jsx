@@ -1157,7 +1157,7 @@ const GDS15_ITEMS = [
   { key: 'q11', label: 'Você acha que é bom estar vivo agora?',                                   depKey: 'Não' },
   { key: 'q12', label: 'Você se sente inútil da maneira que se encontra?',                        depKey: 'Sim' },
   { key: 'q13', label: 'Você se sente cheio de energia?',                                         depKey: 'Não' },
-  { key: 'q14', label: 'Você se sente sem esperança?',                                            depKey: 'Sim' },
+  { key: 'q14', label: 'Você sente que a sua situação tem solução?',                              depKey: 'Não' },
   { key: 'q15', label: 'Você acha que a maioria das pessoas está em melhor situação que você?',   depKey: 'Sim' },
 ]
 
