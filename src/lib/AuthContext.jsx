@@ -8,6 +8,16 @@ import { Brain, Eye, EyeOff } from 'lucide-react'
 const AuthContext = createContext(null)
 const ADMIN_UIDS  = ['i5nwg569WabTUk69wzCWV5PRw9E3']
 
+export const ROLE_LABELS = {
+  admin:        'Administrador',
+  supervisor:   'Supervisor',
+  estagiario:   'Estagiário',
+  professional: 'Profissional',
+}
+export function getRoleLabel(role) {
+  return ROLE_LABELS[role] || role || 'Profissional'
+}
+
 const inputStyle = {
   width: '100%', padding: '11px 14px', borderRadius: 8, fontSize: 13,
   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
@@ -178,7 +188,7 @@ export function AuthProvider({ children }) {
             } else {
               await setDoc(ref, { last_login: serverTimestamp() }, { merge: true })
             }
-            const resolvedUser = { id: fu.uid, ...data, role }
+            const resolvedUser = { id: fu.uid, ...data, role, roleLabel: getRoleLabel(role) }
             setUser(resolvedUser)
             if (sessionStorage.getItem('neuroclin_login_pending')) {
               sessionStorage.removeItem('neuroclin_login_pending')
@@ -196,11 +206,12 @@ export function AuthProvider({ children }) {
               last_login: serverTimestamp(),
             }
             await setDoc(ref, profile)
-            setUser({ id: fu.uid, ...profile })
+            setUser({ id: fu.uid, ...profile, roleLabel: getRoleLabel(profile.role) })
           }
         } catch (err) {
           console.error('[AuthContext] erro ao carregar perfil:', err)
-          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional' })
+          const fallbackRole = ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional'
+          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: fallbackRole, roleLabel: getRoleLabel(fallbackRole) })
         }
       } else {
         setUser(null)

@@ -318,7 +318,7 @@ export default function Layout({ children }) {
                   {user?.full_name || 'Profissional'}
                 </div>
                 <div style={{ fontSize: 10, color: S.muted }}>
-                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : user?.role === 'estagiario' ? 'Estagiário' : 'Profissional'}
+                  {user?.roleLabel || 'Profissional'}
                 </div>
               </div>
             </div>

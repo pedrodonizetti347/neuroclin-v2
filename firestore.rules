@@ -22,13 +22,12 @@ service cloud.firestore {
       return isAuth() && userRole() == 'estagiario';
     }
 
-    // Perfis de usuário
+    // Perfis de usuário — leitura simples sem get() circular
     match /users/{userId} {
-      allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
-      allow create: if isAuth() && request.auth.uid == userId
-                    && request.resource.data.role == 'professional'
-                    && request.resource.data.active == true;
-      allow update, delete: if isAdminOrSupervisor();
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
     }
 
     // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza e deleta
