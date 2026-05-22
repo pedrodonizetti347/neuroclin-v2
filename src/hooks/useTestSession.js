@@ -4,6 +4,11 @@ import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'fireb
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 
+// Verifica se um valor é "real" (não zero, não nulo, não vazio)
+function isReal(v) {
+  return v !== null && v !== undefined && v !== 0 && v !== ''
+}
+
 export function useTestSession(patientId) {
   const { user } = useAuth()
   const userId = user?.id
@@ -17,18 +22,35 @@ export function useTestSession(patientId) {
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
   const [sessionLoaded, setSessionLoaded] = useState(false)
-  const saveTimer = useRef(null)
-  const pendingSave = useRef(null)
+  const saveTimer    = useRef(null)
+  const pendingSave  = useRef(null)
+  // Snapshot do que foi carregado do Firestore — usado para proteger valores reais
+  const loadedTestsRef = useRef({})
 
-  // ─── Salva com retry automático (até 3 tentativas, 1s entre elas) ──────────
+  // ─── Salva com retry automático + proteção anti-zeragem ──────────────────
   const saveTestToFirestore = useCallback(async (testName, data) => {
     if (!patientId || !userId) return
     setSaving(true)
     const ref = doc(db, 'sessions', patientId)
+
+    // Proteção: nunca sobrescrever campo com valor real por zero/nulo/vazio
+    const loaded = loadedTestsRef.current[testName] || {}
+    const safeData = {}
+    for (const [k, v] of Object.entries(data)) {
+      if (k.startsWith('_')) { safeData[k] = v; continue }  // metadados: sempre passa
+      const loadedIsReal = isReal(loaded[k])
+      const newIsReal    = isReal(v)
+      if (loadedIsReal && !newIsReal) continue  // protege valor real de ser zerado
+      safeData[k] = v
+    }
+
+    // Atualiza o snapshot com os valores que serão salvos
+    loadedTestsRef.current[testName] = { ...loaded, ...safeData }
+
     const payload = {
       patientId,
       lastUpdatedBy: userId,
-      tests: { [testName]: { ...data, _savedAt: serverTimestamp(), _savedBy: userId } },
+      tests: { [testName]: { ...safeData, _savedAt: serverTimestamp(), _savedBy: userId } },
       updatedAt: serverTimestamp(),
     }
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -105,6 +127,8 @@ export function useTestSession(patientId) {
   // ─── Carrega sessão + migração legacy + flush do backup localStorage ───────
   const loadSession = useCallback(async () => {
     if (!patientId || !userId) return
+    // Reseta snapshot ao trocar de paciente
+    loadedTestsRef.current = {}
     try {
       const ref = doc(db, 'sessions', patientId)
       const snap = await getDoc(ref)
@@ -170,6 +194,9 @@ export function useTestSession(patientId) {
           backupKeys.forEach(bk => localStorage.removeItem(bk))
         } catch {}
       }
+
+      // Registra snapshot do que foi carregado (base para proteção anti-zeragem)
+      loadedTestsRef.current = { ...baseTests }
 
       setSession(prev => ({
         ...prev,
