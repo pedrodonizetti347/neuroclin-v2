@@ -9,13 +9,14 @@
 // - Ao recarregar a sessão, todos os testes voltam exatamente como foram salvos
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 
 export function useTestSession(patientId) {
   const { user } = useAuth()
+  const userId = user?.id  // primitivo estável — evita recriar callbacks quando user object muda
 
   // Estado central: { RAVLT: {...}, NEUPSILIN: {...}, GDS15: {...}, ... }
   const [session, setSession] = useState({
@@ -26,6 +27,7 @@ export function useTestSession(patientId) {
   })
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
+  const [sessionLoaded, setSessionLoaded] = useState(false)
   const saveTimer = useRef(null)
   const pendingSave = useRef(null) // { testName, data } — para flushSave
 
@@ -65,13 +67,13 @@ export function useTestSession(patientId) {
 
   // ─── Salva NO Firestore com merge:true (chave do anti-reset) ─────────────
   const saveTestToFirestore = useCallback(async (testName, data) => {
-    if (!patientId || !user) return
+    if (!patientId || !userId) return
     setSaving(true)
     try {
-      const ref = doc(db, 'sessions', `${patientId}_${user.id}`)
+      const ref = doc(db, 'sessions', `${patientId}_${userId}`)
       await setDoc(ref, {
         patientId,
-        professionalId: user.id,
+        professionalId: userId,
         tests: { [testName]: { ...data, _savedAt: serverTimestamp() } },
         updatedAt: serverTimestamp(),
       }, { merge: true })  // ← merge:true = não apaga os outros testes
@@ -81,12 +83,12 @@ export function useTestSession(patientId) {
     } finally {
       setSaving(false)
     }
-  }, [patientId, user])
+  }, [patientId, userId])
 
   const saveAnamnesisToFirestore = useCallback(async (data) => {
-    if (!patientId || !user) return
+    if (!patientId || !userId) return
     try {
-      const ref = doc(db, 'sessions', `${patientId}_${user.id}`)
+      const ref = doc(db, 'sessions', `${patientId}_${userId}`)
       await setDoc(ref, {
         patientId,
         anamnesis: data,
@@ -95,13 +97,13 @@ export function useTestSession(patientId) {
     } catch (e) {
       console.error('[useTestSession] Erro ao salvar anamnese:', e)
     }
-  }, [patientId, user])
+  }, [patientId, userId])
 
   // ─── Carrega sessão existente do Firestore ────────────────────────────────
   const loadSession = useCallback(async () => {
-    if (!patientId || !user) return
+    if (!patientId || !userId) return
     try {
-      const ref  = doc(db, 'sessions', `${patientId}_${user.id}`)
+      const ref  = doc(db, 'sessions', `${patientId}_${userId}`)
       const snap = await getDoc(ref)
       if (snap.exists()) {
         const data = snap.data()
@@ -112,9 +114,22 @@ export function useTestSession(patientId) {
         }))
       }
     } catch (e) {
-      console.error('[useTestSession] Erro ao carregar sessão:', e)
+      // PERMISSION_DENIED em doc inexistente é esperado para pacientes novos
+      if (e?.code !== 'permission-denied') {
+        console.error('[useTestSession] Erro ao carregar sessão:', e)
+      }
     }
-  }, [patientId, user])
+  }, [patientId, userId])
+
+  // ─── Disparo automático: carrega sempre que paciente ou usuário mudam ─────
+  useEffect(() => {
+    if (!patientId || !userId) {
+      setSessionLoaded(true)  // sem paciente = nada a carregar
+      return
+    }
+    setSessionLoaded(false)
+    loadSession().finally(() => setSessionLoaded(true))
+  }, [loadSession])
 
   // ─── Salva imediatamente (sem esperar debounce) ───────────────────────────
   const flushSave = useCallback(async () => {
@@ -154,6 +169,7 @@ export function useTestSession(patientId) {
     session,
     saving,
     lastSaved,
+    sessionLoaded,
     updateTest,
     updateAnamnesis,
     loadSession,

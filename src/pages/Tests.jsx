@@ -4712,9 +4712,7 @@ export default function Tests() {
       .catch(() => getDocs(base).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
   }, [user])
 
-  useEffect(() => {
-    if (patientId) session.loadSession()
-  }, [patientId])
+  // loadSession agora é disparado automaticamente pelo useTestSession
 
   // Salva imediatamente ao desmontar a página (ex: navegar para Reports)
   useEffect(() => {
@@ -4810,6 +4808,12 @@ export default function Tests() {
             <div style={{ textAlign: 'center', padding: 40, color: S.muted }}>
               <FlaskConical size={32} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
               <p style={{ fontSize: 13, fontWeight: 600 }}>Selecione um paciente para começar</p>
+            </div>
+          ) : !session.sessionLoaded ? (
+            <div style={{ textAlign: 'center', padding: 40, color: S.muted }}>
+              <div style={{ width: 28, height: 28, border: `3px solid rgba(46,125,50,0.3)`, borderTopColor: S.greenL, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: 12 }}>Carregando dados do paciente...</p>
+              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             </div>
           ) : activeConf ? (
             <>
