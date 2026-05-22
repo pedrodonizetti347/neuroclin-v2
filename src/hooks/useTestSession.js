@@ -1,14 +1,4 @@
 // hooks/useTestSession.js
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SOLUÇÃO para o problema de "mexeu num prompt, zerou outro"
-//
-// Como funciona:
-// - Cada teste tem seu próprio "slice" isolado no estado
-// - updateTest('RAVLT', dados) → atualiza SÓ o RAVLT, preserva todo o resto
-// - Firestore salva com merge:true → campos ausentes NÃO são apagados
-// - Ao recarregar a sessão, todos os testes voltam exatamente como foram salvos
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -16,73 +6,44 @@ import { useAuth } from '@/lib/AuthContext'
 
 export function useTestSession(patientId) {
   const { user } = useAuth()
-  const userId = user?.id  // primitivo estável — evita recriar callbacks quando user object muda
+  const userId = user?.id
 
-  // Estado central: { RAVLT: {...}, NEUPSILIN: {...}, GDS15: {...}, ... }
   const [session, setSession] = useState({
     patientId,
     anamnesis: {},
-    tests: {},       // ← cada teste tem seu próprio espaço aqui
+    tests: {},
     metadata: {},
   })
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
   const [sessionLoaded, setSessionLoaded] = useState(false)
   const saveTimer = useRef(null)
-  const pendingSave = useRef(null) // { testName, data } — para flushSave
+  const pendingSave = useRef(null)
 
-  // ─── Atualiza UM teste sem tocar nos outros ───────────────────────────────
-  const updateTest = useCallback((testName, data) => {
-    setSession(prev => ({
-      ...prev,
-      tests: {
-        ...prev.tests,          // ← preserva TODOS os outros testes
-        [testName]: {
-          ...prev.tests[testName],  // ← preserva campos anteriores do mesmo teste
-          ...data,                  // ← só atualiza o que mudou
-        }
-      }
-    }))
-
-    // Armazena save pendente e agenda debounce de 2s
-    pendingSave.current = { testName, data }
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      saveTestToFirestore(testName, data)
-      pendingSave.current = null
-    }, 2000)
-  }, [patientId])
-
-  // ─── Atualiza anamnese sem tocar nos testes ───────────────────────────────
-  const updateAnamnesis = useCallback((data) => {
-    setSession(prev => ({
-      ...prev,
-      anamnesis: { ...prev.anamnesis, ...data }  // merge, nunca sobrescreve
-    }))
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      saveAnamnesisToFirestore(data)
-    }, 2000)
-  }, [patientId])
-
-  // ─── Salva NO Firestore com merge:true (chave do anti-reset) ─────────────
+  // ─── Salva com retry automático (até 3 tentativas, 1s entre elas) ──────────
   const saveTestToFirestore = useCallback(async (testName, data) => {
     if (!patientId || !userId) return
     setSaving(true)
-    try {
-      const ref = doc(db, 'sessions', patientId)
-      await setDoc(ref, {
-        patientId,
-        lastUpdatedBy: userId,
-        tests: { [testName]: { ...data, _savedAt: serverTimestamp(), _savedBy: userId } },
-        updatedAt: serverTimestamp(),
-      }, { merge: true })  // ← merge:true = não apaga os outros testes
-      setLastSaved(new Date())
-    } catch (e) {
-      console.error('[useTestSession] Erro ao salvar:', e)
-    } finally {
-      setSaving(false)
+    const ref = doc(db, 'sessions', patientId)
+    const payload = {
+      patientId,
+      lastUpdatedBy: userId,
+      tests: { [testName]: { ...data, _savedAt: serverTimestamp(), _savedBy: userId } },
+      updatedAt: serverTimestamp(),
     }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await setDoc(ref, payload, { merge: true })
+        setLastSaved(new Date())
+        localStorage.removeItem(`neuroclin_backup_${patientId}_${testName}`)
+        setSaving(false)
+        return
+      } catch (e) {
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000))
+        else console.error('[useTestSession] Falha ao salvar após 3 tentativas:', e)
+      }
+    }
+    setSaving(false)
   }, [patientId, userId])
 
   const saveAnamnesisToFirestore = useCallback(async (data) => {
@@ -100,65 +61,137 @@ export function useTestSession(patientId) {
     }
   }, [patientId, userId])
 
-  // ─── Carrega sessão existente do Firestore (com migração de chave legada) ──
+  // ─── Atualiza teste: backup localStorage imediato + debounce 800ms ─────────
+  const updateTest = useCallback((testName, data) => {
+    setSession(prev => ({
+      ...prev,
+      tests: {
+        ...prev.tests,
+        [testName]: {
+          ...prev.tests[testName],
+          ...data,
+        }
+      }
+    }))
+
+    // Backup local imediato — garante dado mesmo se aba fechar antes do save
+    if (patientId) {
+      localStorage.setItem(
+        `neuroclin_backup_${patientId}_${testName}`,
+        JSON.stringify({ data, timestamp: Date.now() })
+      )
+    }
+
+    pendingSave.current = { testName, data }
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveTestToFirestore(testName, data)
+      pendingSave.current = null
+    }, 800)
+  }, [patientId])
+
+  // ─── Atualiza anamnese sem tocar nos testes ───────────────────────────────
+  const updateAnamnesis = useCallback((data) => {
+    setSession(prev => ({
+      ...prev,
+      anamnesis: { ...prev.anamnesis, ...data }
+    }))
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveAnamnesisToFirestore(data)
+    }, 800)
+  }, [patientId])
+
+  // ─── Carrega sessão + migração legacy + flush do backup localStorage ───────
   const loadSession = useCallback(async () => {
     if (!patientId || !userId) return
     try {
-      // 1. Tenta chave nova: sessions/{patientId}
-      const ref  = doc(db, 'sessions', patientId)
+      const ref = doc(db, 'sessions', patientId)
       const snap = await getDoc(ref)
-      if (snap.exists()) {
+
+      let baseTests = {}
+      let baseAnamnesis = {}
+
+      if (snap.exists() && snap.data()?._migratedAt) {
+        // Já migrado com sucesso — carrega diretamente
         const data = snap.data()
-        setSession(prev => ({
-          ...prev,
-          anamnesis: data.anamnesis || {},
-          tests:     data.tests     || {},
-        }))
-        return
+        baseTests = data.tests || {}
+        baseAnamnesis = data.anamnesis || {}
+      } else {
+        // Doc sem _migratedAt (ou inexistente): captura base e faz migração completa
+        if (snap.exists()) {
+          baseTests = snap.data().tests || {}
+          baseAnamnesis = snap.data().anamnesis || {}
+        }
+
+        // Busca docs legados sessions/{patientId}_{userId}
+        const colSnap = await getDocs(collection(db, 'sessions'))
+        const legacy = colSnap.docs.filter(d => d.id.startsWith(`${patientId}_`))
+        let legacyTests = {}
+        let legacyAnamnesis = {}
+        for (const d of legacy) {
+          const dd = d.data()
+          legacyTests = { ...legacyTests, ...(dd.tests || {}) }
+          legacyAnamnesis = { ...legacyAnamnesis, ...(dd.anamnesis || {}) }
+        }
+        // Legacy preenche lacunas; dados do doc novo têm prioridade
+        baseTests = { ...legacyTests, ...baseTests }
+        baseAnamnesis = { ...legacyAnamnesis, ...baseAnamnesis }
+
+        await setDoc(ref, {
+          patientId,
+          lastUpdatedBy: userId,
+          anamnesis: baseAnamnesis,
+          tests: baseTests,
+          updatedAt: serverTimestamp(),
+          _migratedAt: serverTimestamp(),
+        }, { merge: true })
       }
 
-      // 2. Migração: busca docs legados sessions/{patientId}_{userId}
-      const colSnap = await getDocs(collection(db, 'sessions'))
-      const legacy  = colSnap.docs.filter(d => d.id.startsWith(`${patientId}_`))
-      if (legacy.length === 0) return
-
-      let mergedTests    = {}
-      let mergedAnamnesis = {}
-      for (const d of legacy) {
-        const dd = d.data()
-        mergedTests     = { ...mergedTests,     ...(dd.tests     || {}) }
-        mergedAnamnesis = { ...mergedAnamnesis, ...(dd.anamnesis || {}) }
+      // Verifica localStorage backup (dados não salvos antes de fechar a aba)
+      const prefix = `neuroclin_backup_${patientId}_`
+      const backupKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix))
+      const backupTests = {}
+      for (const bk of backupKeys) {
+        const testName = bk.replace(prefix, '')
+        try {
+          const backup = JSON.parse(localStorage.getItem(bk) || '')
+          if (backup?.data) {
+            baseTests[testName] = backup.data
+            backupTests[testName] = { ...backup.data, _savedAt: serverTimestamp(), _savedBy: userId }
+          }
+        } catch {}
       }
-      // Salva sob a nova chave para evitar migração futura
-      await setDoc(ref, {
-        patientId,
-        lastUpdatedBy: userId,
-        anamnesis:     mergedAnamnesis,
-        tests:         mergedTests,
-        updatedAt:     serverTimestamp(),
-        _migratedAt:   serverTimestamp(),
-      }, { merge: true })
+
+      // Salva backups ao Firestore imediatamente e limpa localStorage
+      if (Object.keys(backupTests).length > 0) {
+        try {
+          await setDoc(ref, { tests: backupTests, updatedAt: serverTimestamp() }, { merge: true })
+          backupKeys.forEach(bk => localStorage.removeItem(bk))
+        } catch {}
+      }
+
       setSession(prev => ({
         ...prev,
-        anamnesis: mergedAnamnesis,
-        tests:     mergedTests,
+        anamnesis: baseAnamnesis,
+        tests: baseTests,
       }))
     } catch (e) {
       console.error('[useTestSession] Erro ao carregar sessão:', e?.code, e)
     }
   }, [patientId, userId])
 
-  // ─── Disparo automático: carrega sempre que paciente ou usuário mudam ─────
+  // ─── Disparo automático ao mudar paciente ou usuário ─────────────────────
   useEffect(() => {
     if (!patientId || !userId) {
-      setSessionLoaded(true)  // sem paciente = nada a carregar
+      setSessionLoaded(true)
       return
     }
     setSessionLoaded(false)
     loadSession().finally(() => setSessionLoaded(true))
   }, [loadSession])
 
-  // ─── Salva imediatamente (sem esperar debounce) ───────────────────────────
+  // ─── Flush imediato (sem esperar debounce) ────────────────────────────────
   const flushSave = useCallback(async () => {
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
@@ -170,6 +203,32 @@ export function useTestSession(patientId) {
       await saveTestToFirestore(testName, data)
     }
   }, [saveTestToFirestore])
+
+  // ─── Flush explícito do localStorage backup ao Firestore ─────────────────
+  const flushBackup = useCallback(async () => {
+    if (!patientId || !userId) return
+    const prefix = `neuroclin_backup_${patientId}_`
+    const backupKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix))
+    if (backupKeys.length === 0) return
+    const ref = doc(db, 'sessions', patientId)
+    const backupTests = {}
+    for (const bk of backupKeys) {
+      const testName = bk.replace(prefix, '')
+      try {
+        const backup = JSON.parse(localStorage.getItem(bk) || '')
+        if (backup?.data) {
+          backupTests[testName] = { ...backup.data, _savedAt: serverTimestamp(), _savedBy: userId }
+        }
+      } catch {}
+    }
+    if (Object.keys(backupTests).length === 0) return
+    try {
+      await setDoc(ref, { tests: backupTests, updatedAt: serverTimestamp() }, { merge: true })
+      backupKeys.forEach(bk => localStorage.removeItem(bk))
+    } catch (e) {
+      console.error('[useTestSession] Erro ao fazer flush do backup:', e)
+    }
+  }, [patientId, userId])
 
   // ─── Salva o laudo finalizado ─────────────────────────────────────────────
   const saveReport = useCallback(async (reportHtml, selectedTests) => {
@@ -201,8 +260,8 @@ export function useTestSession(patientId) {
     updateAnamnesis,
     loadSession,
     flushSave,
+    flushBackup,
     saveReport,
-    // atalho para ler dados de um teste específico
     getTest: (name) => session.tests[name] || {},
   }
 }

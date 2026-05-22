@@ -4714,7 +4714,10 @@ export default function Tests() {
       .catch(() => getDocs(base).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))))
   }, [user])
 
-  // loadSession agora é disparado automaticamente pelo useTestSession
+  // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
+  useEffect(() => {
+    if (patientId) session.flushBackup()
+  }, [patientId])
 
   // Salva imediatamente ao desmontar a página — sessionRef evita stale closure
   useEffect(() => {
