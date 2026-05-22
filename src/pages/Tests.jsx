@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
-import { FlaskConical, CheckCircle2, Save, Camera, Lock } from 'lucide-react'
+import { FlaskConical, CheckCircle2, Save, Camera, Lock, AlertTriangle } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4726,6 +4726,8 @@ export default function Tests() {
 
   const activeConf = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
   const patient    = patients.find(p => p.id === patientId)
+  const isLocked   = session.getTest(activeKey)?.status === 'concluido'
+  const canReopen  = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   const handleChange = (key, data) => {
     const hasClassification = !!(data.classification && data.classification.trim())
@@ -4836,11 +4838,58 @@ export default function Tests() {
                   </span>
                 )}
               </div>
-              <activeConf.Form
-                data={session.getTest(activeKey)}
-                onChange={(data) => handleChange(activeKey, data)}
-                onSave={() => session.flushSave()}
-              />
+              {/* Banner de bloqueio */}
+              {isLocked && (
+                <div style={{
+                  background: 'rgba(245,158,11,0.10)',
+                  border: '1px solid rgba(245,158,11,0.35)',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  marginBottom: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <AlertTriangle size={14} color={S.amber} />
+                    <span style={{ fontSize: 12, color: S.amber, fontWeight: 600 }}>
+                      Teste concluído — edição bloqueada.{canReopen ? ' Clique em Reabrir para editar.' : ''}
+                    </span>
+                  </div>
+                  {canReopen && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Tem certeza que deseja reabrir este teste para edição?')) {
+                          session.updateTest(activeKey, { ...session.getTest(activeKey), status: 'em_andamento' })
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(245,158,11,0.18)',
+                        border: '1px solid rgba(245,158,11,0.45)',
+                        color: S.amber,
+                        borderRadius: 6,
+                        padding: '5px 12px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Reabrir teste
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Formulário — bloqueado por pointer-events quando concluído */}
+              <div style={{ pointerEvents: isLocked ? 'none' : 'auto', opacity: isLocked ? 0.7 : 1 }}>
+                <activeConf.Form
+                  data={session.getTest(activeKey)}
+                  onChange={(data) => handleChange(activeKey, data)}
+                  onSave={() => session.flushSave()}
+                />
+              </div>
               {isTestFilled(session.getTest(activeKey)) ? (
                 <TestScanUpload
                   key={activeKey + '-scan'}
