@@ -57,7 +57,8 @@ const inputStyle = {
 }
 
 // Busca ProDoctor com debounce — exibe dropdown de sugestões
-function ProDoctorSearch({ value, onChange, onSelect }) {
+// birthDate (YYYY-MM-DD): quando preenchido, filtra resultados por data de nascimento
+function ProDoctorSearch({ value, onChange, onSelect, birthDate }) {
   const [results,    setResults]    = useState([])
   const [searching,  setSearching]  = useState(false)
   const [showList,   setShowList]   = useState(false)
@@ -65,12 +66,34 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
   const [cachedQty,  setCachedQty]  = useState(() => getCachedCount())
   const debounce     = useRef(null)
   const wrapRef      = useRef(null)
+  const birthDateRef = useRef(birthDate)
+  birthDateRef.current = birthDate  // sempre aponta para o valor mais recente
 
   useEffect(() => {
     const hide = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowList(false) }
     document.addEventListener('mousedown', hide)
     return () => document.removeEventListener('mousedown', hide)
   }, [])
+
+  // Executa a busca de fato (separado para reuso)
+  const runSearch = (termo, force = false) => {
+    setSearching(true)
+    searchPatients(termo, force, birthDateRef.current)
+      .then(list => {
+        setCachedQty(getCachedCount())
+        setResults(list)
+        setShowList(true)
+        if (list.length === 0)
+          setPdError(`Nenhum paciente encontrado para "${termo}"${birthDateRef.current ? ' com a data de nascimento informada' : ''}.`)
+        else
+          setPdError('')
+      })
+      .catch(() => {
+        setPdError('ProDoctor indisponível — preencha manualmente.')
+        setShowList(false)
+      })
+      .finally(() => setSearching(false))
+  }
 
   const doSearch = (v, force = false) => {
     onChange(v)
@@ -79,22 +102,16 @@ function ProDoctorSearch({ value, onChange, onSelect }) {
     if (!force && v.length < 3) { setResults([]); setShowList(false); return }
     const termo = force ? (value || v) : v
     if (termo.length < 2) return
-    debounce.current = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const list = await searchPatients(termo, force)
-        setCachedQty(getCachedCount())
-        setResults(list)
-        setShowList(true)
-        if (list.length === 0) setPdError(`Nenhum paciente encontrado para "${termo}".`)
-      } catch (e) {
-        setPdError('ProDoctor indisponível — preencha manualmente.')
-        setShowList(false)
-      } finally {
-        setSearching(false)
-      }
-    }, force ? 0 : 500)
+    debounce.current = setTimeout(() => runSearch(termo, force), force ? 0 : 500)
   }
+
+  // Re-filtra automaticamente quando a data de nascimento muda (filtro local, sem nova chamada à API)
+  useEffect(() => {
+    if (value?.length >= 2) {
+      clearTimeout(debounce.current)
+      debounce.current = setTimeout(() => runSearch(value.trim()), 0)
+    }
+  }, [birthDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = () => {
     clearPatientsCache()
@@ -495,6 +512,7 @@ export default function Patients() {
                 value={form.full_name}
                 onChange={v => setField('full_name', v)}
                 onSelect={handleProDoctorSelect}
+                birthDate={form.birth_date || null}
               />
             )}
             <div style={{ borderBottom: '1px solid #F0F2F5', margin: '20px 0 4px' }} />

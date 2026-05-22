@@ -173,10 +173,13 @@ export function getCachedCount() {
 }
 
 /**
- * Busca pacientes por nome ou CPF.
+ * Busca pacientes por nome ou CPF, com filtro opcional por data de nascimento.
  * Carrega todos os pacientes via paginação e filtra localmente.
+ * @param {string} termo - nome ou CPF (mínimo 2 chars)
+ * @param {boolean} forceRefresh - ignora cache
+ * @param {string|null} birthDate - filtro por data de nascimento (YYYY-MM-DD), opcional
  */
-export async function searchPatients(termo, forceRefresh = false) {
+export async function searchPatients(termo, forceRefresh = false, birthDate = null) {
   if (!termo || termo.trim().length < 2) return []
 
   const t       = termo.trim()
@@ -184,12 +187,15 @@ export async function searchPatients(termo, forceRefresh = false) {
   const qDigits = q.replace(/\D/g, '')
 
   const all = await loadAllPatients(forceRefresh)
-  console.log(`[ProDoctor] filtrando "${t}" em ${all.length} pacientes`)
+  console.log(`[ProDoctor] filtrando "${t}"${birthDate ? ` + nascimento:${birthDate}` : ''} em ${all.length} pacientes`)
 
   return all.filter(p => {
-    if (p.full_name?.toLowerCase().includes(q)) return true
-    if (qDigits.length >= 3 && p.cpf?.replace(/\D/g, '').includes(qDigits)) return true
-    return false
+    const nameOrCpf = p.full_name?.toLowerCase().includes(q) ||
+      (qDigits.length >= 3 && p.cpf?.replace(/\D/g, '').includes(qDigits))
+    if (!nameOrCpf) return false
+    // Filtro adicional por data de nascimento quando informada
+    if (birthDate && p.birth_date && p.birth_date !== birthDate) return false
+    return true
   })
 }
 
@@ -286,7 +292,7 @@ export async function getDevolutivas14Days(forceRefresh = false) {
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const days = Array.from({ length: 14 }, (_, i) => {
+  const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
     return d
