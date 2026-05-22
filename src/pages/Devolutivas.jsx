@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { getDevolutivas14Days, clearDevolutivasCache } from '@/services/prodoctorApi'
 import {
   CalendarClock, RefreshCw, CheckCircle2, AlertTriangle,
-  FileText, BookOpen, Clock, ChevronRight, Loader2,
+  FileText, BookOpen, Clock, Loader2, Circle,
 } from 'lucide-react'
 
 const S = {
@@ -22,7 +22,7 @@ const S = {
   blue:   '#3B82F6',
 }
 
-const DIAS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const DIAS_PT  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
 function formatDateLabel(date) {
@@ -37,21 +37,50 @@ function formatDateLabel(date) {
   return `${dia} ${d}/${m}`
 }
 
-function LaudoStatusBadge({ status }) {
-  const cfg = {
-    aprovado:   { bg: 'rgba(46,125,50,0.2)',   color: '#4CAF50', label: 'Laudo aprovado',  icon: CheckCircle2 },
-    rascunho:   { bg: 'rgba(245,158,11,0.2)',  color: '#F59E0B', label: 'Rascunho',        icon: AlertTriangle },
-    sem_laudo:  { bg: 'rgba(239,68,68,0.2)',   color: '#EF4444', label: 'Sem laudo',       icon: AlertTriangle },
-    sem_vinculo:{ bg: 'rgba(255,255,255,0.06)', color: S.muted,  label: 'Não vinculado',   icon: Clock },
-  }
-  const c = cfg[status] || cfg.sem_vinculo
+// Configuração visual dos 4 status
+const STATUS_CFG = {
+  sem_vinculo: {
+    bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)',
+    label: 'Não vinculado',
+    icon: Circle,
+    border: 'rgba(255,255,255,0.08)', cardBg: 'rgba(255,255,255,0.01)',
+    hint: 'Paciente não cadastrado no NeuroClin',
+  },
+  aguardando_correcao: {
+    bg: 'rgba(245,158,11,0.15)', color: '#F59E0B',
+    label: 'Aguardando correção',
+    icon: AlertTriangle,
+    border: 'rgba(245,158,11,0.3)', cardBg: 'rgba(245,158,11,0.03)',
+    hint: 'Estagiário precisa lançar os testes',
+  },
+  aguardando_anamnese: {
+    bg: 'rgba(59,130,246,0.15)', color: '#60A5FA',
+    label: 'Aguardando anamnese',
+    icon: Clock,
+    border: 'rgba(59,130,246,0.3)', cardBg: 'rgba(59,130,246,0.03)',
+    hint: 'Neuropsicólogo precisa preencher a anamnese',
+  },
+  pronto: {
+    bg: 'rgba(46,125,50,0.18)', color: '#4CAF50',
+    label: 'Pronto',
+    icon: CheckCircle2,
+    border: 'rgba(46,125,50,0.35)', cardBg: 'rgba(46,125,50,0.04)',
+    hint: 'Devolutiva pode acontecer',
+  },
+}
+
+function StatusBadge({ status }) {
+  const c = STATUS_CFG[status] || STATUS_CFG.sem_vinculo
   const Icon = c.icon
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10,
-      background: c.bg, color: c.color,
-    }}>
+    <span
+      title={c.hint}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10,
+        background: c.bg, color: c.color, cursor: 'default',
+      }}
+    >
       <Icon size={11} /> {c.label}
     </span>
   )
@@ -59,21 +88,20 @@ function LaudoStatusBadge({ status }) {
 
 function DevolutivaCard({ item }) {
   const navigate = useNavigate()
-  const { paciente, hora, professional, laudoStatus, ncPatient } = item
-
-  const urgente = laudoStatus === 'sem_laudo' || laudoStatus === 'sem_vinculo'
+  const { paciente, hora, professional, laudoStatus, ncPatient, hasApprovedReport } = item
+  const cfg = STATUS_CFG[laudoStatus] || STATUS_CFG.sem_vinculo
 
   return (
     <div style={{
       padding: '12px 16px', borderRadius: 8, marginBottom: 6,
-      background: urgente ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.02)',
-      border: urgente ? '1px solid rgba(239,68,68,0.2)' : `1px solid ${S.border}`,
+      background: cfg.cardBg,
+      border: `1px solid ${cfg.border}`,
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     }}>
       {/* Hora */}
       <div style={{
         minWidth: 48, textAlign: 'center', background: 'rgba(255,255,255,0.05)',
-        borderRadius: 6, padding: '6px 0',
+        borderRadius: 6, padding: '6px 0', flexShrink: 0,
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{hora || '--:--'}</div>
       </div>
@@ -88,8 +116,8 @@ function DevolutivaCard({ item }) {
         </div>
       </div>
 
-      {/* Status laudo */}
-      <LaudoStatusBadge status={laudoStatus} />
+      {/* Badge de status */}
+      <StatusBadge status={laudoStatus} />
 
       {/* Ações */}
       <div style={{ display: 'flex', gap: 6 }}>
@@ -106,19 +134,21 @@ function DevolutivaCard({ item }) {
             >
               <BookOpen size={12} /> Prontuário
             </button>
-            <button
-              onClick={() => navigate(`/laudos?paciente=${ncPatient.id}`)}
-              title="Ir para laudos"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
-                borderRadius: 6, border: 'none',
-                background: laudoStatus === 'aprovado' ? S.green : S.amber,
-                color: '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 700,
-              }}
-            >
-              <FileText size={12} />
-              {laudoStatus === 'aprovado' ? 'Ver laudo' : 'Gerar laudo'}
-            </button>
+            {laudoStatus === 'pronto' && (
+              <button
+                onClick={() => navigate(`/laudos?paciente=${ncPatient.id}`)}
+                title="Ir para laudos"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+                  borderRadius: 6, border: 'none',
+                  background: S.green,
+                  color: '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 700,
+                }}
+              >
+                <FileText size={12} />
+                {hasApprovedReport ? 'Ver laudo' : 'Gerar laudo'}
+              </button>
+            )}
           </>
         )}
         {!ncPatient && (
@@ -133,9 +163,9 @@ function DevolutivaCard({ item }) {
 
 export default function Devolutivas() {
   const { user } = useAuth()
-  const [items,   setItems]   = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState('')
+  const [items,       setItems]       = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
 
   async function load(refresh = false) {
@@ -145,21 +175,21 @@ export default function Devolutivas() {
     try {
       if (refresh) clearDevolutivasCache()
 
-      // Busca devolutivas ProDoctor + pacientes/laudos NeuroClin em paralelo
-      const [devolutivas, patientsSnap, reportsSnap] = await Promise.all([
+      const [devolutivas, patientsSnap, reportsSnap, sessionsSnap] = await Promise.all([
         getDevolutivas14Days(refresh),
         getDocs(collection(db, 'patients')),
         getDocs(collection(db, 'reports')),
+        getDocs(collection(db, 'sessions')),
       ])
 
-      // Mapa prodoctor_id → paciente NeuroClin
+      // prodoctor_id → paciente NeuroClin
       const pdMap = {}
       patientsSnap.docs.forEach(d => {
         const p = { id: d.id, ...d.data() }
         if (p.prodoctor_id) pdMap[p.prodoctor_id] = p
       })
 
-      // Mapa patientId → laudos (mais recente primeiro)
+      // patientId → laudos (mais recente primeiro)
       const reportsMap = {}
       reportsSnap.docs.forEach(d => {
         const r = { id: d.id, ...d.data() }
@@ -167,19 +197,47 @@ export default function Devolutivas() {
         reportsMap[r.patientId].push(r)
       })
 
-      // Enriquece cada devolutiva com dados do NeuroClin
+      // patientId → { hasTests, hasAnamnesis }
+      const sessionsStatusMap = {}
+      sessionsSnap.docs.forEach(d => {
+        const s = d.data()
+        const pid = s.patientId
+        if (!pid) return
+        if (!sessionsStatusMap[pid]) sessionsStatusMap[pid] = { hasTests: false, hasAnamnesis: false }
+
+        // Tem testes se há pelo menos um teste com campos além de _savedAt
+        const hasTests = Object.values(s.tests || {}).some(t =>
+          t && Object.keys(t).filter(k => k !== '_savedAt').length > 0
+        )
+        if (hasTests) sessionsStatusMap[pid].hasTests = true
+
+        // Tem anamnese se há pelo menos um valor não-vazio
+        const hasAnamnesis = Object.values(s.anamnesis || {}).some(v =>
+          v !== null && v !== '' && v !== undefined && !(Array.isArray(v) && v.length === 0)
+        )
+        if (hasAnamnesis) sessionsStatusMap[pid].hasAnamnesis = true
+      })
+
+      // Enriquece cada devolutiva com status semafórico
       const enriched = devolutivas.map(dv => {
         const ncPatient = pdMap[dv.paciente.codigo] || null
         let laudoStatus = 'sem_vinculo'
+        let hasApprovedReport = false
+
         if (ncPatient) {
-          const patReports = (reportsMap[ncPatient.id] || [])
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-          const latest = patReports[0]
-          if (!latest)        laudoStatus = 'sem_laudo'
-          else if (latest.approved) laudoStatus = 'aprovado'
-          else                laudoStatus = 'rascunho'
+          const sess = sessionsStatusMap[ncPatient.id] || {}
+          hasApprovedReport = (reportsMap[ncPatient.id] || []).some(r => r.approved)
+
+          if (hasApprovedReport || (sess.hasTests && sess.hasAnamnesis)) {
+            laudoStatus = 'pronto'
+          } else if (sess.hasTests) {
+            laudoStatus = 'aguardando_anamnese'
+          } else {
+            laudoStatus = 'aguardando_correcao'
+          }
         }
-        return { ...dv, ncPatient, laudoStatus }
+
+        return { ...dv, ncPatient, laudoStatus, hasApprovedReport }
       })
 
       setItems(enriched)
@@ -203,8 +261,10 @@ export default function Devolutivas() {
   })
   const groups = Object.values(grouped).sort((a, b) => a.date - b.date)
 
-  const totalSemLaudo = items.filter(i => i.laudoStatus === 'sem_laudo').length
-  const totalRascunho = items.filter(i => i.laudoStatus === 'rascunho').length
+  const totalCorrecao  = items.filter(i => i.laudoStatus === 'aguardando_correcao').length
+  const totalAnamnese  = items.filter(i => i.laudoStatus === 'aguardando_anamnese').length
+  const totalPronto    = items.filter(i => i.laudoStatus === 'pronto').length
+  const totalSemVincul = items.filter(i => i.laudoStatus === 'sem_vinculo').length
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -232,29 +292,36 @@ export default function Devolutivas() {
         </button>
       </div>
 
-      {/* Resumo */}
+      {/* Resumo com legenda de cores */}
       {!loading && items.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-          <div style={{ background: S.card, borderRadius: 8, border: `1px solid ${S.border}`, padding: '10px 16px', display: 'flex', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ background: S.card, borderRadius: 8, border: `1px solid ${S.border}`, padding: '10px 18px', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>{items.length}</div>
-              <div style={{ fontSize: 10, color: S.muted }}>DEVOLUTIVAS</div>
+              <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: S.red }}>{totalSemLaudo}</div>
-              <div style={{ fontSize: 10, color: S.muted }}>SEM LAUDO</div>
+            <div style={{ width: 1, background: S.border }} />
+            <div style={{ textAlign: 'center' }} title="Estagiário precisa lançar os testes">
+              <div style={{ fontSize: 20, fontWeight: 700, color: S.amber }}>{totalCorrecao}</div>
+              <div style={{ fontSize: 10, color: S.amber, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ag. Correção</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: S.amber }}>{totalRascunho}</div>
-              <div style={{ fontSize: 10, color: S.muted }}>RASCUNHO</div>
+            <div style={{ textAlign: 'center' }} title="Neuropsicólogo precisa preencher a anamnese">
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#60A5FA' }}>{totalAnamnese}</div>
+              <div style={{ fontSize: 10, color: '#60A5FA', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ag. Anamnese</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: S.greenL }}>{items.length - totalSemLaudo - totalRascunho}</div>
-              <div style={{ fontSize: 10, color: S.muted }}>PRONTOS</div>
+            <div style={{ textAlign: 'center' }} title="Devolutiva pode acontecer">
+              <div style={{ fontSize: 20, fontWeight: 700, color: S.greenL }}>{totalPronto}</div>
+              <div style={{ fontSize: 10, color: S.greenL, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Prontos</div>
             </div>
+            {totalSemVincul > 0 && (
+              <div style={{ textAlign: 'center' }} title="Não cadastrado no NeuroClin">
+                <div style={{ fontSize: 20, fontWeight: 700, color: S.muted }}>{totalSemVincul}</div>
+                <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Não vinc.</div>
+              </div>
+            )}
           </div>
           {lastUpdated && (
-            <div style={{ display: 'flex', alignItems: 'center', fontSize: 11, color: S.muted }}>
+            <div style={{ fontSize: 11, color: S.muted }}>
               Atualizado às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
