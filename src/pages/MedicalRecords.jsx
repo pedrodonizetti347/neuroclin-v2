@@ -274,6 +274,7 @@ export default function MedicalRecords() {
   const isSupervisor    = user?.role === 'admin' || user?.role === 'supervisor'
   const isAdmin         = user?.role === 'admin'
   const isProfessional  = user?.role === 'professional'
+  const isEstagiario    = user?.role === 'estagiario'
   const canDeleteReport = user?.uid === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   const handleDeleteReport = async () => {
@@ -311,8 +312,8 @@ export default function MedicalRecords() {
     Promise.all([
       // Busca todas as sessões deste paciente
       getDocs(collection(db, 'sessions')),
-      // Laudos: profissional não tem acesso à coleção completa
-      isProfessional ? Promise.resolve({ docs: [] }) : getDocs(collection(db, 'reports')),
+      // Laudos: profissional e estagiário não têm acesso à coleção completa
+      (isProfessional || isEstagiario) ? Promise.resolve({ docs: [] }) : getDocs(collection(db, 'reports')),
     ]).then(([sessSnap, repSnap]) => {
       const patSessions = sessSnap.docs
         .filter(d => d.id.startsWith(patientId + '_'))
@@ -402,7 +403,11 @@ export default function MedicalRecords() {
               { key: 'testes', label: 'Testes Aplicados', icon: FlaskConical },
               { key: 'laudos', label: 'Laudos', icon: FileText },
               { key: 'notas', label: 'Notas clínicas', icon: BookOpen },
-            ].filter(t => !isProfessional || ['anamnese', 'testes'].includes(t.key))
+            ].filter(t => {
+              if (isProfessional) return ['anamnese', 'testes'].includes(t.key)
+              if (isEstagiario)   return t.key !== 'laudos'
+              return true
+            })
             .map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setTab(key)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px',
