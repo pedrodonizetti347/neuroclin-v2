@@ -8,17 +8,19 @@ import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3, CalendarClock,
-  LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff
+  LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff,
+  BookMarked,
 } from 'lucide-react'
 
 const NAV = [
-  { label: 'Dashboard',       icon: LayoutDashboard, path: '/' },
-  { label: 'Pacientes',       icon: Users,            path: '/pacientes' },
-  { label: 'Laudos',          icon: FileText,         path: '/laudos' },
-  { label: 'Testes',          icon: FlaskConical,     path: '/testes' },
-  { label: 'Prontuário',      icon: BookOpen,         path: '/prontuario' },
-  { label: 'Devolutivas',     icon: CalendarClock,    path: '/devolutivas' },
-  { label: 'Relatórios',      icon: BarChart3,        path: '/relatorios' },
+  { label: 'Manual de Informações', icon: BookMarked,      path: '/manual' },
+  { label: 'Dashboard',             icon: LayoutDashboard, path: '/' },
+  { label: 'Pacientes',             icon: Users,           path: '/pacientes' },
+  { label: 'Laudos',                icon: FileText,        path: '/laudos' },
+  { label: 'Testes',                icon: FlaskConical,    path: '/testes' },
+  { label: 'Prontuário',            icon: BookOpen,        path: '/prontuario' },
+  { label: 'Devolutivas',           icon: CalendarClock,   path: '/devolutivas' },
+  { label: 'Relatórios',            icon: BarChart3,       path: '/relatorios' },
 ]
 
 const NAV_ADMIN = [
