@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore'
 import { useSearchParams } from 'react-router-dom'
 import { db } from '@/lib/firebase'
@@ -634,17 +634,17 @@ function RAVLTForm({ data, onChange }) {
                           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                             <button onClick={() => { if (!item.marcada) toggleWord(idx) }} style={{
                               padding: '3px 10px', borderRadius: 4, border: 'none',
-                              cursor: item.marcada ? 'default' : 'pointer',
+                              cursor: 'pointer',
                               fontSize: 11, fontWeight: 700,
                               background: item.marcada ? '#2E7D32' : 'rgba(46,125,50,0.18)',
                               color: item.marcada ? '#fff' : S.greenL,
                             }}>SIM</button>
                             <button onClick={() => { if (item.marcada) toggleWord(idx) }} style={{
                               padding: '3px 10px', borderRadius: 4, border: 'none',
-                              cursor: item.marcada ? 'pointer' : 'default',
+                              cursor: 'pointer',
                               fontSize: 11, fontWeight: 700,
-                              background: !item.marcada ? 'rgba(255,255,255,0.07)' : 'rgba(239,68,68,0.2)',
-                              color: !item.marcada ? '#9CA3AF' : S.red,
+                              background: !item.marcada ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.07)',
+                              color: !item.marcada ? S.red : '#9CA3AF',
                             }}>NÃO</button>
                           </div>
                         </div>
@@ -4703,7 +4703,9 @@ export default function Tests() {
   const [activeKey, setActiveKey] = useState('')
   const [justSaved, setJustSaved] = useState({})
 
-  const session = useTestSession(patientId)
+  const session    = useTestSession(patientId)
+  const sessionRef = useRef(session)
+  sessionRef.current = session  // sempre aponta para a versão mais recente
 
   useEffect(() => {
     const base = collection(db, 'patients')
@@ -4714,9 +4716,9 @@ export default function Tests() {
 
   // loadSession agora é disparado automaticamente pelo useTestSession
 
-  // Salva imediatamente ao desmontar a página (ex: navegar para Reports)
+  // Salva imediatamente ao desmontar a página — sessionRef evita stale closure
   useEffect(() => {
-    return () => { session.flushSave() }
+    return () => { sessionRef.current?.flushSave() }
   }, [])
 
   const activeConf = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)

@@ -42,8 +42,11 @@ export async function exportToDocx({ patient, reportHtml }) {
 <head>
   <meta charset="UTF-8">
   <style>
-    body  { font-family: Arial, sans-serif; font-size: 11pt; color: #1a1a2e; line-height: 1.7; margin: 0; }
+    body  { font-family: Arial, sans-serif; font-size: 11pt; color: #1a1a2e; line-height: 1.7; margin: 0; text-align: justify; }
+    p     { text-align: justify; margin: 6px 0; }
+    h1, h2, h3, h4 { text-align: center; }
     table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+    th    { text-align: center; }
     img   { max-width: 100%; height: auto; }
     *     { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   </style>
@@ -53,7 +56,7 @@ export async function exportToDocx({ patient, reportHtml }) {
 
   const blob = htmlDocx.asBlob(fullHtml, {
     orientation: 'portrait',
-    margins: { top: 1417, right: 1134, bottom: 1417, left: 1134 },
+    margins: { top: 1417, right: 1417, bottom: 1417, left: 1417, header: 720, footer: 720, gutter: 0 },
   })
 
   const fname = `laudo_${(patient?.full_name || 'paciente').replace(/\s+/g, '_')}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.docx`

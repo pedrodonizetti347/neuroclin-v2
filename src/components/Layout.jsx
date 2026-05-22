@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
-import { auth } from '@/lib/firebase'
+import { auth, db } from '@/lib/firebase'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
+import { doc, updateDoc } from 'firebase/firestore'
 import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
@@ -35,7 +36,7 @@ const S = {
   muted:   'rgba(255,255,255,0.4)',
 }
 
-function ChangePasswordModal({ onClose }) {
+function ChangePasswordModal({ onClose, onPasswordChanged }) {
   const [currentPass,  setCurrentPass]  = useState('')
   const [newPass,      setNewPass]      = useState('')
   const [confirmPass,  setConfirmPass]  = useState('')
@@ -58,6 +59,8 @@ function ChangePasswordModal({ onClose }) {
       const cred = EmailAuthProvider.credential(u.email, currentPass)
       await reauthenticateWithCredential(u, cred)
       await updatePassword(u, newPass)
+      await updateDoc(doc(db, 'users', u.uid), { must_change_password: false }).catch(() => {})
+      onPasswordChanged?.()
       setOk(true)
     } catch (e) {
       const msgs = {
@@ -164,6 +167,7 @@ export default function Layout({ children }) {
   const location = useLocation()
   const [collapsed,       setCollapsed]       = useState(false)
   const [showChangePass,  setShowChangePass]  = useState(false)
+  const [passChanged,     setPassChanged]     = useState(false)
 
   // ── Verificação de nova versão ─────────────────────────────────────────────
   const [newVersion,  setNewVersion]  = useState(false)
@@ -384,6 +388,29 @@ export default function Layout({ children }) {
           </div>
         </header>
 
+        {/* Banner senha temporária */}
+        {user?.must_change_password && !passChanged && (
+          <div style={{
+            background: 'linear-gradient(90deg, #78350F 0%, #92400E 100%)',
+            padding: '10px 20px', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(245,158,11,0.35)',
+          }}>
+            <span style={{ color: '#FEF3C7', fontSize: 13, fontWeight: 500 }}>
+              Você está usando uma senha temporária. Recomendamos trocar agora para proteger seu acesso.
+            </span>
+            <button
+              onClick={() => setShowChangePass(true)}
+              style={{
+                padding: '6px 16px', borderRadius: 8, border: 'none',
+                background: '#F59E0B', color: '#1C1917',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0, marginLeft: 16,
+              }}>
+              Trocar senha
+            </button>
+          </div>
+        )}
+
         {/* Banner nova versão */}
         {newVersion && (
           <div style={{
@@ -413,7 +440,7 @@ export default function Layout({ children }) {
         </main>
       </div>
 
-      {showChangePass && <ChangePasswordModal onClose={() => setShowChangePass(false)} />}
+      {showChangePass && <ChangePasswordModal onClose={() => setShowChangePass(false)} onPasswordChanged={() => setPassChanged(true)} />}
     </div>
   )
 }

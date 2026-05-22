@@ -10,7 +10,7 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 
@@ -70,11 +70,11 @@ export function useTestSession(patientId) {
     if (!patientId || !userId) return
     setSaving(true)
     try {
-      const ref = doc(db, 'sessions', `${patientId}_${userId}`)
+      const ref = doc(db, 'sessions', patientId)
       await setDoc(ref, {
         patientId,
-        professionalId: userId,
-        tests: { [testName]: { ...data, _savedAt: serverTimestamp() } },
+        lastUpdatedBy: userId,
+        tests: { [testName]: { ...data, _savedAt: serverTimestamp(), _savedBy: userId } },
         updatedAt: serverTimestamp(),
       }, { merge: true })  // ← merge:true = não apaga os outros testes
       setLastSaved(new Date())
@@ -88,9 +88,10 @@ export function useTestSession(patientId) {
   const saveAnamnesisToFirestore = useCallback(async (data) => {
     if (!patientId || !userId) return
     try {
-      const ref = doc(db, 'sessions', `${patientId}_${userId}`)
+      const ref = doc(db, 'sessions', patientId)
       await setDoc(ref, {
         patientId,
+        lastUpdatedBy: userId,
         anamnesis: data,
         updatedAt: serverTimestamp(),
       }, { merge: true })
@@ -99,11 +100,12 @@ export function useTestSession(patientId) {
     }
   }, [patientId, userId])
 
-  // ─── Carrega sessão existente do Firestore ────────────────────────────────
+  // ─── Carrega sessão existente do Firestore (com migração de chave legada) ──
   const loadSession = useCallback(async () => {
     if (!patientId || !userId) return
     try {
-      const ref  = doc(db, 'sessions', `${patientId}_${userId}`)
+      // 1. Tenta chave nova: sessions/{patientId}
+      const ref  = doc(db, 'sessions', patientId)
       const snap = await getDoc(ref)
       if (snap.exists()) {
         const data = snap.data()
@@ -112,12 +114,37 @@ export function useTestSession(patientId) {
           anamnesis: data.anamnesis || {},
           tests:     data.tests     || {},
         }))
+        return
       }
+
+      // 2. Migração: busca docs legados sessions/{patientId}_{userId}
+      const colSnap = await getDocs(collection(db, 'sessions'))
+      const legacy  = colSnap.docs.filter(d => d.id.startsWith(`${patientId}_`))
+      if (legacy.length === 0) return
+
+      let mergedTests    = {}
+      let mergedAnamnesis = {}
+      for (const d of legacy) {
+        const dd = d.data()
+        mergedTests     = { ...mergedTests,     ...(dd.tests     || {}) }
+        mergedAnamnesis = { ...mergedAnamnesis, ...(dd.anamnesis || {}) }
+      }
+      // Salva sob a nova chave para evitar migração futura
+      await setDoc(ref, {
+        patientId,
+        lastUpdatedBy: userId,
+        anamnesis:     mergedAnamnesis,
+        tests:         mergedTests,
+        updatedAt:     serverTimestamp(),
+        _migratedAt:   serverTimestamp(),
+      }, { merge: true })
+      setSession(prev => ({
+        ...prev,
+        anamnesis: mergedAnamnesis,
+        tests:     mergedTests,
+      }))
     } catch (e) {
-      // PERMISSION_DENIED em doc inexistente é esperado para pacientes novos
-      if (e?.code !== 'permission-denied') {
-        console.error('[useTestSession] Erro ao carregar sessão:', e)
-      }
+      console.error('[useTestSession] Erro ao carregar sessão:', e?.code, e)
     }
   }, [patientId, userId])
 
