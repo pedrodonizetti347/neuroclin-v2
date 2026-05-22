@@ -275,7 +275,7 @@ export default function Devolutivas() {
             <CalendarClock size={18} color={S.greenL} /> DEVOLUTIVAS
           </h1>
           <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>
-            Agendamentos tipo Devolutiva nos próximos 14 dias — via ProDoctor
+            Agendamentos tipo Devolutiva nos próximos 7 dias — via ProDoctor
           </p>
         </div>
         <button
@@ -333,7 +333,7 @@ export default function Devolutivas() {
         <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, padding: 60, textAlign: 'center' }}>
           <Loader2 size={28} color={S.greenL} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
           <div style={{ fontSize: 13, color: S.muted }}>Buscando devolutivas no ProDoctor...</div>
-          <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>Consultando agenda dos próximos 14 dias</div>
+          <div style={{ fontSize: 11, color: S.muted, marginTop: 4 }}>Consultando agenda dos próximos 7 dias</div>
         </div>
       )}
 
@@ -354,7 +354,7 @@ export default function Devolutivas() {
           <CalendarClock size={40} color={S.muted} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 4 }}>Nenhuma devolutiva encontrada</div>
           <div style={{ fontSize: 12, color: S.muted }}>
-            Não há agendamentos do tipo Devolutiva nos próximos 14 dias no ProDoctor.
+            Não há agendamentos do tipo Devolutiva nos próximos 7 dias no ProDoctor.
           </div>
         </div>
       )}

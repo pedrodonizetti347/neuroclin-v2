@@ -18,6 +18,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isEstagiario() {
+      return isAuth() && userRole() == 'estagiario';
+    }
+
     // Perfis de usuário
     match /users/{userId} {
       allow read: if isAuth() && (request.auth.uid == userId || isAdminOrSupervisor());
@@ -27,10 +31,11 @@ service cloud.firestore {
       allow update, delete: if isAdminOrSupervisor();
     }
 
-    // Pacientes — qualquer autenticado lê; só admin/supervisor escreve
+    // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza e deleta
     match /patients/{patientId} {
       allow read: if isAuth();
-      allow write: if isAdminOrSupervisor();
+      allow create: if isAuth();
+      allow update, delete: if isAdminOrSupervisor();
     }
 
     // Sessões de testes — qualquer autenticado lê e escreve
@@ -51,10 +56,10 @@ service cloud.firestore {
       allow read, write: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
     }
 
-    // Anamneses clínicas — profissional escreve apenas se for dono do paciente
+    // Anamneses clínicas — profissional escreve se for dono do paciente; estagiário sempre escreve
     match /anamneses/{patientId} {
       allow read: if isAuth();
-      allow write: if isAdminOrSupervisor() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
+      allow write: if isAdminOrSupervisor() || isEstagiario() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
     }
 
     // Configurações da clínica — apenas admin/supervisor

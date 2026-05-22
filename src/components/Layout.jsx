@@ -242,7 +242,11 @@ export default function Layout({ children }) {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {NAV.filter(n => user?.role !== 'professional' || !['Laudos', 'Relatórios'].includes(n.label)).map(({ label, icon: Icon, path }) => {
+          {NAV.filter(n => {
+            if (user?.role === 'professional') return !['Laudos', 'Relatórios'].includes(n.label)
+            if (user?.role === 'estagiario')   return !['Laudos', 'Relatórios', 'Devolutivas'].includes(n.label)
+            return true
+          }).map(({ label, icon: Icon, path }) => {
             const active = location.pathname === path
             return (
               <Link key={path} to={path}>
@@ -314,7 +318,7 @@ export default function Layout({ children }) {
                   {user?.full_name || 'Profissional'}
                 </div>
                 <div style={{ fontSize: 10, color: S.muted }}>
-                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : 'Profissional'}
+                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : user?.role === 'estagiario' ? 'Estagiário' : 'Profissional'}
                 </div>
               </div>
             </div>

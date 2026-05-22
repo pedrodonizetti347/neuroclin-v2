@@ -28,6 +28,7 @@ const inputStyle = {
 
 const ROLES = [
   { value: 'professional', label: 'Profissional' },
+  { value: 'estagiario',   label: 'Estagiário'   },
   { value: 'supervisor',   label: 'Supervisor'   },
   { value: 'admin',        label: 'Administrador' },
 ]

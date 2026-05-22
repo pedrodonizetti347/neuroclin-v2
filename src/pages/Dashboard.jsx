@@ -289,7 +289,7 @@ export default function Dashboard() {
           <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>
             ⚡ AÇÕES NECESSÁRIAS
           </span>
-          <span style={{ fontSize: 11, color: S.muted }}>devolutivas · próximos 14 dias</span>
+          <span style={{ fontSize: 11, color: S.muted }}>devolutivas · próximos 7 dias</span>
         </div>
 
         {devolvLoading ? (
@@ -349,7 +349,7 @@ export default function Dashboard() {
           </div>
         ) : nextDevs.length === 0 ? (
           <div style={{ padding: '32px 18px', textAlign: 'center', color: S.muted, fontSize: 13 }}>
-            Nenhuma devolutiva agendada nos próximos 14 dias.
+            Nenhuma devolutiva agendada nos próximos 7 dias.
           </div>
         ) : (
           nextDevs.map((item, i) => <DevolutivaRow key={i} item={item} />)
