@@ -84,7 +84,7 @@ const classify = {
     if (n === '' || n == null) return null
     const v = Number(n)
     if (v <= 9) return { label: 'NORMAL', type: 'preserved' }
-    return { label: 'SINTOMAS DE ANSIEDADE', type: 'impaired' }
+    return { label: 'PROVÁVEL ANSIEDADE', type: 'impaired' }
   },
   idate: (n) => {
     if (n === '' || n == null) return null
@@ -4120,18 +4120,37 @@ function tokenGetFaixaId(age) {
   if (a >= 83) return '83mais'
   return null
 }
+function tokenClassificarPorPercentil(percentilStr) {
+  if (!percentilStr) return null
+  let val
+  if (percentilStr === '<1') val = 0
+  else if (percentilStr === '>99') val = 100
+  else {
+    const parts = percentilStr.split('–')
+    val = parts.length === 2 ? Math.round((parseInt(parts[0]) + parseInt(parts[1])) / 2) : parseInt(percentilStr)
+  }
+  if (isNaN(val)) return null
+  if (val <= 5)  return { label: 'Muito Inferior', type: 'impaired' }
+  if (val <= 10) return { label: 'Inferior',       type: 'impaired' }
+  if (val <= 25) return { label: 'Média Inferior', type: 'borderline' }
+  if (val <= 75) return { label: 'Média',          type: 'preserved' }
+  if (val <= 90) return { label: 'Média Superior', type: 'preserved' }
+  if (val <= 95) return { label: 'Superior',       type: 'preserved' }
+  return { label: 'Muito Superior', type: 'preserved' }
+}
 function tokenBuscarEPI(bruto, faixaId) {
   for (let i = TOKEN_TABELA_EPI.length - 1; i >= 0; i--) {
     const row = TOKEN_TABELA_EPI[i]
     const val = row.escores[faixaId]
     if (val === null || val === undefined) continue
     let lim
+    let isLeq = false
     if (typeof val === 'string') {
-      lim = val.startsWith('≤') ? parseInt(val.replace('≤', '')) : parseInt(val.split('–')[1] ?? val)
+      if (val.startsWith('≤')) { lim = parseInt(val.replace('≤', '')); isLeq = true }
+      else { lim = parseInt(val.split('–')[1] ?? val) }
     } else { lim = val }
-    if (bruto >= lim) {
-      const tMedio = tokenParseTScore(row.tScore)
-      const cl = TOKEN_CLASSIFICACAO_ST.find(f => tMedio >= f.min && tMedio <= f.max)
+    if (isLeq ? bruto <= lim : bruto >= lim) {
+      const cl = tokenClassificarPorPercentil(row.percentil)
       return { epi: row.epi, percentil: row.percentil, tScore: row.tScore, classificacao: cl?.label || '—', type: cl?.type || 'info' }
     }
   }
