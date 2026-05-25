@@ -4770,9 +4770,14 @@ export default function Tests() {
 
   const handleChange = (key, data) => {
     const hasClassification = !!(data.classification && data.classification.trim())
-    const autoData = hasClassification && (!data.status || data.status === 'em_andamento')
-      ? { ...data, status: 'concluido' }
-      : data
+    let autoData
+    if (hasClassification && (!data.status || data.status === 'em_andamento')) {
+      autoData = { ...data, status: 'concluido' }
+    } else if (!hasClassification && data.status === 'concluido') {
+      autoData = { ...data, status: 'em_andamento' }
+    } else {
+      autoData = data
+    }
     session.updateTest(key, autoData)
     setJustSaved(prev => ({ ...prev, [key]: true }))
     setTimeout(() => setJustSaved(prev => ({ ...prev, [key]: false })), 2000)
