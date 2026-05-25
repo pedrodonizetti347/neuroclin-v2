@@ -571,13 +571,25 @@ function buildRAVLTSection(td) {
     </tr>`
   }).join('')
 
-  const altScore    = altScoreVal
+  const altScore  = altScoreVal
+  // Deriva on-the-fly se não foi pré-calculado (ex: A6/A7 preenchidos depois do save)
   const forgSpeed   = g('forgetting_speed')
+    ?? (a6s != null && a6s > 0 && a7s != null ? Math.round((a7s/a6s)*100)/100 : null)
   const proactive   = g('proactive_interference')
+    ?? (b1s != null && a1s != null && a1s > 0 ? Math.round((b1s/a1s)*100)/100 : null)
   const retroactive = g('retroactive_interference')
-  const recScore    = recScoreVal
-  const recHits     = g('recognition_hits')
-  const recFalse    = g('recognition_false')
+    ?? (a6s != null && a5s != null && a5s > 0 ? Math.round((a6s/a5s)*100)/100 : null)
+
+  // Recalcula hits e FP usando nomes das palavras como fonte de verdade
+  // (contorna campo 'correta' que pode estar corrompido no Firestore)
+  const LISTA_A_REC = new Set(['LUA','CHAPÉU','MESA','BALÃO','CORPO','CESTA','FLOR','BOCA','CHUVA','CIRCO','LÁPIS','SALA','MILHO','PEIXE','MÃE'])
+  let recHits  = g('recognition_hits')
+  let recFalse = g('recognition_false')
+  if (Array.isArray(d.recognition_list) && d.recognition_list.length > 0 && d.recognition_list[0]?.palavra) {
+    recHits  = d.recognition_list.filter(w => LISTA_A_REC.has(w.palavra) && w.marcada).length
+    recFalse = d.recognition_list.filter(w => !LISTA_A_REC.has(w.palavra) && w.marcada).length
+  }
+  const recScore = (recHits != null && recFalse != null) ? recHits - recFalse : recScoreVal
 
   const totalCls = (hasTotal && pctTot != null) ? clsRAVLTFromPct(pctTot) : (hasTotal ? { label: '—', color: '#6b7280' } : { label: '—', color: '#6b7280' })
   const recCls   = pctRec != null ? clsRAVLTFromPct(pctRec) : clsRAVLT_rec(recScore)
@@ -596,24 +608,24 @@ function buildRAVLTSection(td) {
     ${tdCell(pctALT != null ? String(pctALT) : '—', 'text-align:center;')}
     ${tdCell(altCls ? `<span style="color:${altCls.color};font-weight:bold;">${altCls.label}</span>` : '—', 'text-align:center;')}
   </tr>` : ''}
-  ${forgSpeed != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+  <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Velocidade de Esquecimento (A7/A6) <span style="color:#888;font-size:9pt;">≈1,0 sem esquecimento</span>')}
-    ${tdCell(forgSpeed, 'text-align:center;font-weight:bold;')}
+    ${tdCell(forgSpeed ?? '—', 'text-align:center;font-weight:bold;')}
     ${tdCell('—', 'text-align:center;')}
-    ${tdCell(forgSpeed >= 0.9 ? '<span style="color:#15803d;font-weight:bold;">Preservada</span>' : forgSpeed >= 0.7 ? '<span style="color:#d97706;font-weight:bold;">Leve Declínio</span>' : '<span style="color:#dc2626;font-weight:bold;">Esquecimento Acelerado</span>', 'text-align:center;')}
-  </tr>` : ''}
-  ${retroactive != null ? `<tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell(forgSpeed != null ? (forgSpeed >= 0.9 ? '<span style="color:#15803d;font-weight:bold;">Preservada</span>' : forgSpeed >= 0.7 ? '<span style="color:#d97706;font-weight:bold;">Leve Declínio</span>' : '<span style="color:#dc2626;font-weight:bold;">Esquecimento Acelerado</span>') : '—', 'text-align:center;')}
+  </tr>
+  <tr style="background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Interferência Retroativa (A6/A5) <span style="color:#888;font-size:9pt;">efeito de B1 sobre A6</span>')}
-    ${tdCell(retroactive, 'text-align:center;font-weight:bold;')}
+    ${tdCell(retroactive ?? '—', 'text-align:center;font-weight:bold;')}
     ${tdCell('—', 'text-align:center;')}
-    ${tdCell(retroactive >= 0.8 ? '<span style="color:#15803d;font-weight:bold;">Baixa</span>' : retroactive >= 0.6 ? '<span style="color:#d97706;font-weight:bold;">Moderada</span>' : '<span style="color:#dc2626;font-weight:bold;">Alta</span>', 'text-align:center;')}
-  </tr>` : ''}
-  ${proactive != null ? `<tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${tdCell(retroactive != null ? (retroactive >= 0.8 ? '<span style="color:#15803d;font-weight:bold;">Baixa</span>' : retroactive >= 0.6 ? '<span style="color:#d97706;font-weight:bold;">Moderada</span>' : '<span style="color:#dc2626;font-weight:bold;">Alta</span>') : '—', 'text-align:center;')}
+  </tr>
+  <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell('Interferência Proativa (B1/A1) <span style="color:#888;font-size:9pt;">efeito de A sobre B</span>')}
-    ${tdCell(proactive, 'text-align:center;font-weight:bold;')}
+    ${tdCell(proactive ?? '—', 'text-align:center;font-weight:bold;')}
     ${tdCell('—', 'text-align:center;')}
     ${tdCell('—', 'text-align:center;')}
-  </tr>` : ''}
+  </tr>
   <tr style="background:#dce8dc;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${tdCell(`<strong>Reconhecimento</strong> <span style="color:#888;font-size:9pt;">${recHits!=null?'hits='+recHits:''} ${recFalse!=null?'FP='+recFalse:''}</span>`)}
     ${tdCell(recScore ?? '—', 'text-align:center;font-weight:bold;')}
@@ -923,16 +935,16 @@ function buildWCSTSection(td) {
           { label: 'Falha em manter contexto',   val: d.failure_to_maintain_set,    pct: null, note: '' },
         ]
     ),
-  ].filter(r => r.val != null && r.val !== '')
+  ]
 
-  if (rows_data.length === 0) return ''
+  if (!rows_data.some(r => r.val != null && r.val !== '')) return ''
 
   const rows = rows_data.map((r, i) => {
     const cls = wcstClassFromPctRpt(r.pct)
     const bg  = i % 2 === 0 ? '#fff' : HR
     return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(`${r.label} <span style="color:#888;font-size:9pt;">${r.note}</span>`)}
-      ${tdCell(r.val, 'text-align:center;font-weight:bold;')}
+      ${tdCell(r.val ?? '—', 'text-align:center;font-weight:bold;')}
       ${tdCell(r.pct != null ? `<span style="color:${cls.color};font-weight:bold;">${r.pct}</span>` : '—', 'text-align:center;')}
       ${tdCell(r.pct != null ? `<span style="color:${cls.color};font-weight:bold;">${cls.label}</span>` : '—', 'text-align:center;')}
     </tr>`
@@ -1918,23 +1930,24 @@ export default function Reports() {
         await new Promise(r => setTimeout(r, 500))
       }
 
-      // Fonte de dados — leitura direta do Firestore (sem depender do estado em memória)
-      let ad = session.session?.anamnesis || {}
-      let td = session.session?.tests || {}
-      // Fonte 2: sessão legada do usuário
+      // Fonte de dados — SEMPRE lê do Firestore pelo patientId selecionado
+      // NUNCA usar session.session?.tests — pode conter dados de outro paciente carregado antes
+      let ad = {}
+      let td = {}
+      // Fonte 1: sessão legada do usuário (menor prioridade)
       if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
+          if (snap.exists()) td = mergeTests(td, snap.data().tests || {})
         } catch (_) {}
       }
-      // Fonte 3: sessão principal — lê testes E anamnese diretamente do Firestore
+      // Fonte 2: sessão principal (prioridade máxima — sobrescreve legado)
       if (patientId) {
         try {
           const mainSnap = await getDoc(doc(db, 'sessions', patientId))
           if (mainSnap.exists()) {
             const mainData = mainSnap.data()
-            td = mergeTests(mainData.tests || {}, td)
+            td = mergeTests(td, mainData.tests || {})
             if (mainData.anamnesis && Object.keys(mainData.anamnesis).length > 0) {
               ad = { ...ad, ...mainData.anamnesis }
             }
@@ -2032,29 +2045,27 @@ export default function Reports() {
     setDocxExporting(true)
     try {
       const patient = patients.find(p => p.id === patientId)
-      let ad = session.session?.anamnesis || {}
+      // NUNCA usar session.session?.tests — pode conter dados de outro paciente
+      let ad = {}
       let td = {}
       let aiBody = aiBodyState
       let reportHtmlForDocx = report || ''
 
-      // ── Fonte A: estado em memória do hook ───────────────────────────────
-      td = session.session?.tests || {}
-
-      // ── Fonte B: sessão legada do usuário no Firestore ───────────────────
+      // ── Fonte A: sessão legada do usuário (menor prioridade) ─────────────
       if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
+          if (snap.exists()) td = mergeTests(td, snap.data().tests || {})
         } catch (_) {}
       }
 
-      // ── Fonte C: sessão principal — lê testes E anamnese diretamente ─────
+      // ── Fonte B: sessão principal (prioridade máxima — sobrescreve legado)─
       if (patientId) {
         try {
           const mainSnap = await getDoc(doc(db, 'sessions', patientId))
           if (mainSnap.exists()) {
             const mainData = mainSnap.data()
-            td = mergeTests(mainData.tests || {}, td)
+            td = mergeTests(td, mainData.tests || {})
             if (mainData.anamnesis && Object.keys(mainData.anamnesis).length > 0) {
               ad = { ...ad, ...mainData.anamnesis }
             }
