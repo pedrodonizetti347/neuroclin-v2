@@ -4725,7 +4725,7 @@ export default function Tests() {
   const _testData      = session.getTest(activeKey) || {}
   const isLocked       = _testData.status === 'concluido' && !!(_testData.classification?.trim())
   const formBlocked    = isLocked || isProfessional
-  const canReopen      = true
+  const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
   useEffect(() => {
@@ -4908,7 +4908,7 @@ export default function Tests() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <AlertTriangle size={14} color={S.amber} />
                     <span style={{ fontSize: 12, color: S.amber, fontWeight: 600 }}>
-                      Teste concluído — edição bloqueada.{canReopen ? ' Clique em Reabrir para editar.' : ''}
+                      Teste concluído — edição bloqueada.{canReopen ? ' Clique em Reabrir para editar.' : ' Solicite ao supervisor ou administrador para reabrir.'}
                     </span>
                   </div>
                   {canReopen && (
