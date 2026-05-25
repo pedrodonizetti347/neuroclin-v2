@@ -4781,6 +4781,9 @@ export default function Tests() {
   const session    = useTestSession(patientId)
   const sessionRef = useRef(session)
   sessionRef.current = session  // sempre aponta para a versão mais recente
+  // Rastreia testes já bloqueados nesta sessão — impede re-lock causado por estado intermediário
+  // vazio de NumFields (ex: apagar "5" e digitar "6" passa brevemente por '', zerando wasAlreadyComplete)
+  const wasCompleteRef = useRef({})
 
   useEffect(() => {
     const base = collection(db, 'patients')
@@ -4801,6 +4804,15 @@ export default function Tests() {
   useEffect(() => {
     if (patientId) session.flushBackup()
   }, [patientId])
+
+  // Inicializa wasCompleteRef quando a sessão carrega — testes já 'concluido' no Firestore
+  useEffect(() => {
+    if (!session.sessionLoaded) return
+    const tests = session.session?.tests || {}
+    const init = {}
+    Object.entries(tests).forEach(([k, v]) => { if (v?.status === 'concluido') init[k] = true })
+    wasCompleteRef.current = init
+  }, [session.sessionLoaded])
 
   // Pré-preenche campos demográficos ao abrir um teste (só preenche campos ainda vazios)
   useEffect(() => {
@@ -4842,12 +4854,14 @@ export default function Tests() {
   }, [])
 
   const handleChange = (key, data) => {
-    const trulyDone          = isTrulyComplete(key, data)
-    // Compara com o estado anterior — só auto-bloqueia na transição incompleto→completo
-    // Evita re-bloquear a cada clique quando todos os campos já estavam preenchidos
-    const wasAlreadyComplete = isTrulyComplete(key, session.getTest(key))
+    const trulyDone = isTrulyComplete(key, data)
+    // wasAlreadyComplete: usa ref (imune a estado intermediário vazio de NumFields)
+    // OU checa o estado atual do hook (caso o ref ainda não tenha sido setado)
+    const wasAlreadyComplete = wasCompleteRef.current[key] === true
+      || isTrulyComplete(key, session.getTest(key))
     let autoData
     if (trulyDone && !wasAlreadyComplete && (!data.status || data.status === 'em_andamento')) {
+      wasCompleteRef.current = { ...wasCompleteRef.current, [key]: true }
       autoData = { ...data, status: 'concluido' }
     } else if (!trulyDone && data.status === 'concluido') {
       autoData = { ...data, status: 'em_andamento' }
@@ -4988,6 +5002,7 @@ export default function Tests() {
                     <button
                       onClick={() => {
                         if (window.confirm('Tem certeza que deseja reabrir este teste para edição?')) {
+                          wasCompleteRef.current = { ...wasCompleteRef.current, [activeKey]: false }
                           session.updateTest(activeKey, { ...session.getTest(activeKey), status: 'em_andamento', classification: '' })
                         }
                       }}
