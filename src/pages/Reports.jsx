@@ -1845,6 +1845,47 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 </div>`
 }
 
+function FormatToolbar() {
+  const [fmt, setFmt] = useState({ bold: false, italic: false, underline: false })
+
+  const update = () => setFmt({
+    bold:      document.queryCommandState('bold'),
+    italic:    document.queryCommandState('italic'),
+    underline: document.queryCommandState('underline'),
+  })
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', update)
+    return () => document.removeEventListener('selectionchange', update)
+  }, [])
+
+  const exec = (cmd) => { document.execCommand(cmd, false, null); update() }
+
+  const btn = (active) => ({
+    background: active ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.05)',
+    border: `1px solid ${active ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.1)'}`,
+    color: active ? '#60A5FA' : 'rgba(255,255,255,0.75)',
+    borderRadius: 5, width: 30, height: 26,
+    cursor: 'pointer', fontSize: 13, fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  })
+
+  return (
+    <div style={{
+      padding: '5px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+      display: 'flex', alignItems: 'center', gap: 4,
+      background: 'rgba(0,0,0,0.15)', flexShrink: 0,
+    }}>
+      <button onMouseDown={e => { e.preventDefault(); exec('bold') }}      style={btn(fmt.bold)}      title="Negrito (Ctrl+B)"><strong>B</strong></button>
+      <button onMouseDown={e => { e.preventDefault(); exec('italic') }}    style={btn(fmt.italic)}    title="Itálico (Ctrl+I)"><em style={{ fontStyle: 'italic' }}>I</em></button>
+      <button onMouseDown={e => { e.preventDefault(); exec('underline') }} style={btn(fmt.underline)} title="Sublinhado (Ctrl+U)"><span style={{ textDecoration: 'underline' }}>U</span></button>
+      <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 6px' }} />
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', userSelect: 'none' }}>Ctrl+B · Ctrl+I · Ctrl+U</span>
+    </div>
+  )
+}
+
 function ReportBody({ html, editMode, reportRef }) {
   useEffect(() => {
     if (reportRef.current) reportRef.current.innerHTML = html
@@ -2507,6 +2548,8 @@ export default function Reports() {
               </span>
             </div>
           )}
+
+          {editMode && <FormatToolbar />}
 
           <div style={{ flex: 1, padding: editMode ? '20px 60px' : 20, overflowY: 'auto', ...(editMode ? {} : { maxHeight: '70vh' }) }}>
             {loading && (
