@@ -4722,7 +4722,8 @@ export default function Tests() {
   const activeConf     = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
   const patient        = patients.find(p => p.id === patientId)
   const isProfessional = user?.role === 'professional'
-  const isLocked       = session.getTest(activeKey)?.status === 'concluido'
+  const _testData      = session.getTest(activeKey) || {}
+  const isLocked       = _testData.status === 'concluido' && !!(_testData.classification?.trim())
   const formBlocked    = isLocked || isProfessional
   const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
