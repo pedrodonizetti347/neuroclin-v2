@@ -2372,15 +2372,6 @@ export default function Reports() {
           )}
 
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
-            <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>2. TESTES APLICADOS POR</div>
-            <input
-              value={appliedBy} onChange={e => setAppliedBy(e.target.value)}
-              placeholder={user?.full_name || 'Nome do profissional...'}
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
               3. TESTES APLICADOS ({selectedTests.length})
             </div>
