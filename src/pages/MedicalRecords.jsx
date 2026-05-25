@@ -323,7 +323,7 @@ export default function MedicalRecords() {
       (isProfessional || isEstagiario) ? Promise.resolve({ docs: [] }) : getDocs(collection(db, 'reports')),
     ]).then(([sessSnap, repSnap]) => {
       const patSessions = sessSnap.docs
-        .filter(d => d.id.startsWith(patientId + '_'))
+        .filter(d => d.id === patientId || d.id.startsWith(patientId + '_'))
         .map(d => ({ id: d.id, ...d.data() }))
 
       const merged = patSessions.reduce((acc, s) => ({
