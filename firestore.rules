@@ -66,10 +66,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Anamneses clínicas — DELETE bloqueado; apenas create/update permitidos
+    // Anamneses clínicas — DELETE bloqueado; qualquer autenticado cria/atualiza
     match /anamneses/{patientId} {
       allow read: if isAuth();
-      allow create, update: if isAdminOrSupervisor() || isEstagiario() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
+      allow create, update: if isAuth();
       allow delete: if false;
     }
 

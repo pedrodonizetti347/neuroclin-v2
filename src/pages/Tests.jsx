@@ -4797,7 +4797,8 @@ export default function Tests() {
   const isProfessional = user?.role === 'professional'
   const _testData      = session.getTest(activeKey) || {}
   const isLocked       = _testData.status === 'concluido' && isTrulyComplete(activeKey, _testData)
-  const formBlocked    = isLocked || isProfessional
+  const isEstagiario   = user?.role === 'estagiario'
+  const formBlocked    = isProfessional || (isLocked && !isEstagiario)
   const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente

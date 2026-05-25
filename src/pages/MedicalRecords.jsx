@@ -347,7 +347,7 @@ export default function MedicalRecords() {
   const age = patient?.birth_date
     ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
     : null
-  const canEditAnamnese = !isProfessional || patient?.createdBy === user?.id || patient?.assignedTo === user?.id
+  const canEditAnamnese = !isProfessional
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -412,7 +412,7 @@ export default function MedicalRecords() {
               { key: 'notas', label: 'Notas clínicas', icon: BookOpen },
             ].filter(t => {
               if (isProfessional) return ['anamnese', 'testes'].includes(t.key)
-              if (isEstagiario)   return t.key !== 'laudos'
+              if (isEstagiario)   return ['anamnese', 'testes'].includes(t.key)
               return true
             })
             .map(({ key, label, icon: Icon }) => (
