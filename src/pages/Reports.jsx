@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, query, orderBy, where, doc, updateDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
@@ -1655,7 +1655,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   const lat = ad?.lateralidade || patient?.lateralidade
   if (lat)                        igPartes.push(`lateralidade ${lat}`)
   if (informante && informante !== '—') igPartes.push(`informante: ${informante}`)
-  const infoGeraisProsa = igPartes.length > 0 ? `Paciente com ${igPartes.join(', ')}.` : ''
+  const infoGeraisProsa = ad?.infoGerais || (igPartes.length > 0 ? `Paciente com ${igPartes.join(', ')}.` : '')
 
   // 4. Relacionamentos
   const relacionamentos = ad?.relacionamentos || ''
@@ -1671,7 +1671,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     antecFam  ? `Antecedentes familiares: ${antecFam}` : '',
     (medicamentos && medicamentos !== '—') ? `Medicamentos em uso: ${medicamentos}` : '',
   ].filter(Boolean)
-  const saudeProsa = saudeParts.join(' ')
+  const saudeProsa = ad?.saudeAntecedentes || saudeParts.join(' ')
 
   const anamneseSections = [
     objAval       && `<p style="${AP}"><strong>Objetivo da avaliação:</strong> ${objAval}</p>`,
@@ -1892,6 +1892,12 @@ export default function Reports() {
   const [reportDate,     setReportDate]     = useState('')
   const [testsData,      setTestsData]      = useState({})
   const [docxExporting,  setDocxExporting]  = useState(false)
+  const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
+  const [quickAnamnese,  setQuickAnamnese]  = useState({
+    objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '',
+    relacionamentos: '', vidaAcademicaLaboral: '', saudeAntecedentes: '',
+  })
+  const [savingQuick, setSavingQuick] = useState(false)
   const reportRef = useRef(null)
 
   const isSupervisor = user?.role === 'admin' || user?.role === 'supervisor'
@@ -1912,6 +1918,29 @@ export default function Reports() {
         getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       })
   }, [user])
+
+  // ── Detecção de anamnese ao trocar de paciente ───────────────────────────────
+  useEffect(() => {
+    if (!patientId || !isSupervisor) { setAnamneseStatus('idle'); return }
+    setAnamneseStatus('loading')
+    getDoc(doc(db, 'anamneses', patientId))
+      .then(snap => {
+        const data = snap.exists() ? snap.data() : {}
+        const hasContent = !!(
+          data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento ||
+          data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais ||
+          data.relacionamentos   || data.vidaAcademicaLaboral || data.historicoSaude ||
+          data.estado_civil      || data.profissao || data.doencas_preexistentes?.length
+        )
+        if (hasContent) {
+          setAnamneseStatus('found')
+        } else {
+          setAnamneseStatus('empty')
+          setQuickAnamnese({ objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '', relacionamentos: '', vidaAcademicaLaboral: '', saudeAntecedentes: '' })
+        }
+      })
+      .catch(() => setAnamneseStatus('empty'))
+  }, [patientId, isSupervisor])
 
   useEffect(() => {
     if (!patientId || !user) return
@@ -1955,6 +1984,19 @@ export default function Reports() {
     setSelectedTests(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
 
   const patient = patients.find(p => p.id === patientId)
+
+  const saveQuickAnamnese = async () => {
+    if (!patientId) return
+    setSavingQuick(true)
+    try {
+      await setDoc(doc(db, 'anamneses', patientId), {
+        ...quickAnamnese,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+      setAnamneseStatus('found')
+    } catch (e) { console.error('[saveQuickAnamnese]', e) }
+    finally { setSavingQuick(false) }
+  }
 
   const generate = async () => {
     if (!patientId)               return setError('Selecione um paciente.')
@@ -2274,6 +2316,67 @@ export default function Reports() {
           </div>
 
           {patientId && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
+
+          {/* ── Painel de anamnese ─────────────────────────────────────────── */}
+          {patientId && isSupervisor && anamneseStatus !== 'idle' && (
+            <div style={{
+              background: S.card, borderRadius: 10, padding: '12px 14px',
+              border: `1px solid ${anamneseStatus === 'found' ? 'rgba(46,125,50,0.4)' : anamneseStatus === 'empty' ? 'rgba(245,158,11,0.4)' : S.border}`,
+            }}>
+              {anamneseStatus === 'loading' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: S.muted }}>
+                  <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Verificando anamnese...
+                </div>
+              )}
+              {anamneseStatus === 'found' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: S.greenL, fontWeight: 700 }}>
+                  <CheckCircle2 size={13} /> Anamnese completa encontrada — será incluída no laudo
+                </div>
+              )}
+              {anamneseStatus === 'empty' && (
+                <div>
+                  <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
+                    ⚠ ANAMNESE NÃO ENCONTRADA — preencha rapidamente para o laudo
+                  </div>
+                  {[
+                    ['Objetivo da avaliação', 'objetivoAvaliacao'],
+                    ['Descrição da demanda', 'descricaoDemanda'],
+                    ['Informações gerais (texto corrido)', 'infoGerais'],
+                    ['Relacionamentos', 'relacionamentos'],
+                    ['Vida acadêmica/Laboral', 'vidaAcademicaLaboral'],
+                    ['Saúde e antecedentes familiares', 'saudeAntecedentes'],
+                  ].map(([label, key]) => (
+                    <div key={key} style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 10, color: S.muted, fontWeight: 700, display: 'block', marginBottom: 3 }}>
+                        {label.toUpperCase()}
+                      </label>
+                      <textarea
+                        value={quickAnamnese[key]}
+                        onChange={e => setQuickAnamnese(prev => ({ ...prev, [key]: e.target.value }))}
+                        rows={2}
+                        style={{ ...inputStyle, resize: 'vertical', fontSize: 12 }}
+                        placeholder={`${label}...`}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    onClick={saveQuickAnamnese}
+                    disabled={savingQuick}
+                    style={{
+                      width: '100%', padding: '8px', borderRadius: 7, border: 'none',
+                      background: savingQuick ? 'rgba(46,125,50,0.4)' : S.green,
+                      color: '#fff', fontSize: 12, fontWeight: 700, cursor: savingQuick ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                  >
+                    {savingQuick
+                      ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
+                      : <><CheckCircle2 size={12} /> Salvar anamnese</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>2. TESTES APLICADOS POR</div>
