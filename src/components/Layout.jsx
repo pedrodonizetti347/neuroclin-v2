@@ -179,7 +179,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('/version.json?_=' + Date.now())
+        const res = await fetch(import.meta.env.BASE_URL + 'version.json?_=' + Date.now())
         if (!res.ok) return
         const data = await res.json()
         if (data.v > BUILD_ID) setNewVersion(true)
