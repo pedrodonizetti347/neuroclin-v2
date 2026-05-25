@@ -1993,7 +1993,7 @@ function BADLForm({ data, onChange }) {
       ...next,
       items_answered: answered.length,
       total_score:    meanVal != null ? parseFloat(meanVal.toFixed(2)) : null,
-      classification: answered.length === BADL_ITEMS.length ? (classify.badl(meanVal)?.label || '') : (next.classification || ''),
+      classification: answered.length === BADL_ITEMS.length ? (classify.badl(meanVal)?.label || '') : '',
     })
   }
 
