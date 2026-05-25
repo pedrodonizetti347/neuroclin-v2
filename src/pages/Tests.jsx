@@ -2294,7 +2294,8 @@ function WASIForm({ data, onChange, version }) {
       n.similarities_score = n.similarities_items.reduce((s, v) => s + (Number(v) || 0), 0)
     if (!isIII && Array.isArray(n.matrix_items))
       n.matrix_score = n.matrix_items.reduce((s, v) => s + (Number(v) || 0), 0)
-    n.classification     = (n.qit_2 != null && n.qit_2 !== '') ? (classify.wasi(n.qit_2)?.label || '') : ''
+    const wasiComplete = n.qit_2 != null && n.qit_2 !== '' && n.qiv != null && n.qiv !== ''
+    n.classification     = wasiComplete ? (classify.wasi(n.qit_2)?.label || '') : ''
     if (n.qiv   != null && n.qiv   !== '') n.qiv_classification  = classify.wasi(n.qiv)?.label   || ''
     if (n.qie   != null && n.qie   !== '') n.qie_classification  = classify.wasi(n.qie)?.label   || ''
     onChange(n)
@@ -2658,7 +2659,9 @@ function WCSTForm({ data, onChange }) {
       const ta = n.trials_administered != null && n.trials_administered !== '' ? Number(n.trials_administered) : null
       if (ta != null && te != null) n.total_correct = Math.max(0, ta - te)
     }
-    n.classification = n.categories_completed != null ? (classify.wcst_cat(n.categories_completed)?.label || '') : ''
+    const allTrials = n.trials_administered != null && n.trials_administered >= 48
+    const cat48 = allTrials ? (n.categories_completed !== null && n.categories_completed !== undefined ? n.categories_completed : 0) : null
+    n.classification = allTrials ? (classify.wcst_cat(cat48)?.label || 'COMPROMETIDO') : ''
     onChange(n)
   }
 
@@ -2932,7 +2935,8 @@ function WCSTFullForm({ data, onChange }) {
     const ta = num('total_trials')
     if (ta != null && te != null) n.total_correct = Math.max(0, ta - te)
     const catComp = num('categories_completed')
-    if (catComp != null) n.classification = classify.wcst_cat(catComp)?.label || ''
+    const wcstAllFilled = catComp != null && num('total_trials') != null && num('total_errors') != null && num('perseverative_errors') != null
+    n.classification = wcstAllFilled ? (classify.wcst_cat(catComp)?.label || '') : ''
     onChange(n)
   }
 
@@ -3177,14 +3181,25 @@ function BAMSForm({ data, onChange }) {
       const zK = bamsZ(concScore, norma.conceitualizacao.media, norma.conceitualizacao.dp)
       const pct = bamsZToPercentil(zB)
       const cls = classify.bams_pct(pct)
+      const bamsAllSections =
+        next.fv_animals_hits != null && next.fv_fruits_hits != null &&
+        next.fv_utensils_hits != null && next.fv_clothes_hits != null &&
+        Array.isArray(next.nd_scores)     && next.nd_scores.length     >= 10 &&
+        Array.isArray(next.ni_nouns)      && next.ni_nouns.length      >= 14 &&
+        Array.isArray(next.ni_verbs)      && next.ni_verbs.length      >= 7  &&
+        Array.isArray(next.ni_professions)&& next.ni_professions.length>= 7  &&
+        Array.isArray(next.cg_scores)     && next.cg_scores.length     >= 10 &&
+        Array.isArray(next.dp_scores)     && next.dp_scores.length     >= 10 &&
+        Array.isArray(next.ci_scores)     && next.ci_scores.length     >= 10 &&
+        Array.isArray(next.cv_scores)     && next.cv_scores.length     >= 10
       autoNorm = {
         z_bams: zB != null ? zB.toFixed(2) : '',
         z_lexico: zL != null ? zL.toFixed(2) : '',
         z_categorizacao: zC != null ? zC.toFixed(2) : '',
         z_conceitualizacao: zK != null ? zK.toFixed(2) : '',
         percentile: pct != null ? pct : (next.percentile || ''),
-        classification: cls ? cls.label : '',
-        interpretation: cls ? cls.interpretation : '',
+        classification: bamsAllSections && cls ? cls.label : '',
+        interpretation: bamsAllSections && cls ? cls.interpretation : '',
       }
     }
     onChange({
@@ -4719,11 +4734,26 @@ function isTrulyComplete(key, data) {
     case 'MEMIMP':   return MEMIMP_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
     case 'PCRS':     return PCRS_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
     case 'RAVLT':    return ['a1_score','a2_score','a3_score','a4_score','a5_score','b1_score','a6_score','a7_score'].every(k => d[k] != null && d[k] !== '')
-    case 'WCST':
-    case 'WCST-N':   return d.categories_completed != null && d.categories_completed !== ''
+    case 'WCST':     return (
+      d.categories_completed != null && d.categories_completed !== '' &&
+      d.total_trials != null && d.total_trials !== '' &&
+      d.total_errors != null && d.total_errors !== '' &&
+      d.perseverative_errors != null && d.perseverative_errors !== ''
+    )
+    case 'WCST-N':   return Number(d.trials_administered) >= 48
     case 'WASI':
-    case 'WASI-III': return d.qit_2 != null && d.qit_2 !== ''
-    case 'BAMS':     return d.z_bams != null && d.z_bams !== ''
+    case 'WASI-III': return d.qit_2 != null && d.qit_2 !== '' && d.qiv != null && d.qiv !== ''
+    case 'BAMS':     return !!(d.edu_group) && d.z_bams != null && d.z_bams !== '' &&
+      d.fv_animals_hits != null && d.fv_fruits_hits != null &&
+      d.fv_utensils_hits != null && d.fv_clothes_hits != null &&
+      Array.isArray(d.nd_scores)      && d.nd_scores.length      >= 10 &&
+      Array.isArray(d.ni_nouns)       && d.ni_nouns.length       >= 14 &&
+      Array.isArray(d.ni_verbs)       && d.ni_verbs.length       >= 7  &&
+      Array.isArray(d.ni_professions) && d.ni_professions.length >= 7  &&
+      Array.isArray(d.cg_scores)      && d.cg_scores.length      >= 10 &&
+      Array.isArray(d.dp_scores)      && d.dp_scores.length      >= 10 &&
+      Array.isArray(d.ci_scores)      && d.ci_scores.length      >= 10 &&
+      Array.isArray(d.cv_scores)      && d.cv_scores.length      >= 10
     default:         return false
   }
 }
@@ -4992,6 +5022,7 @@ export default function Tests() {
                   testKey={activeKey}
                   existingUrls={session.getTest(activeKey)?.scan_urls || []}
                   onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
+                  maxPhotos={activeKey === 'NEUPSILIN' ? 6 : 5}
                 />
               ) : (
                 <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>

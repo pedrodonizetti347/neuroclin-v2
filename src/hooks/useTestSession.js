@@ -34,10 +34,14 @@ export function useTestSession(patientId) {
     const ref = doc(db, 'sessions', patientId)
 
     // Proteção: nunca sobrescrever campo com valor real por zero/nulo/vazio
+    // Exceção: campos de controle (status, classification, interpretation) sempre são salvos
     const loaded = loadedTestsRef.current[testName] || {}
     const safeData = {}
     for (const [k, v] of Object.entries(data)) {
       if (k.startsWith('_')) { safeData[k] = v; continue }  // metadados: sempre passa
+      const isControlField = k === 'status' || k === 'classification' || k === 'interpretation'
+        || k.endsWith('_classification')
+      if (isControlField) { safeData[k] = v; continue }     // status/classification sempre salvos
       const loadedIsReal = isReal(loaded[k])
       const newIsReal    = isReal(v)
       if (loadedIsReal && !newIsReal) continue  // protege valor real de ser zerado
