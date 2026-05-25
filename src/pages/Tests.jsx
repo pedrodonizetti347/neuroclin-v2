@@ -1048,9 +1048,10 @@ function FABForm({ data, onChange }) {
 
   const update = (changes) => {
     const next = { ...d, ...changes }
-    const hasAny = FAB_FIELDS.some(f => next[f.key] != null)
+    const hasAny    = FAB_FIELDS.some(f => next[f.key] != null)
+    const allFilled = FAB_FIELDS.every(f => next[f.key] != null)
     const total  = FAB_FIELDS.reduce((sum, f) => sum + (Number(next[f.key]) || 0), 0)
-    onChange({ ...next, total_score: hasAny ? total : null, classification: hasAny ? (classify.fab(total)?.label || '') : '' })
+    onChange({ ...next, total_score: hasAny ? total : null, classification: allFilled ? (classify.fab(total)?.label || '') : '' })
   }
 
   const hasAny = FAB_FIELDS.some(f => d[f.key] != null)
@@ -1290,8 +1291,9 @@ function BDI2Form({ data, onChange }) {
 
   const update = (changes) => {
     const next = { ...d, ...changes }
-    const total = BDII_ITEMS.reduce((sum, it) => sum + (Number(next[it.key]) || 0), 0)
-    onChange({ ...next, total_score: total, classification: classify.bdi2(total)?.label || '' })
+    const total      = BDII_ITEMS.reduce((sum, it) => sum + (Number(next[it.key]) || 0), 0)
+    const answered   = BDII_ITEMS.filter(it => next[it.key] != null).length
+    onChange({ ...next, total_score: total, classification: answered === BDII_ITEMS.length ? (classify.bdi2(total)?.label || '') : '' })
   }
 
   const total = BDII_ITEMS.reduce((sum, it) => sum + (Number(d[it.key]) || 0), 0)
@@ -1717,9 +1719,10 @@ function IDATEForm({ data, onChange, label }) {
     : '1 = Absolutamente não · 2 = Um pouco · 3 = Bastante · 4 = Muitíssimo'
 
   const update = (changes) => {
-    const n     = { ...d, ...changes }
-    const total = idateTotal(n, isTraco)
-    onChange({ ...n, total_score: total, classification: total != null ? (classify.idate(total)?.label || '') : '' })
+    const n        = { ...d, ...changes }
+    const total    = idateTotal(n, isTraco)
+    const answered = Array.from({ length: 20 }, (_, i) => `q${i + 1}`).filter(k => n[k] != null && n[k] !== '').length
+    onChange({ ...n, total_score: total, classification: answered === 20 ? (classify.idate(total)?.label || '') : '' })
   }
 
   const total    = idateTotal(d, isTraco)
@@ -1859,7 +1862,7 @@ function IQCODEForm({ data, onChange }) {
     const answered = keys.filter(k => n[k] != null).length
     const total    = answered > 0 ? keys.reduce((s, k) => s + (Number(n[k]) || 0), 0) : null
     const mean     = total != null ? Math.round((total / 26) * 100) / 100 : null
-    onChange({ ...n, total_score: total, mean_score: mean, classification: mean != null ? (classify.iqcode(mean)?.label || '') : '' })
+    onChange({ ...n, total_score: total, mean_score: mean, classification: answered === 26 ? (classify.iqcode(mean)?.label || '') : '' })
   }
 
   const keys     = Array.from({ length: 26 }, (_, i) => `q${i + 1}`)
@@ -1989,7 +1992,7 @@ function BADLForm({ data, onChange }) {
       ...next,
       items_answered: answered.length,
       total_score:    meanVal != null ? parseFloat(meanVal.toFixed(2)) : null,
-      classification: meanVal != null ? (classify.badl(meanVal)?.label || '') : (next.classification || ''),
+      classification: answered.length === BADL_ITEMS.length ? (classify.badl(meanVal)?.label || '') : (next.classification || ''),
     })
   }
 
@@ -2098,7 +2101,7 @@ function PfefferForm({ data, onChange }) {
     const n = { ...d, ...changes }
     const answered = PFEFFER_ITEMS.filter(it => n[it.key] != null).length
     const total    = answered > 0 ? PFEFFER_ITEMS.reduce((s, it) => s + (Number(n[it.key]) || 0), 0) : null
-    onChange({ ...n, total_score: total, classification: total != null ? (classify.pfeffer(total)?.label || '') : '' })
+    onChange({ ...n, total_score: total, classification: answered === PFEFFER_ITEMS.length ? (classify.pfeffer(total)?.label || '') : '' })
   }
 
   const answered = PFEFFER_ITEMS.filter(it => d[it.key] != null).length
@@ -2198,7 +2201,7 @@ function LawtonForm({ data, onChange }) {
     const n = { ...d, ...changes }
     const answered = LAWTON_ITEMS.filter(it => n[it.key] != null).length
     const total    = answered > 0 ? LAWTON_ITEMS.reduce((s, it) => s + (Number(n[it.key]) || 0), 0) : null
-    onChange({ ...n, total_score: total, classification: total != null ? (classify.lawton(total)?.label || '') : '' })
+    onChange({ ...n, total_score: total, classification: answered === LAWTON_ITEMS.length ? (classify.lawton(total)?.label || '') : '' })
   }
 
   const answered = LAWTON_ITEMS.filter(it => d[it.key] != null).length
@@ -3710,7 +3713,7 @@ function TRIACOGForm({ data, onChange }) {
       n.orientacao_idade, n.orientacao_ano,
       n.atencao_span_direto, n.atencao_span_inverso,
       n.memoria_evocacao_imediata, n.memoria_evocacao_tardia,
-    ].some(v => v != null && v !== '')
+    ].every(v => v != null && v !== '')
     const raw = k => (n[k] != null && n[k] !== '') ? Number(n[k]) : 0
     n.total_score = hasData ? (
       num('orientacao_total') +
