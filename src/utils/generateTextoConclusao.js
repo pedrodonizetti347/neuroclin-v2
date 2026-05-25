@@ -19,8 +19,9 @@ function gerarDiscurso(p) {
 
 function gerarInteligencia(p) {
   if (!p.wasiPontuacao && !p.wasiDesempenho) return null
+  const g = art(p.sexo)
   return clean(
-    `No que tange às funções avaliadas, a INTELIGÊNCIA pode ser definida como a capacidade conjunta ou global do indivíduo para agir com finalidade, pensar racionalmente e lidar efetivamente com seu meio ambiente. Global pode ser caracterizado como o comportamento do indivíduo como um todo, e conjunta, por ser composta de habilidades qualitativamente diferenciáveis, mas não inteiramente independentes, sendo então multifacetada e multideterminada. A estimativa do desempenho intelectual do paciente foi medida pelo teste WASI, através do QI estimado. ${p.nome} apresentou um QI Total-2 estimado de ${p.wasiPontuacao}, percentil ${p.wasiPercentil}, o que corresponde a uma classificação de desempenho ${p.wasiDesempenho}.`
+    `No que tange às funções avaliadas, a INTELIGÊNCIA pode ser definida como a capacidade conjunta ou global do indivíduo para agir com finalidade, pensar racionalmente e lidar efetivamente com seu meio ambiente. Global pode ser caracterizado como o comportamento do indivíduo como um todo, e conjunta, por ser composta de habilidades qualitativamente diferenciáveis, mas não inteiramente independentes, sendo então multifacetada e multideterminada. A estimativa do desempenho intelectual d${g} paciente foi medida pelo teste WASI, através do QI estimado. ${p.nome} apresentou um QI Total-2 estimado de ${p.wasiPontuacao}, percentil ${p.wasiPercentil}, o que corresponde a uma classificação de desempenho ${p.wasiDesempenho}.`
   )
 }
 
@@ -62,7 +63,7 @@ function gerarMemoria(p) {
       : `${p.nome} apresentou dificuldades no processo de codificação da memória na realização das tarefas, pois parecia  compreender o que era pedido;`
   )
 
-  const introTipos = clean(`${G} paciente foi submetido a diversas tarefas para avaliar os seguintes tipos de memória:`)
+  const introTipos = clean(`${G} paciente foi submetid${g} a diversas tarefas para avaliar os seguintes tipos de memória:`)
 
   let curtoPrazo
   if (p.ravltA1 === p.ravltB1) {
@@ -176,7 +177,7 @@ function gerarFuncoesExecutivas(p) {
   )
 
   const introQuentesFrias = clean(
-    `O funcionamento executivo inclui tanto aspectos cognitivos (mensurados por testes psicológicos) como emocionais e comportamentais. Esses aspectos podem ser subdivididos como funções executivas "quentes" e "frias", isto é, a habilidades ligadas ao controle do comportamento e dos impulsos versus o controle do raciocínio voltado para a solução de problemas. Abaixo se observa o desempenho obtido através de questionário respondidos por informante o e pel${g} própria paciente:`
+    `O funcionamento executivo inclui tanto aspectos cognitivos (mensurados por testes psicológicos) como emocionais e comportamentais. Esses aspectos podem ser subdivididos como funções executivas "quentes" e "frias", isto é, a habilidades ligadas ao controle do comportamento e dos impulsos versus o controle do raciocínio voltado para a solução de problemas. Abaixo se observa o desempenho obtido através de questionários respondidos por informante e pel${g} própri${g} paciente:`
   )
 
   return [intro, volitivos, planejamento, controleInibitorios, flexibilidade, introQuentesFrias].join(' ')
@@ -240,7 +241,7 @@ function gerarPraxia(p) {
 function gerarDepressaoAnsiedade(p) {
   const g = art(p.sexo)
   return clean(
-    `Em escalas onde se mediram o nível de depressão e ansiedade vivenciadas pela paciente no momento ${g} paciente ${p.depressao} e ${p.ansiedade}.`
+    `Em escalas onde se mediram o nível de depressão e ansiedade vivenciad${g}s pel${g} paciente no momento ${g} paciente ${p.depressao} e ${p.ansiedade}.`
   )
 }
 

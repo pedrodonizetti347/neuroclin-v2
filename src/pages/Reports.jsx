@@ -1922,18 +1922,11 @@ export default function Reports() {
           if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
         } catch (_) {}
       }
-      // Fonte 3: qualquer sessão deste paciente (sempre mescla — captura dados de outro aplicador)
+      // Fonte 3: sessão principal do paciente (leitura direta — evita contaminação por docs legados)
       if (patientId) {
         try {
-          const sessSnap = await getDocs(
-            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
-          )
-          if (!sessSnap.empty) {
-            const sorted = sessSnap.docs.sort((a, b) =>
-              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
-            )
-            td = mergeTests(sorted[0].data().tests || {}, td)
-          }
+          const mainSnap = await getDoc(doc(db, 'sessions', patientId))
+          if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
         } catch (_) {}
       }
       // Fonte 4: dados manuais do formulário (prioridade máxima)
@@ -2042,19 +2035,11 @@ export default function Reports() {
         } catch (_) {}
       }
 
-      // ── Fonte C: qualquer sessão do paciente (supervisor / outro prof.) ───
+      // ── Fonte C: sessão principal do paciente (leitura direta — evita contaminação por docs legados) ───
       if (patientId) {
         try {
-          const sessSnap = await getDocs(
-            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
-          )
-          if (!sessSnap.empty) {
-            const sorted = sessSnap.docs.sort((a, b) =>
-              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
-            )
-            const sessionTests = sorted[0].data().tests || {}
-            td = mergeTests(sessionTests, td)
-          }
+          const mainSnap = await getDoc(doc(db, 'sessions', patientId))
+          if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
         } catch (_) {}
       }
 
@@ -2134,15 +2119,8 @@ export default function Reports() {
       }
       if (patientId) {
         try {
-          const sessSnap = await getDocs(
-            query(collection(db, 'sessions'), where('patientId', '==', patientId), limit(5))
-          )
-          if (!sessSnap.empty) {
-            const sorted = sessSnap.docs.sort((a, b) =>
-              (b.data().updatedAt?.seconds ?? 0) - (a.data().updatedAt?.seconds ?? 0)
-            )
-            td = mergeTests(sorted[0].data().tests || {}, td)
-          }
+          const mainSnap = await getDoc(doc(db, 'sessions', patientId))
+          if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
         } catch (_) {}
       }
       if (savedReportId) {
