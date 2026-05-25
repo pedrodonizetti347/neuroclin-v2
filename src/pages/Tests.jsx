@@ -363,7 +363,7 @@ function RAVLTForm({ data, onChange }) {
     const recognition_hits           = rHits ?? a('recognition_hits')
     const recognition_false          = rFP   ?? a('recognition_false')
     const recognition_score          = (recognition_hits!=null&&recognition_false!=null) ? recognition_hits-recognition_false : null
-    const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : (n.classification || '')
+    const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : ''
 
     const faixaId = n.age ? ravltGetFaixaId(n.age) : null
     const normaR  = faixaId ? RAVLT_NORMAS[faixaId] : null
@@ -955,7 +955,7 @@ function NEUPSILINForm({ data, onChange }) {
 
       {tab === 'memoria' && <div style={secBox}>
         {subHead('Memória de Trabalho')}
-        <NumField label="Ordenamento de Dígitos — total (/20)" value={d.memory_working}       onChange={v => update({ memory_working:       v })} min={0} max={20} />
+        <NumField label="Ordenamento de Dígitos — total (/10)" value={d.memory_working}       onChange={v => update({ memory_working:       v })} min={0} max={10} />
         <NumField label="Span de Dígitos — máx sequência"      value={d.memory_working_digit} onChange={v => update({ memory_working_digit: v })} min={0} max={10} />
         {subHead('Span Auditivo')}
         <NumField label="Span Auditivo — Frases (/28)"   value={d.memory_span_auditory} onChange={v => update({ memory_span_auditory: v })} min={0} max={28} />
@@ -996,7 +996,7 @@ function NEUPSILINForm({ data, onChange }) {
 
       {tab === 'praxias' && <div style={secBox}>
         <NumField label="Ideomotora (/3)"   value={d.praxis_ideomotor}    onChange={v => update({ praxis_ideomotor:    v })} min={0} max={3}  />
-        <NumField label="Construtiva (/14)" value={d.praxis_constructive} onChange={v => update({ praxis_constructive: v })} min={0} max={14} />
+        <NumField label="Construtiva (/16)" value={d.praxis_constructive} onChange={v => update({ praxis_constructive: v })} min={0} max={16} />
         <NumField label="Reflexiva (/3)"    value={d.praxis_reflexive}    onChange={v => update({ praxis_reflexive:    v })} min={0} max={3}  />
         {totLine(praxTotal, 20)}
       </div>}
@@ -1423,8 +1423,9 @@ function HADForm({ data, onChange }) {
       ...n,
       anxiety_score,
       depression_score,
-      anxiety_classification:    anxiety_score    != null ? (classify.had(anxiety_score)?.label    || '') : '',
-      depression_classification: depression_score != null ? (classify.had(depression_score)?.label || '') : '',
+      anxiety_classification:    anxiety_answered    === HAD_ANXIETY_ITEMS.length    ? (classify.had(anxiety_score)?.label    || '') : '',
+      depression_classification: depression_answered === HAD_DEPRESSION_ITEMS.length ? (classify.had(depression_score)?.label || '') : '',
+      classification: '',
     })
   }
 
@@ -2292,7 +2293,7 @@ function WASIForm({ data, onChange, version }) {
       n.similarities_score = n.similarities_items.reduce((s, v) => s + (Number(v) || 0), 0)
     if (!isIII && Array.isArray(n.matrix_items))
       n.matrix_score = n.matrix_items.reduce((s, v) => s + (Number(v) || 0), 0)
-    if (n.qit_2 != null && n.qit_2 !== '') n.classification      = classify.wasi(n.qit_2)?.label || ''
+    n.classification     = (n.qit_2 != null && n.qit_2 !== '') ? (classify.wasi(n.qit_2)?.label || '') : ''
     if (n.qiv   != null && n.qiv   !== '') n.qiv_classification  = classify.wasi(n.qiv)?.label   || ''
     if (n.qie   != null && n.qie   !== '') n.qie_classification  = classify.wasi(n.qie)?.label   || ''
     onChange(n)
@@ -2656,8 +2657,7 @@ function WCSTForm({ data, onChange }) {
       const ta = n.trials_administered != null && n.trials_administered !== '' ? Number(n.trials_administered) : null
       if (ta != null && te != null) n.total_correct = Math.max(0, ta - te)
     }
-    if (n.categories_completed != null)
-      n.classification = classify.wcst_cat(n.categories_completed)?.label || ''
+    n.classification = n.categories_completed != null ? (classify.wcst_cat(n.categories_completed)?.label || '') : ''
     onChange(n)
   }
 
@@ -3182,8 +3182,8 @@ function BAMSForm({ data, onChange }) {
         z_categorizacao: zC != null ? zC.toFixed(2) : '',
         z_conceitualizacao: zK != null ? zK.toFixed(2) : '',
         percentile: pct != null ? pct : (next.percentile || ''),
-        classification: cls ? cls.label : (next.classification || ''),
-        interpretation: cls ? cls.interpretation : (next.interpretation || ''),
+        classification: cls ? cls.label : '',
+        interpretation: cls ? cls.interpretation : '',
       }
     }
     onChange({
@@ -3515,7 +3515,7 @@ function DEXForm({ data, onChange, onSave }) {
       family_mean:   famAns > 0 ? parseFloat((famTotal / famAns).toFixed(2)) : null,
       patient_classification: patAns > 0 ? (classify.dex(patTotal)?.label || '') : (next.patient_classification || ''),
       family_classification:  famAns > 0 ? (classify.dex(famTotal)?.label || '') : (next.family_classification  || ''),
-      classification: patAns > 0 ? (classify.dex(patTotal)?.label || '') : (next.classification || ''),
+      classification: patAns === DEX_SCORE_ITEMS.length ? (classify.dex(patTotal)?.label || '') : '',
     })
   }
 
@@ -4138,6 +4138,7 @@ function TOKENForm({ data, onChange }) {
     n.total_score = totalScore
     n.errors = TOKEN_MAX - totalScore
     const faixaId = tokenGetFaixaId(n.age)
+    n.classification = ''
     if (faixaId && totalScore > 0) {
       const epi = tokenBuscarEPI(totalScore, faixaId)
       if (epi) {
@@ -4320,6 +4321,7 @@ function MEMIMPForm({ data, onChange, onSave }) {
       patient_total: p.total, patient_mean: p.mean, patient_sd: p.sd,
       family_prospective:  f.prospective, family_retrospective:  f.retrospective,
       family_total:  f.total, family_mean:  f.mean,  family_sd:  f.sd,
+      classification: '',
     })
   }
 
@@ -4492,7 +4494,7 @@ function PCRSForm({ data, onChange, onSave }) {
       ? Math.round(validDisc.filter(v => Math.abs(v) >= 2).length / 17 * 100)
       : null
 
-    onChange({ ...n, patient_total, informant_total, discrepancies, total_discrepancy, percentage_discrepant })
+    onChange({ ...n, patient_total, informant_total, discrepancies, total_discrepancy, percentage_discrepant, classification: '' })
   }
 
   const pKeys = PCRS_ITEMS.map((_, i) => `patient_q${i + 1}`)
