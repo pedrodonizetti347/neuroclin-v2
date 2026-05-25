@@ -4833,10 +4833,12 @@ export default function Tests() {
   }, [])
 
   const handleChange = (key, data) => {
-    // Usa isTrulyComplete — não depende do campo classification (que pode estar corrompido no Firestore)
-    const trulyDone = isTrulyComplete(key, data)
+    const trulyDone          = isTrulyComplete(key, data)
+    // Compara com o estado anterior — só auto-bloqueia na transição incompleto→completo
+    // Evita re-bloquear a cada clique quando todos os campos já estavam preenchidos
+    const wasAlreadyComplete = isTrulyComplete(key, session.getTest(key))
     let autoData
-    if (trulyDone && (!data.status || data.status === 'em_andamento')) {
+    if (trulyDone && !wasAlreadyComplete && (!data.status || data.status === 'em_andamento')) {
       autoData = { ...data, status: 'concluido' }
     } else if (!trulyDone && data.status === 'concluido') {
       autoData = { ...data, status: 'em_andamento' }
