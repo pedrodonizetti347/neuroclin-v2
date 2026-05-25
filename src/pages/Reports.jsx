@@ -2076,8 +2076,8 @@ export default function Reports() {
   const getReportContent = () =>
     reportRef.current ? reportRef.current.innerHTML : report
 
-  const print = () => {
-    const content = getReportContent()
+  const print = (contentOverride) => {
+    const content = contentOverride || getReportContent()
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
@@ -2262,6 +2262,8 @@ export default function Reports() {
       setReportStatus('aprovado')
       setShowApproval(false)
       logAction(user, 'laudo_aprovado', { patientId, reportId: savedReportId })
+      // PDF automático após aprovação — passa HTML já com carimbo de aprovação
+      setTimeout(() => print(updatedDoc), 500)
     } catch (e) {
       setApprovalErr('Erro ao aprovar: ' + e.message)
     } finally {
@@ -2426,7 +2428,16 @@ export default function Reports() {
         </div>
 
         {/* Painel direito — laudo */}
-        <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{
+          background: S.card,
+          border: `1px solid ${S.border}`,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          ...(editMode
+            ? { position: 'fixed', inset: 0, zIndex: 999, borderRadius: 0 }
+            : { borderRadius: 10 }),
+        }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <FileText size={15} color={S.greenL} />
@@ -2450,14 +2461,8 @@ export default function Reports() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Editar na tela */}
               {report && (
-                <button onMouseDown={e => { e.preventDefault(); setEditMode(m => !m) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.5)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.1)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
-                  <Pencil size={12} /> {editMode ? 'EDITANDO' : 'EDITAR'}
-                </button>
-              )}
-              {/* Download Word — usa exportToDocx completo */}
-              {(report || savedReportId) && (
-                <button onClick={handleExportDocx} disabled={docxExporting} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.08)', cursor: docxExporting ? 'not-allowed' : 'pointer', color: '#60A5FA' }}>
-                  {docxExporting ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</> : <><FileDown size={13} /> WORD</>}
+                <button onMouseDown={e => { e.preventDefault(); setEditMode(m => !m) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.7)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.18)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
+                  <Pencil size={12} /> {editMode ? '✕  SAIR DA EDIÇÃO' : 'EDITAR'}
                 </button>
               )}
               {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
@@ -2492,7 +2497,7 @@ export default function Reports() {
             </div>
           )}
 
-          <div style={{ flex: 1, padding: 20, overflowY: 'auto', maxHeight: '70vh' }}>
+          <div style={{ flex: 1, padding: editMode ? '20px 60px' : 20, overflowY: 'auto', ...(editMode ? {} : { maxHeight: '70vh' }) }}>
             {loading && (
               <div style={{ textAlign: 'center', padding: 60 }}>
                 <Loader2 size={32} color={S.greenL} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
