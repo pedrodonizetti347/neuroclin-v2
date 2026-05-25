@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
-import { TestsDataForm } from '@/components/TestsDataForm'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import { logAction } from '@/lib/auditLog'
 import { generateTextoConclusao } from '../utils/generateTextoConclusao'
@@ -1890,7 +1889,6 @@ export default function Reports() {
   const [editMode,       setEditMode]       = useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
-  const [testsData,      setTestsData]      = useState({})
   const [docxExporting,  setDocxExporting]  = useState(false)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
   const [quickAnamnese,  setQuickAnamnese]  = useState({
@@ -1972,7 +1970,6 @@ export default function Reports() {
           if (data.appliedBy)   setAppliedBy(data.appliedBy)
           if (data.reportDate)  setReportDate(data.reportDate)
           if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
-          if (data.testsData && Object.keys(data.testsData).length > 0) setTestsData(data.testsData)
         }
       } catch (e) {
         console.error('[loadLatestReport]', e)
@@ -2043,8 +2040,6 @@ export default function Reports() {
           if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
         } catch (_) {}
       }
-      // Fonte 4: dados manuais do formulário (prioridade máxima)
-      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
       console.log('[generate] td keys:', Object.keys(td))
       const dataFormatada = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
       const professional  = appliedBy || user?.full_name || 'Profissional responsável'
@@ -2176,9 +2171,6 @@ export default function Reports() {
         } catch (_) {}
       }
 
-      // ── Fonte E: TestsDataForm (prioridade máxima — entrada manual recente) ─
-      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
-
       // Regenera conclusão sempre com dados frescos (nunca usa texto salvo pelo AI)
       const freshAiBody = buildAiBodyFromData(patient, ad, td)
       if (freshAiBody) aiBody = freshAiBody
@@ -2249,7 +2241,6 @@ export default function Reports() {
             td = mergeTests(repSnap.data().testsData, td)
         } catch (_) {}
       }
-      if (Object.keys(testsData).length > 0) td = mergeTests(td, testsData)
 
       const updatedDoc = buildFullDocument({
         patient, selectedTests, appliedBy, user, ad, td,
@@ -2528,30 +2519,6 @@ export default function Reports() {
           </div>
         </div>
       </div>
-
-      {/* ── DADOS DOS TESTES — Entrada Manual ── */}
-      {patientId && (
-        <div style={{ marginTop: 16, background: S.card, borderRadius: 10, border: `1px solid ${S.border}` }}>
-          <div style={{ padding: '11px 16px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: '0.05em' }}>4. DADOS DOS TESTES</span>
-              <span style={{ fontSize: 10, color: S.muted, marginLeft: 10 }}>Entrada manual de escores — salvo automaticamente no laudo</span>
-            </div>
-            {!savedReportId && (
-              <span style={{ fontSize: 9, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 9, border: '1px solid rgba(245,158,11,0.25)' }}>
-                Gere o laudo primeiro para salvar no Firestore
-              </span>
-            )}
-          </div>
-          <div style={{ padding: '12px 16px', maxHeight: 600, overflowY: 'auto' }}>
-            <TestsDataForm
-              savedReportId={savedReportId}
-              testsData={testsData}
-              onUpdate={(newData) => setTestsData(newData)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Modal de aprovação do supervisor */}
       {showApproval && (
