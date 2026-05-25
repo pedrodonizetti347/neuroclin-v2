@@ -4698,6 +4698,35 @@ const TEST_CONFIG = [
   ]},
 ]
 
+// ─── Verifica se teste está genuinamente 100% preenchido ─────────────────────
+function isTrulyComplete(key, data) {
+  if (!data) return false
+  const d = data
+  switch (key) {
+    case 'GDS-15':   return GDS15_ITEMS.every(it => d[it.key] != null)
+    case 'GAI':      return GAI_ITEMS.every(it => d[it.key] != null)
+    case 'FAB':      return FAB_FIELDS.every(f => d[f.key] != null)
+    case 'BDI-II':   return BDII_ITEMS.every(it => d[it.key] != null)
+    case 'IDATE-E':
+    case 'IDATE-T':  return Array.from({length:20},(_,i)=>`q${i+1}`).every(k => d[k] != null && d[k] !== '')
+    case 'IQCODE':   return Array.from({length:26},(_,i)=>`q${i+1}`).every(k => d[k] != null)
+    case 'B-ADL':    return BADL_ITEMS.every(it => d[it.key] != null)
+    case 'Pfeffer':  return PFEFFER_ITEMS.every(it => d[it.key] != null)
+    case 'Lawton':   return LAWTON_ITEMS.every(it => d[it.key] != null)
+    case 'HAD':      return HAD_ANXIETY_ITEMS.every(i => d[i.key] != null) && HAD_DEPRESSION_ITEMS.every(i => d[i.key] != null)
+    case 'DEX':      return DEX_SCORE_ITEMS.every(it => d[`patient_q${it.n}`] != null)
+    case 'MEMIMP':   return MEMIMP_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
+    case 'PCRS':     return PCRS_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
+    case 'RAVLT':    return d.a7_score != null && d.a7_score !== ''
+    case 'WCST':
+    case 'WCST-N':   return d.categories_completed != null && d.categories_completed !== ''
+    case 'WASI':
+    case 'WASI-III': return d.qit_2 != null && d.qit_2 !== ''
+    case 'BAMS':     return d.z_bams != null && d.z_bams !== ''
+    default:         return false
+  }
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Tests() {
   const { user } = useAuth()
@@ -4723,9 +4752,9 @@ export default function Tests() {
   const patient        = patients.find(p => p.id === patientId)
   const isProfessional = user?.role === 'professional'
   const _testData      = session.getTest(activeKey) || {}
-  const isLocked       = _testData.status === 'concluido' && !!(_testData.classification?.trim())
+  const isLocked       = _testData.status === 'concluido' && isTrulyComplete(activeKey, _testData)
   const formBlocked    = isLocked || isProfessional
-  const canReopen      = !!user
+  const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
   useEffect(() => {
