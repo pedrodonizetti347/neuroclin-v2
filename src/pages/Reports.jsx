@@ -1272,11 +1272,9 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     else if (rs < 13) recogn = 'LIMÍTROFE'
   }
 
-  // WCST / WCST-N
+  // WCST / WCST-N — usa classificação armazenada no Firestore (calculada pelas tabelas normativas em Tests.jsx)
   const wcst = td?.['WCST-N'] || td?.WCST
-  const wcstCat = wcst?.categories_completed != null
-    ? (() => { const n = Number(wcst.categories_completed); return n >= 5 ? 'PRESERVADA' : n >= 3 ? 'LIMÍTROFE' : 'COMPROMETIDA' })()
-    : 'PRESERVADA'
+  const wcstCat = toFem(wcst?.classification) || 'PRESERVADA'
   const wcstPE = wcst?.perseverative_errors != null
     ? (() => { const n = Number(wcst.perseverative_errors); return n <= 10 ? 'PRESERVADA' : n <= 16 ? 'LIMÍTROFE' : 'COMPROMETIDA' })()
     : 'PRESERVADA'
@@ -1285,12 +1283,11 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     : 'PRESERVADA'
   const beneficioFeedback = (wcst?.total_breaks ?? 0) > 2 ? 'NÃO SE BENEFICIAR' : 'SE BENEFICIAR'
 
-  // TOKEN
-  const tokenScore = td?.TOKEN?.total_score
-  const tokenLabel = tokenScore != null
-    ? (() => { const v = Number(tokenScore); return v >= 29 ? 'NORMAL' : v >= 25 ? 'LEVE' : v >= 20 ? 'MODERADO' : 'GRAVE' })()
-    : 'NORMAL'
-  const tokenDesc = tokenLabel === 'NORMAL' ? 'CAPACIDADE' : 'DIFICULDADE'
+  // TOKEN — usa classificação EPI armazenada no Firestore (tabela normativa de Tests.jsx)
+  const tokenRawCls = (td?.TOKEN?.classification || '').toUpperCase()
+  const tokenLabel = tokenRawCls || 'NORMAL'
+  const tokenBad = tokenRawCls.includes('DEFICIT') || tokenRawCls.includes('LIMIT') || tokenRawCls.includes('INFERIOR')
+  const tokenDesc = tokenBad ? 'DIFICULDADE' : 'CAPACIDADE'
 
   // BAMS
   const bams = td?.BAMS
