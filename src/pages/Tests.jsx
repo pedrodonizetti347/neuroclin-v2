@@ -4733,6 +4733,7 @@ function isTrulyComplete(key, data) {
     case 'DEX':      return DEX_SCORE_ITEMS.every(it => d[`patient_q${it.n}`] != null)
     case 'MEMIMP':   return MEMIMP_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
     case 'PCRS':     return PCRS_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
+    case 'MoCA':     return d.total_score != null && d.total_score !== ''
     case 'RAVLT':    return ['a1_score','a2_score','a3_score','a4_score','a5_score','b1_score','a6_score','a7_score'].every(k => d[k] != null && d[k] !== '')
     case 'WCST':     return (
       d.categories_completed != null && d.categories_completed !== '' &&
@@ -4832,11 +4833,12 @@ export default function Tests() {
   }, [])
 
   const handleChange = (key, data) => {
-    const hasClassification = !!(data.classification && data.classification.trim())
+    // Usa isTrulyComplete — não depende do campo classification (que pode estar corrompido no Firestore)
+    const trulyDone = isTrulyComplete(key, data)
     let autoData
-    if (hasClassification && (!data.status || data.status === 'em_andamento')) {
+    if (trulyDone && (!data.status || data.status === 'em_andamento')) {
       autoData = { ...data, status: 'concluido' }
-    } else if (!hasClassification && data.status === 'concluido') {
+    } else if (!trulyDone && data.status === 'concluido') {
       autoData = { ...data, status: 'em_andamento' }
     } else {
       autoData = data
