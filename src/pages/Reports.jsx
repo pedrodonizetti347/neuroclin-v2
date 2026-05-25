@@ -1886,16 +1886,32 @@ function FormatToolbar() {
   )
 }
 
-function ReportBody({ html, editMode, reportRef }) {
+function ReportBody({ html, editMode, reportRef, onEdit }) {
+  const wasEditing = useRef(false)
+
   useEffect(() => {
-    if (reportRef.current) reportRef.current.innerHTML = html
-  }, [html])
+    if (!reportRef.current) return
+    // Entering edit mode: load content once
+    if (editMode && !wasEditing.current) {
+      reportRef.current.innerHTML = html
+      wasEditing.current = true
+      return
+    }
+    // Exiting edit mode: allow sync
+    if (!editMode) {
+      wasEditing.current = false
+      reportRef.current.innerHTML = html
+      return
+    }
+    // Already editing and html changed (autosave echo): do NOT override — cursor would jump
+  }, [html, editMode])
 
   return (
     <div
       ref={reportRef}
       contentEditable={editMode}
       suppressContentEditableWarning
+      onInput={onEdit}
       style={{
         background: '#fff', borderRadius: 6, padding: '32px 28px',
         boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
@@ -1929,6 +1945,8 @@ export default function Reports() {
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
   const [docxExporting,  setDocxExporting]  = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState('idle') // 'idle'|'saving'|'saved'
+  const autoSaveTimer = useRef(null)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
   const [quickAnamnese,  setQuickAnamnese]  = useState({
     objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '',
@@ -2114,6 +2132,28 @@ export default function Reports() {
 
   const getReportContent = () =>
     reportRef.current ? reportRef.current.innerHTML : report
+
+  const handleReportEdit = () => {
+    if (!reportRef.current) return
+    const newHtml = reportRef.current.innerHTML
+    // Sync DOM → state immediately (prevents loss on re-render)
+    setReport(newHtml)
+    // Debounced Firestore save
+    setAutoSaveStatus('saving')
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(async () => {
+      if (savedReportId) {
+        try {
+          await updateDoc(doc(db, 'reports', savedReportId), {
+            reportHtml: newHtml,
+            updatedAt: serverTimestamp(),
+          })
+        } catch (e) { console.warn('[autosave]', e) }
+      }
+      setAutoSaveStatus('saved')
+      setTimeout(() => setAutoSaveStatus('idle'), 2500)
+    }, 1200)
+  }
 
   const print = (contentOverride) => {
     const content = contentOverride || getReportContent()
@@ -2503,6 +2543,17 @@ export default function Reports() {
                   <CheckCircle2 size={10} /> APROVADO
                 </span>
               )}
+              {/* Indicador de autosave */}
+              {editMode && autoSaveStatus === 'saving' && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: S.muted }}>
+                  <Loader2 size={10} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...
+                </span>
+              )}
+              {editMode && autoSaveStatus === 'saved' && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: S.greenL }}>
+                  <CheckCircle2 size={10} /> Salvo ✓
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Editar na tela */}
@@ -2573,7 +2624,7 @@ export default function Reports() {
             )}
 
             {!loading && report && (
-              <ReportBody html={report} editMode={editMode} reportRef={reportRef} />
+              <ReportBody html={report} editMode={editMode} reportRef={reportRef} onEdit={handleReportEdit} />
             )}
           </div>
         </div>
