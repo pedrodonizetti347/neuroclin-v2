@@ -3,7 +3,7 @@ import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, ser
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
-import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil } from 'lucide-react'
+import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil, LockOpen } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import { logAction } from '@/lib/auditLog'
@@ -2115,6 +2115,22 @@ export default function Reports() {
     }
   }
 
+  const reopenReport = async () => {
+    if (!savedReportId || !isSupervisor) return
+    try {
+      await updateDoc(doc(db, 'reports', savedReportId), {
+        status: 'rascunho',
+        supervisor_approval: null,
+        updatedAt: serverTimestamp(),
+      })
+      setReportStatus('rascunho')
+      setApprovalInfo(null)
+      setEditMode(true)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const handleExportDocx = async () => {
     if (!report && !savedReportId) return
     setDocxExporting(true)
@@ -2464,6 +2480,12 @@ export default function Reports() {
               {savedReportId && isSupervisor && reportStatus !== 'aprovado' && (
                 <button onClick={() => { setApprovalErr(''); setShowApproval(true) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(46,125,50,0.4)', background: 'rgba(46,125,50,0.1)', cursor: 'pointer', color: S.greenL }}>
                   <ShieldCheck size={13} /> APROVAR LAUDO
+                </button>
+              )}
+              {/* Reabrir laudo aprovado — apenas admin/supervisor */}
+              {savedReportId && isSupervisor && reportStatus === 'aprovado' && (
+                <button onClick={reopenReport} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', color: '#F59E0B' }}>
+                  <LockOpen size={13} /> REABRIR LAUDO
                 </button>
               )}
               {/* Imprimir — disponível para qualquer usuário autenticado */}
