@@ -346,7 +346,10 @@ function RAVLTForm({ data, onChange }) {
     const a6 = a('a6_score'), a7 = a('a7_score')
     const rawUpdRL = n.recognition_list || []
     const updRL = (() => {
-      if (!rawUpdRL.length || rawUpdRL[0].palavra !== undefined) return rawUpdRL
+      if (!rawUpdRL.length) return rawUpdRL
+      // Sempre re-aplica correta/categoria do DEFAULT (fonte de verdade); só marcada vem do Firestore
+      if (rawUpdRL[0].palavra !== undefined)
+        return DEFAULT_RAVLT_RECOGNITION.map((def, i) => ({ ...def, marcada: rawUpdRL[i]?.marcada ?? false }))
       if (rawUpdRL[0].correct !== undefined)
         return DEFAULT_RAVLT_RECOGNITION.map((def, i) => ({ ...def, marcada: rawUpdRL[i]?.marked ?? false }))
       return DEFAULT_RAVLT_RECOGNITION.map(w => ({ ...w }))
@@ -409,7 +412,13 @@ function RAVLTForm({ data, onChange }) {
   React.useEffect(() => {
     if (isOldFormat) update({ recognition_list: migrateRL(rawRL) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const rl      = isOldFormat ? migrateRL(rawRL) : rawRL
+  // Sempre re-aplica correta/categoria do DEFAULT para garantir que valores corrigidos no código
+  // se reflitam mesmo em listas já salvas no Firestore com valores antigos/errados
+  const rl = rawRL.length === 0
+    ? rawRL
+    : rawRL[0].palavra !== undefined
+      ? DEFAULT_RAVLT_RECOGNITION.map((def, i) => ({ ...def, marcada: rawRL[i]?.marcada ?? false }))
+      : migrateRL(rawRL)
   const hasRL   = rl.length > 0
   const rlHits  = hasRL ? rl.filter(w => w.correta && w.marcada).length : null
   const rlFP    = hasRL ? rl.filter(w => !w.correta && w.marcada).length : null
