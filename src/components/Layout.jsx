@@ -186,7 +186,7 @@ export default function Layout({ children }) {
       } catch {}
     }
     check()
-    const interval = setInterval(check, 5 * 60 * 1000)
+    const interval = setInterval(check, 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
