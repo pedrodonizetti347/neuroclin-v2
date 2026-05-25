@@ -1634,14 +1634,54 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   const medicamentos = ad?.medicamentos || '—'
   const exames       = ad?.exames || 'Paciente não apresenta exames imagiológicos.'
 
-  const infoGeraisParas = []
-  if (objetivo) infoGeraisParas.push(`<p style="font-size:11pt;margin:8px 0;text-align:justify;"><strong>Objetivo da avaliação:</strong> ${objetivo}</p>`)
-  if (queixas)  infoGeraisParas.push(`<p style="font-size:11pt;margin:8px 0;text-align:justify;"><strong>Queixas apresentadas:</strong> ${queixas}</p>`)
-  if (doencas)  infoGeraisParas.push(`<p style="font-size:11pt;margin:8px 0;text-align:justify;"><strong>Histórico clínico:</strong> ${doencas}</p>`)
-  if (ad?.sono || ad?.apetite) {
-    const sonoApetite = [ad.sono && `Sono: ${ad.sono}`, ad.apetite && `Apetite: ${ad.apetite}`].filter(Boolean).join(' | ')
-    infoGeraisParas.push(`<p style="font-size:11pt;margin:8px 0;text-align:justify;">${sonoApetite}</p>`)
-  }
+  // ── ANAMNESE — 6 seções para o laudo ────────────────────────────────────────
+  const AP = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
+
+  // 1. Objetivo da avaliação
+  const objAval = ad?.objetivoAvaliacao || objetivo
+
+  // 2. Descrição da demanda
+  const descDemanda = ad?.descricaoDemanda || queixas
+
+  // 3. Informações gerais — prosa automática
+  const igPartes = []
+  if (age != null)                igPartes.push(`${age} anos de idade`)
+  if (ad?.estado_civil)           igPartes.push(ad.estado_civil)
+  if (ad?.quantidade_filhos_netos)igPartes.push(`${ad.quantidade_filhos_netos} filhos/netos`)
+  const eduStr = fmtEducation(patient?.education || ad?.escolaridade)
+  if (eduStr && eduStr !== '—')   igPartes.push(`escolaridade ${eduStr.toLowerCase()}`)
+  if (ad?.reside_com)             igPartes.push(`reside com ${ad.reside_com}`)
+  if (ad?.rotina)                 igPartes.push(`rotina: ${ad.rotina}`)
+  const lat = ad?.lateralidade || patient?.lateralidade
+  if (lat)                        igPartes.push(`lateralidade ${lat}`)
+  if (informante && informante !== '—') igPartes.push(`informante: ${informante}`)
+  const infoGeraisProsa = igPartes.length > 0 ? `Paciente com ${igPartes.join(', ')}.` : ''
+
+  // 4. Relacionamentos
+  const relacionamentos = ad?.relacionamentos || ''
+
+  // 5. Vida acadêmica/laboral
+  const vidaAcadLaboral = ad?.vidaAcademicaLaboral || ''
+
+  // 6. Saúde e antecedentes familiares
+  const histSaude = ad?.historicoSaude || ''
+  const antecFam  = ad?.antecedenteFamiliar || ''
+  const saudeParts = [
+    histSaude,
+    antecFam  ? `Antecedentes familiares: ${antecFam}` : '',
+    (medicamentos && medicamentos !== '—') ? `Medicamentos em uso: ${medicamentos}` : '',
+  ].filter(Boolean)
+  const saudeProsa = saudeParts.join(' ')
+
+  const anamneseSections = [
+    objAval       && `<p style="${AP}"><strong>Objetivo da avaliação:</strong> ${objAval}</p>`,
+    descDemanda   && `<p style="${AP}"><strong>Descrição da demanda:</strong> ${descDemanda}</p>`,
+    infoGeraisProsa && `<p style="${AP}"><strong>Informações gerais:</strong> ${infoGeraisProsa}</p>`,
+    relacionamentos && `<p style="${AP}"><strong>Relacionamentos:</strong> ${relacionamentos}</p>`,
+    vidaAcadLaboral && `<p style="${AP}"><strong>Vida acadêmica/Laboral:</strong> ${vidaAcadLaboral}</p>`,
+    saudeProsa    && `<p style="${AP}"><strong>Saúde e antecedentes familiares:</strong> ${saudeProsa}</p>`,
+  ].filter(Boolean)
+  const anamneseHtml = anamneseSections.join('')
 
   return `
 <div style="font-family:Arial,sans-serif;color:#1a1a2e;line-height:1.7;max-width:760px;margin:0 auto;">
@@ -1708,8 +1748,8 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
     </tbody>
   </table>
 
-  <!-- INFORMAÇÕES GERAIS E QUEIXAS -->
-  ${infoGeraisParas.length > 0 ? secHead('INFORMAÇÕES GERAIS E QUEIXAS PRINCIPAIS') + infoGeraisParas.join('') : ''}
+  <!-- ANAMNESE — 6 seções -->
+  ${anamneseHtml ? secHead('ANAMNESE') + anamneseHtml : ''}
 
   <!-- EXAMES IMAGIOLÓGICOS -->
   ${secHead('EXAMES IMAGIOLÓGICOS')}
