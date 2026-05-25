@@ -25,12 +25,12 @@ service cloud.firestore {
     // Perfis de usuário — leitura simples sem get() circular
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
+      allow read: if isAdminOrSupervisor();
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['last_login', 'must_change_password', 'photo_url']);
-      allow update, delete: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
+      allow update, delete: if isAdminOrSupervisor();
     }
 
     // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza
