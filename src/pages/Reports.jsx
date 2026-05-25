@@ -1736,9 +1736,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
       </tr>
       <tr style="background:${HR};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
         ${tdCell('<strong>Informante(s)</strong>', 'font-weight:bold;')}
-        ${tdCell(informante + parentesco)}
-        ${tdCell('<strong>Avaliado por</strong>', 'font-weight:bold;')}
-        ${tdCell(professional)}
+        <td colspan="3" style="border:1px solid #c8dfc8;padding:6px 10px;">${informante + parentesco}</td>
       </tr>
       <tr>
         ${tdCell('<strong>Medicamentos</strong>', 'font-weight:bold;')}
