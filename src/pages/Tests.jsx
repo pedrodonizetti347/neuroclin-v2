@@ -363,7 +363,8 @@ function RAVLTForm({ data, onChange }) {
     const recognition_hits           = rHits ?? a('recognition_hits')
     const recognition_false          = rFP   ?? a('recognition_false')
     const recognition_score          = (recognition_hits!=null&&recognition_false!=null) ? recognition_hits-recognition_false : null
-    const classification = a7 != null ? (classify.ravlt_a7(a7)?.label || '') : ''
+    const allFilled = a1!=null && a2!=null && a3!=null && a4!=null && a5!=null && a('b1_score')!=null && a6!=null && a7!=null
+    const classification = allFilled ? (classify.ravlt_a7(a7)?.label || '') : ''
 
     const faixaId = n.age ? ravltGetFaixaId(n.age) : null
     const normaR  = faixaId ? RAVLT_NORMAS[faixaId] : null
@@ -4717,7 +4718,7 @@ function isTrulyComplete(key, data) {
     case 'DEX':      return DEX_SCORE_ITEMS.every(it => d[`patient_q${it.n}`] != null)
     case 'MEMIMP':   return MEMIMP_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
     case 'PCRS':     return PCRS_ITEMS.every((_,i) => d[`patient_q${i+1}`] != null)
-    case 'RAVLT':    return d.a7_score != null && d.a7_score !== ''
+    case 'RAVLT':    return ['a1_score','a2_score','a3_score','a4_score','a5_score','b1_score','a6_score','a7_score'].every(k => d[k] != null && d[k] !== '')
     case 'WCST':
     case 'WCST-N':   return d.categories_completed != null && d.categories_completed !== ''
     case 'WASI':
