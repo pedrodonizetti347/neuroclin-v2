@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
-import { FlaskConical, CheckCircle2, Save, Camera, Lock, AlertTriangle } from 'lucide-react'
+import { FlaskConical, CheckCircle2, Save, Camera, Lock, LockOpen } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4815,10 +4815,10 @@ export default function Tests() {
   const patient        = patients.find(p => p.id === patientId)
   const isProfessional = user?.role === 'professional'
   const _testData      = session.getTest(activeKey) || {}
-  const isLocked       = _testData.status === 'concluido' && isTrulyComplete(activeKey, _testData)
+  const isConcluded     = _testData.status === 'concluido'
   const isEstagiario   = user?.role === 'estagiario'
-  const formBlocked    = isProfessional || (isLocked && !isEstagiario)
-  const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
+  const formBlocked    = isProfessional
+  const canManageStatus = !isProfessional
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
   useEffect(() => {
@@ -4883,8 +4883,6 @@ export default function Tests() {
     if (trulyDone && !wasAlreadyComplete && (!data.status || data.status === 'em_andamento')) {
       wasCompleteRef.current = { ...wasCompleteRef.current, [key]: true }
       autoData = { ...data, status: 'concluido' }
-    } else if (!trulyDone && data.status === 'concluido') {
-      autoData = { ...data, status: 'em_andamento' }
     } else {
       autoData = data
     }
@@ -4933,29 +4931,28 @@ export default function Tests() {
                 {group.group}
               </div>
               {group.items.map(item => {
-                const locked  = false
-                const hasData = patientId && session.getTest(item.key) && Object.keys(session.getTest(item.key)).length > 0
+                const itemData    = patientId ? session.getTest(item.key) : null
+                const hasData     = !!itemData && Object.keys(itemData).filter(k => k !== '_savedAt' && k !== 'scan_urls').length > 0
+                const doneInList  = itemData?.status === 'concluido'
                 return (
                   <button
                     key={item.key}
-                    onClick={() => { if (!locked) { session.flushSave(); setActiveKey(item.key) } }}
-                    title={locked ? 'Conclua todas as seções da Anamnese primeiro' : ''}
+                    onClick={() => { session.flushSave(); setActiveKey(item.key) }}
                     style={{
                       width: '100%', textAlign: 'left', padding: '7px 10px',
                       borderRadius: 7, border: 'none',
-                      cursor: locked ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       fontSize: 12,
-                      background: activeKey === item.key ? 'rgba(46,125,50,0.25)' : 'transparent',
-                      color: activeKey === item.key ? '#fff' : S.muted,
-                      fontWeight: activeKey === item.key ? 700 : 400,
-                      opacity: locked ? 0.35 : 1,
+                      background: activeKey === item.key ? 'rgba(46,125,50,0.25)' : doneInList ? 'rgba(46,125,50,0.07)' : 'transparent',
+                      color: activeKey === item.key ? '#fff' : doneInList ? S.greenL : S.muted,
+                      fontWeight: activeKey === item.key || doneInList ? 700 : 400,
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}
                   >
                     {item.label}
-                    {locked
-                      ? <Lock size={10} />
-                      : (hasData && <CheckCircle2 size={11} color={S.greenL} />)
+                    {doneInList
+                      ? <CheckCircle2 size={11} color={S.greenL} />
+                      : (hasData && <CheckCircle2 size={11} color='rgba(255,255,255,0.25)' />)
                     }
                   </button>
                 )
@@ -4999,11 +4996,11 @@ export default function Tests() {
                   <span style={{ fontSize: 12, color: S.blue, fontWeight: 600 }}>Somente leitura — visualização sem edição.</span>
                 </div>
               )}
-              {/* Banner de bloqueio */}
-              {isLocked && (
+              {/* Banner de status — concluído */}
+              {isConcluded && (
                 <div style={{
-                  background: 'rgba(245,158,11,0.10)',
-                  border: '1px solid rgba(245,158,11,0.35)',
+                  background: 'rgba(46,125,50,0.10)',
+                  border: '1px solid rgba(46,125,50,0.40)',
                   borderRadius: 8,
                   padding: '10px 14px',
                   marginBottom: 14,
@@ -5013,56 +5010,63 @@ export default function Tests() {
                   gap: 12,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle size={14} color={S.amber} />
-                    <span style={{ fontSize: 12, color: S.amber, fontWeight: 600 }}>
-                      Teste concluído — edição bloqueada.{canReopen ? ' Clique em Reabrir para editar.' : ' Solicite ao supervisor ou administrador para reabrir.'}
+                    <CheckCircle2 size={14} color={S.greenL} />
+                    <span style={{ fontSize: 12, color: S.greenL, fontWeight: 600 }}>
+                      Teste marcado como concluído — edição ainda permitida
                     </span>
                   </div>
-                  {canReopen && (
+                  {canManageStatus && (
                     <button
                       onClick={() => {
-                        if (window.confirm('Tem certeza que deseja reabrir este teste para edição?')) {
-                          wasCompleteRef.current = { ...wasCompleteRef.current, [activeKey]: false }
-                          session.updateTest(activeKey, { ...session.getTest(activeKey), status: 'em_andamento', classification: '' })
-                        }
+                        wasCompleteRef.current = { ...wasCompleteRef.current, [activeKey]: false }
+                        session.updateTest(activeKey, { ...session.getTest(activeKey), status: 'em_andamento' })
                       }}
                       style={{
-                        background: 'rgba(245,158,11,0.18)',
-                        border: '1px solid rgba(245,158,11,0.45)',
-                        color: S.amber,
+                        background: 'rgba(255,255,255,0.07)',
+                        border: '1px solid rgba(255,255,255,0.18)',
+                        color: '#fff',
                         borderRadius: 6,
                         padding: '5px 12px',
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
+                        display: 'flex', alignItems: 'center', gap: 5,
                       }}
                     >
-                      Reabrir teste
+                      <LockOpen size={12} /> Reabrir teste
                     </button>
                   )}
                 </div>
               )}
 
-              {/* Formulário com overlay de bloqueio quando concluído ou somente leitura */}
-              <div style={{ position: 'relative' }}>
-                <div style={{ opacity: formBlocked ? 0.7 : 1 }}>
-                  <activeConf.Form
-                    data={session.getTest(activeKey)}
-                    onChange={(data) => handleChange(activeKey, data)}
-                    onSave={() => session.flushSave()}
-                  />
-                </div>
-                {formBlocked && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'transparent',
-                    cursor: 'not-allowed',
-                    zIndex: 10,
-                  }} />
-                )}
+              {/* Formulário */}
+              <div style={{ opacity: formBlocked ? 0.65 : 1, pointerEvents: formBlocked ? 'none' : 'auto' }}>
+                <activeConf.Form
+                  data={session.getTest(activeKey)}
+                  onChange={(data) => handleChange(activeKey, data)}
+                  onSave={() => session.flushSave()}
+                />
               </div>
+              {/* Botão MARCAR COMO CONCLUÍDO */}
+              {canManageStatus && !isConcluded && isTestFilled(session.getTest(activeKey)) && (
+                <button
+                  onClick={() => {
+                    wasCompleteRef.current = { ...wasCompleteRef.current, [activeKey]: true }
+                    session.updateTest(activeKey, { ...session.getTest(activeKey), status: 'concluido' })
+                  }}
+                  style={{
+                    width: '100%', marginTop: 16, padding: '10px',
+                    borderRadius: 8, border: `1.5px solid ${S.green}`,
+                    background: 'rgba(46,125,50,0.15)',
+                    color: S.greenL, fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  }}
+                >
+                  <CheckCircle2 size={15} /> Marcar como concluído
+                </button>
+              )}
+
               {isTestFilled(session.getTest(activeKey)) ? (
                 <TestScanUpload
                   key={activeKey + '-scan'}
