@@ -1428,10 +1428,25 @@ function buildConclusaoHtml(blocos, ad) {
     blocos.percepcao, blocos.praxia, blocos.depressaoAnsiedade, blocos.declinioAVD,
   ].filter(Boolean).map(t => p(t)).join('\n')
 
+  // ANÁLISE DAS QUEIXAS — popula com dados reais da anamnese quando disponíveis
+  const objetivo = ad?.objetivo_avaliacao || ad?.motivo_encaminhamento || ''
+  const queixas  = ad?.queixas || ad?.queixas_cognitivas_emocionais || ''
+  const doencas  = Array.isArray(ad?.doencas_preexistentes)
+    ? ad.doencas_preexistentes.join(', ')
+    : (ad?.doencas_preexistentes || '')
+  const analiseQueixasParts = [
+    objetivo ? `<p style="${paraStyle}"><strong>Motivo da avaliação:</strong> ${objetivo}</p>` : null,
+    queixas  ? `<p style="${paraStyle}"><strong>Queixas principais:</strong> ${queixas}</p>`   : null,
+    doencas  ? `<p style="${paraStyle}"><strong>Histórico clínico:</strong> ${doencas}</p>`    : null,
+  ].filter(Boolean)
+  const analiseQueixasHtml = analiseQueixasParts.length > 0
+    ? analiseQueixasParts.join('')
+    : p('[A ser preenchido com os dados da anamnese clínica do paciente — use o botão EDITAR.]')
+
   return `
 <div style="margin-bottom:20px;">
   ${sec('ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO')}
-  ${p('[A ser preenchido com os dados da anamnese clínica do paciente — use o botão EDITAR.]')}
+  ${analiseQueixasHtml}
 </div>
 
 <div style="margin-bottom:20px;">
@@ -1903,27 +1918,34 @@ export default function Reports() {
         await new Promise(r => setTimeout(r, 500))
       }
 
-      // Lê anamnese da nova coleção anamneses/{patientId} (prioritário) ou da sessão legada
+      // Fonte de dados — leitura direta do Firestore (sem depender do estado em memória)
       let ad = session.session?.anamnesis || {}
-      if (patientId) {
-        try {
-          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
-          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
-        } catch (_) {}
-      }
       let td = session.session?.tests || {}
-      // Fonte 2: sessão do usuário atual no Firestore (sempre mescla — deep merge por teste)
+      // Fonte 2: sessão legada do usuário
       if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
           if (snap.exists()) td = mergeTests(snap.data().tests || {}, td)
         } catch (_) {}
       }
-      // Fonte 3: sessão principal do paciente (leitura direta — evita contaminação por docs legados)
+      // Fonte 3: sessão principal — lê testes E anamnese diretamente do Firestore
       if (patientId) {
         try {
           const mainSnap = await getDoc(doc(db, 'sessions', patientId))
-          if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
+          if (mainSnap.exists()) {
+            const mainData = mainSnap.data()
+            td = mergeTests(mainData.tests || {}, td)
+            if (mainData.anamnesis && Object.keys(mainData.anamnesis).length > 0) {
+              ad = { ...ad, ...mainData.anamnesis }
+            }
+          }
+        } catch (_) {}
+      }
+      // Coleção anamneses/{patientId} — prioridade máxima se existir
+      if (patientId) {
+        try {
+          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
         } catch (_) {}
       }
       // Fonte 4: dados manuais do formulário (prioridade máxima)
@@ -2011,20 +2033,14 @@ export default function Reports() {
     try {
       const patient = patients.find(p => p.id === patientId)
       let ad = session.session?.anamnesis || {}
-      if (patientId) {
-        try {
-          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
-          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
-        } catch (_) {}
-      }
       let td = {}
       let aiBody = aiBodyState
       let reportHtmlForDocx = report || ''
 
-      // ── Fonte A: sessão do usuário atual (já carregada no React) ──────────
+      // ── Fonte A: estado em memória do hook ───────────────────────────────
       td = session.session?.tests || {}
 
-      // ── Fonte B: sessão do usuário atual no Firestore (sempre mescla) ────
+      // ── Fonte B: sessão legada do usuário no Firestore ───────────────────
       if (patientId && user?.id) {
         try {
           const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
@@ -2032,11 +2048,24 @@ export default function Reports() {
         } catch (_) {}
       }
 
-      // ── Fonte C: sessão principal do paciente (leitura direta — evita contaminação por docs legados) ───
+      // ── Fonte C: sessão principal — lê testes E anamnese diretamente ─────
       if (patientId) {
         try {
           const mainSnap = await getDoc(doc(db, 'sessions', patientId))
-          if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
+          if (mainSnap.exists()) {
+            const mainData = mainSnap.data()
+            td = mergeTests(mainData.tests || {}, td)
+            if (mainData.anamnesis && Object.keys(mainData.anamnesis).length > 0) {
+              ad = { ...ad, ...mainData.anamnesis }
+            }
+          }
+        } catch (_) {}
+      }
+      // Coleção anamneses/{patientId} — prioridade máxima se existir
+      if (patientId) {
+        try {
+          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
         } catch (_) {}
       }
 
