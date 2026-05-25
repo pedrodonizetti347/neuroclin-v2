@@ -4725,7 +4725,7 @@ export default function Tests() {
   const _testData      = session.getTest(activeKey) || {}
   const isLocked       = _testData.status === 'concluido' && !!(_testData.classification?.trim())
   const formBlocked    = isLocked || isProfessional
-  const canReopen      = user?.role === 'admin' || user?.role === 'supervisor' || user?.id === 'i5nwg569WabTUk69wzCWV5PRw9E3'
+  const canReopen      = !!user
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
   useEffect(() => {
