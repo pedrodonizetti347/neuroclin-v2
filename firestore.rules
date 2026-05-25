@@ -27,43 +27,50 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow read: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
       allow create: if request.auth != null && request.auth.uid == userId;
-      // Usuário pode atualizar apenas campos não sensíveis do próprio documento
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['last_login', 'must_change_password', 'photo_url']);
-      // Admin pode tudo
       allow update, delete: if request.auth != null && request.auth.uid == 'i5nwg569WabTUk69wzCWV5PRw9E3';
     }
 
-    // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza e deleta
+    // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza
+    // DELETE bloqueado via cliente — exclusão é sempre soft-delete (deleted:true)
     match /patients/{patientId} {
       allow read: if isAuth();
       allow create: if isAuth();
-      allow update, delete: if isAdminOrSupervisor();
+      allow update: if isAdminOrSupervisor();
+      allow delete: if false;
     }
 
-    // Sessões de testes — qualquer autenticado lê e escreve
+    // Sessões de testes — qualquer autenticado lê e escreve (create/update)
+    // DELETE bloqueado via cliente — dados clínicos jamais são apagados diretamente
     match /sessions/{sessionId} {
-      allow read, write: if isAuth();
+      allow read: if isAuth();
+      allow create, update: if isAuth();
+      allow delete: if false;
     }
 
-    // Laudos — admin vê todos; profissional só vê os seus
+    // Laudos — admin/supervisor tem acesso total; profissional acessa os seus
+    // DELETE bloqueado via cliente — exclusão é sempre soft-delete (deleted:true)
     match /reports/{reportId} {
-      allow read, write: if isAdminOrSupervisor();
-      allow read, update, delete: if isAuth() && resource.data.professionalId == request.auth.uid;
+      allow read, create, update: if isAdminOrSupervisor();
+      allow read, create, update: if isAuth() && resource.data.professionalId == request.auth.uid;
       allow create: if isAuth() && request.resource.data.professionalId == request.auth.uid;
+      allow delete: if false;
     }
 
-    // Observações clínicas (notes) — por patientId; profissional acessa se for dono do paciente
+    // Observações clínicas (notes) — por patientId
     match /notes/{patientId} {
-      allow read, write: if isAdminOrSupervisor();
-      allow read, write: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
+      allow read, create, update: if isAdminOrSupervisor();
+      allow read, create, update: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
+      allow delete: if false;
     }
 
-    // Anamneses clínicas — profissional escreve se for dono do paciente; estagiário sempre escreve
+    // Anamneses clínicas — DELETE bloqueado; apenas create/update permitidos
     match /anamneses/{patientId} {
       allow read: if isAuth();
-      allow write: if isAdminOrSupervisor() || isEstagiario() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
+      allow create, update: if isAdminOrSupervisor() || isEstagiario() || (isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid);
+      allow delete: if false;
     }
 
     // Configurações da clínica — apenas admin/supervisor
@@ -72,9 +79,11 @@ service cloud.firestore {
     }
 
     // Log de auditoria — qualquer autenticado grava; só admin/supervisor lê
+    // DELETE bloqueado — logs são imutáveis
     match /audit_logs/{logId} {
       allow read: if isAdminOrSupervisor();
       allow create: if isAuth();
+      allow update, delete: if false;
     }
   }
 }

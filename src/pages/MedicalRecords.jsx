@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { collection, getDocs, doc, getDoc, setDoc, query, where, serverTimestamp, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, query, where, serverTimestamp } from 'firebase/firestore'
+import { logAction } from '@/lib/auditLog'
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { db, auth } from '@/lib/firebase'
@@ -289,7 +290,13 @@ export default function MedicalRecords() {
         setDeleteLoading(false)
         return
       }
-      await deleteDoc(doc(db, 'reports', deleteTarget.id))
+      await updateDoc(doc(db, 'reports', deleteTarget.id), {
+        deleted:       true,
+        deletedAt:     serverTimestamp(),
+        deletedBy:     user?.id       || 'unknown',
+        deletedByName: user?.full_name || 'Desconhecido',
+      })
+      logAction(user, 'laudo_excluido', { reportId: deleteTarget.id, patientId: deleteTarget.patientId, softDelete: true })
       setReports(prev => prev.filter(r => r.id !== deleteTarget.id))
       setDeleteTarget(null)
       setDeletePass('')
@@ -327,7 +334,7 @@ export default function MedicalRecords() {
       setSession(merged)
 
       const patReports = repSnap.docs
-        .filter(d => d.data().patientId === patientId)
+        .filter(d => d.data().patientId === patientId && !d.data().deleted)
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
       setReports(patReports)

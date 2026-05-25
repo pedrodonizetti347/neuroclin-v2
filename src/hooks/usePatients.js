@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  collection, addDoc, updateDoc, deleteDoc,
+  collection, addDoc, updateDoc,
   doc, getDocs, query, orderBy, where, serverTimestamp, writeBatch
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -21,11 +21,11 @@ export function usePatients() {
     try {
       const base = collection(db, 'patients')
       const snap = await getDocs(query(base, orderBy('createdAt', 'desc')))
-      setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setPatients(snap.docs.filter(d => !d.data().deleted).map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       try {
         const snap = await getDocs(collection(db, 'patients'))
-        setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setPatients(snap.docs.filter(d => !d.data().deleted).map(d => ({ id: d.id, ...d.data() })))
       } catch (e2) { setError(e2.message) }
     } finally {
       setLoading(false)
@@ -53,6 +53,15 @@ export function usePatients() {
 
   const remove = async (id) => {
     const batch = writeBatch(db)
+    const patientName = patients.find(p => p.id === id)?.full_name || id
+
+    // Metadados de soft-delete — dados permanecem recuperáveis no Firestore
+    const deletedMeta = {
+      deleted:         true,
+      deletedAt:       serverTimestamp(),
+      deletedBy:       user?.id       || 'unknown',
+      deletedByName:   user?.full_name || 'Desconhecido',
+    }
 
     // Busca laudos do paciente e bloqueia se houver qualquer laudo aprovado
     const reportsSnap = await getDocs(query(collection(db, 'reports'), where('patientId', '==', id)))
@@ -63,21 +72,24 @@ export function usePatients() {
         `Só é possível excluir pacientes cujos laudos estejam em rascunho ou teste.`
       )
     }
-    reportsSnap.docs.forEach(d => batch.delete(d.ref))
+    // Soft-delete laudos (rascunho/teste) — dados preservados no Firestore
+    reportsSnap.docs.forEach(d => batch.update(d.ref, deletedMeta))
 
-    // Deleta sessões/testes do paciente (IDs começam com patientId_)
+    // Soft-delete sessões legadas (IDs com prefixo patientId_)
     const sessionsSnap = await getDocs(collection(db, 'sessions'))
     sessionsSnap.docs
       .filter(d => d.id.startsWith(id + '_'))
-      .forEach(d => batch.delete(d.ref))
+      .forEach(d => batch.update(d.ref, deletedMeta))
 
-    // Deleta o paciente
-    batch.delete(doc(db, 'patients', id))
+    // Soft-delete sessão principal (sessions/{patientId}) — usa set+merge pois pode não existir
+    batch.set(doc(db, 'sessions', id), deletedMeta, { merge: true })
 
-    const patientName = patients.find(p => p.id === id)?.full_name || id
+    // Soft-delete paciente — dados preservados, apenas marcado como excluído
+    batch.update(doc(db, 'patients', id), deletedMeta)
+
     await batch.commit()
     setPatients(prev => prev.filter(p => p.id !== id))
-    logAction(user, 'paciente_excluido', { patientId: id, patientName })
+    logAction(user, 'paciente_excluido', { patientId: id, patientName, softDelete: true })
   }
 
   return { patients, loading, error, create, update, remove, reload: load }
