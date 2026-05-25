@@ -917,7 +917,7 @@ function NEUPSILINForm({ data, onChange }) {
             background: tab === t.id ? S.green : 'rgba(255,255,255,0.06)',
             color: tab === t.id ? '#fff' : S.muted,
           }}>
-            {t.label} {t.max ? `(${t.tot}/${t.max})` : `(${t.tot})`}
+            {t.label} {t.tot !== undefined ? (t.max ? `(${t.tot}/${t.max})` : `(${t.tot})`) : ''}
           </button>
         ))}
       </div>
@@ -978,7 +978,7 @@ function NEUPSILINForm({ data, onChange }) {
       {tab === 'linguagem' && <div style={secBox}>
         {subHead('Linguagem Oral')}
         <NumField label="Nomeação (/4)"             value={d.lang_nomeacao}         onChange={v => update({ lang_nomeacao:         v })} min={0} max={4}  />
-        <NumField label="Repetição (/14)"           value={d.lang_repeticao}        onChange={v => update({ lang_repeticao:        v })} min={0} max={14} />
+        <NumField label="Repetição (/10)"           value={d.lang_repeticao}        onChange={v => update({ lang_repeticao:        v })} min={0} max={10} />
         <NumField label="Linguagem Automática (/2)" value={d.lang_automatica}       onChange={v => update({ lang_automatica:       v })} min={0} max={2}  />
         <NumField label="Compreensão Oral (/3)"     value={d.lang_compreensao_oral} onChange={v => update({ lang_compreensao_oral: v })} min={0} max={3}  />
         <NumField label="Inferências (/3)"          value={d.lang_inferencias}      onChange={v => update({ lang_inferencias:      v })} min={0} max={3}  />
@@ -1168,7 +1168,7 @@ function GDS15Form({ data, onChange }) {
     const n = { ...d, ...changes }
     const answered = GDS15_ITEMS.filter(it => n[it.key] != null).length
     const total    = GDS15_ITEMS.filter(it => n[it.key] === it.depKey).length
-    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered > 0 ? (classify.gds15(total)?.label || '') : '' })
+    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered === GDS15_ITEMS.length ? (classify.gds15(total)?.label || '') : '' })
   }
 
   const answered = GDS15_ITEMS.filter(it => d[it.key] != null).length
@@ -1566,7 +1566,7 @@ function GAIForm({ data, onChange }) {
     const n = { ...d, ...changes }
     const total = GAI_ITEMS.filter(it => n[it.key] === 'Sim').length
     const answered = GAI_ITEMS.filter(it => n[it.key] != null).length
-    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered > 0 ? (classify.gai(total)?.label || '') : '' })
+    onChange({ ...n, total_score: answered > 0 ? total : null, classification: answered === GAI_ITEMS.length ? (classify.gai(total)?.label || '') : '' })
   }
 
   const answered = GAI_ITEMS.filter(it => d[it.key] != null).length
