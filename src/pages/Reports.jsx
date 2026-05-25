@@ -1887,23 +1887,18 @@ function FormatToolbar() {
 }
 
 function ReportBody({ html, editMode, reportRef, onEdit }) {
-  const wasEditing = useRef(false)
+  const prevEditMode = useRef(editMode)
 
   useEffect(() => {
     if (!reportRef.current) return
-    // Entering edit mode: load content once
-    if (editMode && !wasEditing.current) {
+    const justEntered = editMode && !prevEditMode.current
+    const notEditing  = !editMode
+    // Only update DOM when: entering edit mode (load once) or not editing (display mode)
+    // NEVER update while actively editing — would reset cursor position and content
+    if (justEntered || notEditing) {
       reportRef.current.innerHTML = html
-      wasEditing.current = true
-      return
     }
-    // Exiting edit mode: allow sync
-    if (!editMode) {
-      wasEditing.current = false
-      reportRef.current.innerHTML = html
-      return
-    }
-    // Already editing and html changed (autosave echo): do NOT override — cursor would jump
+    prevEditMode.current = editMode
   }, [html, editMode])
 
   return (
@@ -2136,9 +2131,9 @@ export default function Reports() {
   const handleReportEdit = () => {
     if (!reportRef.current) return
     const newHtml = reportRef.current.innerHTML
-    // Sync DOM → state immediately (prevents loss on re-render)
-    setReport(newHtml)
-    // Debounced Firestore save
+    // Backup imediato no localStorage (sem re-render — zero risco de apagar conteúdo)
+    try { localStorage.setItem('neuroclin_report_draft_' + (savedReportId || patientId), newHtml) } catch (_) {}
+    // Debounce Firestore — só altera autoSaveStatus (re-render leve, não toca em html nem editMode)
     setAutoSaveStatus('saving')
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
@@ -2153,6 +2148,22 @@ export default function Reports() {
       setAutoSaveStatus('saved')
       setTimeout(() => setAutoSaveStatus('idle'), 2500)
     }, 1200)
+  }
+
+  // Captura conteúdo do DOM antes de sair do editMode para não perder nada
+  const handleToggleEditMode = () => {
+    if (editMode && reportRef.current) {
+      const captured = reportRef.current.innerHTML
+      setReport(captured)
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+      if (savedReportId) {
+        updateDoc(doc(db, 'reports', savedReportId), {
+          reportHtml: captured,
+          updatedAt: serverTimestamp(),
+        }).catch(e => console.warn('[save-on-exit]', e))
+      }
+    }
+    setEditMode(m => !m)
   }
 
   const print = (contentOverride) => {
@@ -2558,7 +2569,7 @@ export default function Reports() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Editar na tela */}
               {report && (
-                <button onMouseDown={e => { e.preventDefault(); setEditMode(m => !m) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.7)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.18)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
+                <button onMouseDown={e => { e.preventDefault(); handleToggleEditMode() }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.7)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.18)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
                   <Pencil size={12} /> {editMode ? '✕  SAIR DA EDIÇÃO' : 'EDITAR'}
                 </button>
               )}
