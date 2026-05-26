@@ -1807,7 +1807,7 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
 
   <!-- APROVAÇÃO DO SUPERVISOR -->
   ${approvalInfo?.approved ? `
-  <div style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+  <div contenteditable="false" style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;user-select:none;cursor:default;">
     <div style="font-size:10px;font-weight:800;color:#1A3D2B;letter-spacing:0.12em;margin-bottom:10px;text-transform:uppercase;">✓ Laudo Aprovado pelo Supervisor Técnico</div>
     <div style="font-size:14px;font-weight:800;color:#1A3D2B;">${approvalInfo.supervisor_name || SUPERVISOR.name}</div>
     <div style="font-size:11px;color:#555;margin-top:3px;">${SUPERVISOR.crp} — Neuropsicólogo · Supervisor Técnico · Diretor Clínico</div>
@@ -2167,7 +2167,9 @@ export default function Reports() {
   }
 
   const print = async (contentOverride) => {
-    let content = contentOverride || getReportContent()
+    // contentOverride pode ser um MouseEvent se chamado via onClick={print} — ignorar nesse caso
+    const isValidHtml = typeof contentOverride === 'string' && contentOverride.length > 100
+    let content = isValidHtml ? contentOverride : getReportContent()
     // Fallback Firestore se conteúdo local estiver vazio
     if (!content || content.length < 100) {
       if (savedReportId) {
@@ -2379,7 +2381,7 @@ export default function Reports() {
         } catch (_) {}
       }
       const stampHtml = `
-<div style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+<div contenteditable="false" style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;user-select:none;cursor:default;">
   <div style="font-size:10px;font-weight:800;color:#1A3D2B;letter-spacing:0.12em;margin-bottom:10px;text-transform:uppercase;">✓ Laudo Aprovado pelo Supervisor Técnico</div>
   <div style="font-size:14px;font-weight:800;color:#1A3D2B;">${approval.supervisor_name || SUPERVISOR.name}</div>
   <div style="font-size:11px;color:#555;margin-top:3px;">${SUPERVISOR.crp} — Neuropsicólogo · Supervisor Técnico · Diretor Clínico</div>
@@ -2648,7 +2650,7 @@ export default function Reports() {
               )}
               {/* Imprimir — disponível para qualquer usuário autenticado */}
               {report && (
-                <button onClick={print} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
+                <button onClick={() => print()} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   <Download size={13} /> IMPRIMIR / PDF
                 </button>
               )}
