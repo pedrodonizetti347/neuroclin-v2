@@ -2007,7 +2007,15 @@ export default function Reports() {
           setAnamneseStatus('found')
         } else {
           setAnamneseStatus('empty')
-          setQuickAnamnese({ objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '', relacionamentos: '', vidaAcademicaLaboral: '', saudeAntecedentes: '' })
+          // Pré-popula com o que existir no Firestore — nunca deixa em branco
+          setQuickAnamnese({
+            objetivoAvaliacao:    data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
+            descricaoDemanda:     data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais || '',
+            infoGerais:           data.infoGerais || '',
+            relacionamentos:      data.relacionamentos || '',
+            vidaAcademicaLaboral: data.vidaAcademicaLaboral || '',
+            saudeAntecedentes:    data.saudeAntecedentes || data.historicoSaude || '',
+          })
         }
       })
       .catch(() => setAnamneseStatus('empty'))
