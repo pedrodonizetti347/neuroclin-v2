@@ -1136,9 +1136,9 @@ function buildMEMIMPSection(td) {
   const clsMEMIMP = (v, max) => {
     if (v == null) return { label: '—', color: '#555' }
     const pct = Number(v) / max
-    if (pct >= 0.75) return { label: 'PRESERVADO',  color: '#1F3864' }
+    if (pct > 0.70) return { label: 'COMPROMETIDO', color: '#C00000' }
     if (pct >= 0.50) return { label: 'LIMÍTROFE',   color: '#E8821A' }
-    return              { label: 'COMPROMETIDO', color: '#C00000' }
+    return              { label: 'PRESERVADO',   color: '#1F3864' }
   }
 
   const rows_data = [
@@ -1268,15 +1268,26 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (v >= 6) return 'LIMÍTROFE'
     return 'COMPROMETIDA'
   }
+  // A6/A7 reusam clsRAVLTFromPct — mesma função da tabela do laudo
+  const ravltFromZOrRaw = (zscore, rawScore) => {
+    if (zscore != null && zscore !== '') {
+      const pct = rptBamsZToPct(Number(zscore))
+      const cls = clsRAVLTFromPct(pct)
+      if (cls) {
+        const l = cls.label
+        if (l === 'Déficit')        return 'COMPROMETIDA'
+        if (l === 'Limítrofe')      return 'LIMÍTROFE'
+        if (l === 'Média Inferior') return 'MÉDIA INFERIOR'
+        return 'PRESERVADA'
+      }
+    }
+    return classRvlt(rawScore)
+  }
   const rv = td?.RAVLT
   const ravltA1 = rv ? classRvlt(rv.a1_score) : 'PRESERVADA'
   const ravltB1 = rv ? classRvlt(rv.b1_score) : 'PRESERVADA'
-  const ravltA6 = rv
-    ? (rv.a6_zscore != null && rv.a6_zscore !== '' ? toFem(lbl(rv.a6_zscore)) : classRvlt(rv.a6_score))
-    : 'PRESERVADA'
-  const ravltA7 = rv
-    ? (rv.a7_zscore != null && rv.a7_zscore !== '' ? toFem(lbl(rv.a7_zscore)) : (toFem(rv.classification) || classRvlt(rv.a7_score)))
-    : 'PRESERVADA'
+  const ravltA6 = rv ? ravltFromZOrRaw(rv.a6_zscore, rv.a6_score) : 'PRESERVADA'
+  const ravltA7 = rv ? ravltFromZOrRaw(rv.a7_zscore, rv.a7_score) : 'PRESERVADA'
 
   let velEsq = 'PRESERVADA'
   if (rv?.forgetting_speed != null) {
@@ -1352,7 +1363,7 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const mmCls = (v, max) => {
     if (v == null) return 'PRESERVADA'
     const pct = Number(v) / max
-    return pct >= 0.75 ? 'PRESERVADA' : pct >= 0.50 ? 'LIMÍTROFE' : 'COMPROMETIDA'
+    return pct > 0.70 ? 'COMPROMETIDA' : pct >= 0.50 ? 'LIMÍTROFE' : 'PRESERVADA'
   }
 
   // Observações / comportamento
@@ -1410,10 +1421,10 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     errosNaoPers: wcstNPE, errosNaoPersDesc: toDesc(wcstNPE),
     beneficioFeedback,
     token: tokenLabel, tokenDesc,
-    prospInformante:   mm ? mmCls(mm.family_prospective, 32)    : 'PRESERVADA',
-    prospPaciente:     mm ? mmCls(mm.patient_prospective, 32)   : 'PRESERVADA',
-    retrospInformante: mm ? mmCls(mm.family_retrospective, 32)  : 'PRESERVADA',
-    retrospPaciente:   mm ? mmCls(mm.patient_retrospective, 32) : 'PRESERVADA',
+    prospInformante:   mm ? mmCls(mm.family_prospective, 40)    : 'PRESERVADA',
+    prospPaciente:     mm ? mmCls(mm.patient_prospective, 40)   : 'PRESERVADA',
+    retrospInformante: mm ? mmCls(mm.family_retrospective, 40)  : 'PRESERVADA',
+    retrospPaciente:   mm ? mmCls(mm.patient_retrospective, 40) : 'PRESERVADA',
     retrospAnamnese:   iqcode.includes('NÃO') ? 'PRESERVADA' : 'COMPROMETIDA',
     depressao, ansiedade, iqcode, badl, pfeffer,
     avdAnamnese: pfeffer.includes('NÃO') ? 'NÃO APRESENTA COMPROMETIMENTO' : 'APRESENTA COMPROMETIMENTO',
