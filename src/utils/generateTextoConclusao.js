@@ -128,7 +128,7 @@ function gerarMemoria(p) {
     )
   } else {
     memoriaRetrospectiva = clean(
-      `A Memória Retrospectiva é a memória de longo prazo de pessoas, palavras e eventos que aconteceram no passado, está relacionada ao armazenamento e recuperação de eventos passados. ${p.retrospInformante}. Já na percepção d${g} paciente encontra-se ${p.retrospPaciente}. Em observação durante a anamnese, é possível verificar que a memória retrospectiva encontra-se ${p.retrospAnamnese}.`
+      `A Memória Retrospectiva é a memória de longo prazo de pessoas, palavras e eventos que aconteceram no passado, está relacionada ao armazenamento e recuperação de eventos passados. Segundo a percepção do informante, a memória prospectiva do avaliado encontra-se ${p.retrospInformante}. Já na percepção d${g} paciente encontra-se ${p.retrospPaciente}. Em observação durante a anamnese, é possível verificar que a memória retrospectiva encontra-se ${p.retrospAnamnese}.`
     )
   }
 
@@ -169,7 +169,7 @@ function gerarFuncoesExecutivas(p) {
   )
 
   const controleInibitorios = clean(
-    `Quanto ao Controle Inibitório, isto é, o automonitoramento do comportamento quando tem que suprimir uma resposta frente a um estímulo intrusivo, e que envolve processos de controle do comportamento, da atenção e dos pensamentos/emoções, ${g} paciente demonstrou ter ${p.errosNaoPersDesc} no controle da impulsividade frente às respostas cognitivas, apresentando desempenho ${p.errosPerseverativos}.`
+    `Quanto ao Controle Inibitório, isto é, o automonitoramento do comportamento quando tem que suprimir uma resposta frente a um estímulo intrusivo, e que envolve processos de controle do comportamento, da atenção e dos pensamentos/emoções, ${g} paciente demonstrou ter ${p.errosPersDesc} no controle da impulsividade frente às respostas cognitivas, apresentando desempenho ${p.errosPerseverativos}.`
   )
 
   const flexibilidade = clean(
