@@ -1254,8 +1254,11 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const npAtt  = toFem(lbl(npZscores?.attention))
   const npPerc = toFem(lbl(npZscores?.perception))
   const npMem  = toFem(lbl(npZscores?.memory))
-  const npPrax = toFem(lbl(npZscores?.praxis))
-  const npExec = toFem(lbl(npZscores?.executive))
+  const npPrax       = toFem(lbl(npZscores?.praxis))
+  const npPraxIdeo   = toFem(lbl(npZscores?.praxis_ideomotor))           || npPrax
+  const npPraxReflex = toFem(lbl(npZscores?.praxis_reflexive))           || npPrax
+  const npExec       = toFem(lbl(npZscores?.executive))
+  const npFluFon     = toFem(lbl(npZscores?.executive_verbal_fluency))   || npExec
 
   // RAVLT — classifica escore bruto igual à função classify.ravlt_a7
   const classRvlt = (score) => {
@@ -1268,8 +1271,12 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const rv = td?.RAVLT
   const ravltA1 = rv ? classRvlt(rv.a1_score) : 'PRESERVADA'
   const ravltB1 = rv ? classRvlt(rv.b1_score) : 'PRESERVADA'
-  const ravltA6 = rv ? classRvlt(rv.a6_score) : 'PRESERVADA'
-  const ravltA7 = rv ? (toFem(rv.classification) || classRvlt(rv.a7_score)) : 'PRESERVADA'
+  const ravltA6 = rv
+    ? (rv.a6_zscore != null && rv.a6_zscore !== '' ? toFem(lbl(rv.a6_zscore)) : classRvlt(rv.a6_score))
+    : 'PRESERVADA'
+  const ravltA7 = rv
+    ? (rv.a7_zscore != null && rv.a7_zscore !== '' ? toFem(lbl(rv.a7_zscore)) : (toFem(rv.classification) || classRvlt(rv.a7_score)))
+    : 'PRESERVADA'
 
   let velEsq = 'PRESERVADA'
   if (rv?.forgetting_speed != null) {
@@ -1312,6 +1319,8 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     const pct = Number(raw) / max
     return pct >= 0.5 ? 'PRESERVADA' : pct >= 0.25 ? 'LIMÍTROFE' : 'COMPROMETIDA'
   }
+  const bamsCatZ = (bams?.z_categorizacao != null && bams.z_categorizacao !== '')
+    ? parseFloat(bams.z_categorizacao) : null
 
   // GDS / GAI
   const gdsClass = (td?.['GDS-15']?.classification || '').toUpperCase()
@@ -1378,11 +1387,11 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     memoriaProspectiva: td?.NEUPSILIN?.memory_prospective != null
       ? (Number(td.NEUPSILIN.memory_prospective) >= 2 ? 'PRESERVADA' : Number(td.NEUPSILIN.memory_prospective) >= 1 ? 'LIMÍTROFE' : 'COMPROMETIDA')
       : (mm ? mmCls(mm.patient_prospective, 40) : npMem),
-    praxiaIdeomotora: npPrax,
+    praxiaIdeomotora: npPraxIdeo,
     praxiaConstrutiva: npPrax,
-    praxiaReflexiva: npPrax,
-    fluenciaFonemica: npExec,
-    fluenciaSematica: bamsSubCls(bams?.fv_total, 40),
+    praxiaReflexiva: npPraxReflex,
+    fluenciaFonemica: npFluFon,
+    fluenciaSematica: bamsCatZ != null ? toFem(lbl(bamsCatZ)) : bamsGlobal,
     definicaoPalavras: bamsSubCls(bams?.dp_total, 10),
     categorizacaoVerbal: bamsSubCls(bams?.cv_total, 10),
     conceituacao: bamsSubCls(bams?.cg_total, 10),
@@ -1548,8 +1557,11 @@ function buildAiBodyFromData(patient, ad, td) {
           memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
           arithmetic:  npCalcZ(np.arithmetic, 'arithmetic', nAge, nEdu),
           language:    npCalcZ(langO + langE, 'language',   nAge, nEdu),
-          praxis:      npCalcZ(praxT,   'praxis',      nAge, nEdu),
-          executive:   npCalcZ(execT,   'executive',   nAge, nEdu),
+          praxis:                   npCalcZ(praxT,   'praxis',                   nAge, nEdu),
+          praxis_ideomotor:         npCalcZ(Number(np.praxis_ideomotor)||0,       'praxis_ideomotor',         nAge, nEdu),
+          praxis_reflexive:         npCalcZ(Number(np.praxis_reflexive)||0,       'praxis_reflexive',         nAge, nEdu),
+          executive:                npCalcZ(execT,   'executive',                 nAge, nEdu),
+          executive_verbal_fluency: npCalcZ(fluencyWordsToScore(np.executive_verbal_fluency)||0, 'executive_verbal_fluency', nAge, nEdu),
         }
       }
     }
