@@ -347,7 +347,7 @@ export default function MedicalRecords() {
   const age = patient?.birth_date
     ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
     : null
-  const canEditAnamnese = !isProfessional
+  const canEditAnamnese = true
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -452,17 +452,8 @@ export default function MedicalRecords() {
                         </button>
                       </div>
                     )}
-                    {isProfessional && !canEditAnamnese && (
-                      <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Lock size={14} color={S.blue} />
-                        <span style={{ fontSize: 12, color: S.blue, fontWeight: 600 }}>Você pode visualizar mas não editar a anamnese deste paciente.</span>
-                      </div>
-                    )}
                     <div style={{ position: 'relative' }}>
                       <AnamneseForm patientId={patientId} />
-                      {isProfessional && !canEditAnamnese && (
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', cursor: 'not-allowed', zIndex: 10 }} />
-                      )}
                     </div>
                   </>
                 )}
