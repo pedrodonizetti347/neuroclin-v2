@@ -1489,6 +1489,28 @@ function buildConclusaoHtml(blocos, ad) {
 </div>`
 }
 
+// ── Atualiza informante/medicamentos no HTML com dados frescos do Firestore ───
+function patchAnamneseFields(html, ad) {
+  if (!html || !ad) return html
+  const informante = [ad.acompanhante, ad.responsavel].filter(Boolean).join(', ') || ad.informante || ''
+  const parentesco = ad.parentesco_acompanhante ? ` (${ad.parentesco_acompanhante})` : ''
+  const medicamentos = ad.medicamentos || ''
+  let result = html
+  if (informante) {
+    result = result.replace(
+      /(<strong>Informante\(s\)<\/strong><\/td>\s*<td[^>]*>)[^<]*/,
+      `$1${informante + parentesco}`
+    )
+  }
+  if (medicamentos) {
+    result = result.replace(
+      /(<strong>Medicamentos<\/strong><\/td>\s*<td[^>]*>)[^<]*/,
+      `$1${medicamentos}`
+    )
+  }
+  return result
+}
+
 // ── Gera aiBody deterministicamente — blocos validados da planilha Protocolo_Prevent ──
 function buildAiBodyFromData(patient, ad, td) {
   try {
@@ -1933,9 +1955,7 @@ export default function Reports() {
   const [savedReportId,  setSavedReportId]  = useState(null)
   const [reportStatus,   setReportStatus]   = useState('rascunho')
   const [approvalInfo,   setApprovalInfo]   = useState(null)
-  const [showApproval,   setShowApproval]   = useState(false)
   const [approvalLoading,setApprovalLoading]= useState(false)
-  const [approvalErr,    setApprovalErr]    = useState('')
   const [editMode,       setEditMode]       = useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
@@ -2007,9 +2027,15 @@ export default function Reports() {
         )
         const snap = await getDocs(q)
         if (!snap.empty) {
+          // Laudos aprovados têm prioridade sobre rascunhos mais recentes
           const sorted = snap.docs.sort((a, b) => {
-            const aT = a.data().createdAt?.seconds ?? 0
-            const bT = b.data().createdAt?.seconds ?? 0
+            const aData = a.data()
+            const bData = b.data()
+            const aApproved = aData.status === 'aprovado' ? 1 : 0
+            const bApproved = bData.status === 'aprovado' ? 1 : 0
+            if (bApproved !== aApproved) return bApproved - aApproved
+            const aT = aData.createdAt?.seconds ?? 0
+            const bT = bData.createdAt?.seconds ?? 0
             return bT - aT
           })
           const d = sorted[0]
@@ -2193,8 +2219,8 @@ export default function Reports() {
     }, 1200)
   }
 
-  // Captura conteúdo do DOM antes de sair do editMode para não perder nada
-  const handleToggleEditMode = () => {
+  // Captura conteúdo ao sair; carrega do Firestore ao entrar para garantir edições salvas
+  const handleToggleEditMode = async () => {
     if (editMode && reportRef.current) {
       const captured = reportRef.current.innerHTML
       setReport(captured)
@@ -2205,8 +2231,19 @@ export default function Reports() {
           updatedAt: serverTimestamp(),
         }).catch(e => console.warn('[save-on-exit]', e))
       }
+      setEditMode(false)
+    } else {
+      // Ao entrar: carrega conteúdo mais recente do Firestore para não perder edições
+      if (savedReportId) {
+        try {
+          const snap = await getDoc(doc(db, 'reports', savedReportId))
+          if (snap.exists() && snap.data().reportHtml && snap.data().reportHtml.length > 100) {
+            setReport(snap.data().reportHtml)
+          }
+        } catch (_) {}
+      }
+      setEditMode(true)
     }
-    setEditMode(m => !m)
   }
 
   const print = async (contentOverride) => {
@@ -2232,6 +2269,13 @@ export default function Reports() {
     if (!content || content.length < 100) {
       alert('Conteúdo do laudo não encontrado. Tente recarregar a página.')
       return
+    }
+    // Atualiza informante/medicamentos com dados frescos do Firestore antes de imprimir
+    if (patientId) {
+      try {
+        const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+        if (aSnap.exists()) content = patchAnamneseFields(content, aSnap.data())
+      } catch (_) {}
     }
     // Validação obrigatória antes de imprimir
     const errors = validateLaudo(content)
@@ -2377,7 +2421,6 @@ export default function Reports() {
 
   const handleApprove = async () => {
     if (!isSupervisor) return
-    setApprovalErr('')
     setApprovalLoading(true)
     try {
       const now = new Date()
@@ -2430,6 +2473,9 @@ export default function Reports() {
           if (baseSnap.exists()) baseHtml = baseSnap.data().reportHtml || ''
         } catch (_) {}
       }
+      // Atualiza informante/medicamentos com dados frescos do Firestore
+      baseHtml = patchAnamneseFields(baseHtml, ad)
+
       const stampHtml = `
 <div contenteditable="false" style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;user-select:none;cursor:default;">
   <div style="font-size:10px;font-weight:800;color:#1A3D2B;letter-spacing:0.12em;margin-bottom:10px;text-transform:uppercase;">✓ Laudo Aprovado pelo Supervisor Técnico</div>
@@ -2472,13 +2518,12 @@ export default function Reports() {
       }
       setApprovalInfo(approval)
       setReportStatus('aprovado')
-      setShowApproval(false)
       logAction(user, 'laudo_aprovado', { patientId, reportId: savedReportId })
       setTimeout(() => print(updatedDoc), 500)
     } catch (e) {
       console.error('[handleApprove]', e)
       const msg = typeof e?.message === 'string' ? e.message : (e?.code || String(e) || 'erro desconhecido')
-      setApprovalErr('Erro ao aprovar: ' + msg)
+      alert('Erro ao aprovar: ' + msg)
     } finally {
       setApprovalLoading(false)
     }
@@ -2686,10 +2731,10 @@ export default function Reports() {
                   <Send size={12} /> SOLICITAR APROVAÇÃO
                 </button>
               )}
-              {/* Aprovar — supervisor, laudo aguardando ou em rascunho */}
+              {/* Aprovar — supervisor, laudo aguardando ou em rascunho — aprovação direta sem modal */}
               {savedReportId && isSupervisor && reportStatus !== 'aprovado' && (
-                <button onClick={() => { setApprovalErr(''); setShowApproval(true) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(46,125,50,0.4)', background: 'rgba(46,125,50,0.1)', cursor: 'pointer', color: S.greenL }}>
-                  <ShieldCheck size={13} /> APROVAR LAUDO
+                <button onClick={handleApprove} disabled={approvalLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(46,125,50,0.4)', background: approvalLoading ? 'rgba(46,125,50,0.05)' : 'rgba(46,125,50,0.1)', cursor: approvalLoading ? 'not-allowed' : 'pointer', color: S.greenL }}>
+                  {approvalLoading ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</> : <><ShieldCheck size={13} /> APROVAR LAUDO</>}
                 </button>
               )}
               {/* Reabrir laudo aprovado — apenas admin/supervisor */}
@@ -2763,41 +2808,6 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Modal de aprovação do supervisor */}
-      {showApproval && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: S.card, borderRadius: 14, border: `1px solid ${S.border}`, width: '100%', maxWidth: 400, padding: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShieldCheck size={18} color={S.greenL} />
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Aprovação de Supervisor</span>
-              </div>
-              <button onClick={() => { setShowApproval(false); setApprovalErr('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.muted }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div style={{ background: 'rgba(46,125,50,0.08)', border: '1px solid rgba(46,125,50,0.2)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: S.greenL, marginBottom: 18 }}>
-              <strong>{user?.full_name || 'Supervisor'}</strong>, ao confirmar você aprova este laudo e libera a impressão. A aprovação será registrada com seu nome e data.
-            </div>
-            <div style={{ fontSize: 12, color: S.muted, marginBottom: 20, padding: '0 2px' }}>
-              Paciente: <span style={{ color: '#fff' }}>{patient?.full_name || '—'}</span>
-            </div>
-            {approvalErr && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#EF4444', marginBottom: 16 }}>
-                {approvalErr}
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={() => { setShowApproval(false); setApprovalErr('') }} style={{ padding: '11px', borderRadius: 9, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 13, cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button onClick={handleApprove} disabled={approvalLoading} style={{ padding: '11px', borderRadius: 9, border: 'none', background: approvalLoading ? 'rgba(46,125,50,0.5)' : S.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: approvalLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {approvalLoading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</> : <><ShieldCheck size={14} /> Confirmar Aprovação</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
         input::placeholder { color: rgba(255,255,255,0.2); }
