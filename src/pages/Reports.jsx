@@ -2258,6 +2258,14 @@ export default function Reports() {
     // contentOverride pode ser um MouseEvent se chamado via onClick={print} — ignorar nesse caso
     const isValidHtml = typeof contentOverride === 'string' && contentOverride.length > 100
     let content = isValidHtml ? contentOverride : getReportContent()
+    // Laudo APROVADO: Firestore é a fonte de verdade — nunca usa estado local
+    if (!isValidHtml && reportStatus === 'aprovado' && savedReportId) {
+      try {
+        const snap = await getDoc(doc(db, 'reports', savedReportId))
+        if (snap.exists() && snap.data().reportHtml && snap.data().reportHtml.length > 100)
+          content = snap.data().reportHtml
+      } catch (_) {}
+    }
     // Fallback Firestore se conteúdo local estiver vazio
     if (!content || content.length < 100) {
       if (savedReportId) {
