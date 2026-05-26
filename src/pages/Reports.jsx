@@ -2166,8 +2166,28 @@ export default function Reports() {
     setEditMode(m => !m)
   }
 
-  const print = (contentOverride) => {
-    const content = contentOverride || getReportContent()
+  const print = async (contentOverride) => {
+    let content = contentOverride || getReportContent()
+    // Fallback Firestore se conteúdo local estiver vazio
+    if (!content || content.length < 100) {
+      if (savedReportId) {
+        try {
+          const snap = await getDoc(doc(db, 'reports', savedReportId))
+          if (snap.exists()) content = snap.data().reportHtml || ''
+        } catch (_) {}
+      }
+    }
+    // Fallback localStorage como último recurso
+    if (!content || content.length < 100) {
+      try {
+        const lsDraft = localStorage.getItem('neuroclin_report_draft_' + (savedReportId || patientId))
+        if (lsDraft && lsDraft.length > 100) content = lsDraft
+      } catch (_) {}
+    }
+    if (!content || content.length < 100) {
+      alert('Conteúdo do laudo não encontrado. Tente recarregar a página.')
+      return
+    }
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
@@ -2348,12 +2368,46 @@ export default function Reports() {
         } catch (_) {}
       }
 
-      const updatedDoc = buildFullDocument({
-        patient, selectedTests, appliedBy, user, ad, td,
-        aiBody: aiBodyState,
-        dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
-        approvalInfo: approval,
-      })
+      // Usar o HTML atual do laudo como base (preserva edições do admin)
+      // Injetar o carimbo de aprovação em vez de reconstruir do zero
+      let baseHtml = report || getReportContent() || ''
+      // Fallback Firestore se conteúdo local estiver vazio
+      if ((!baseHtml || baseHtml.length < 100) && savedReportId) {
+        try {
+          const baseSnap = await getDoc(doc(db, 'reports', savedReportId))
+          if (baseSnap.exists()) baseHtml = baseSnap.data().reportHtml || ''
+        } catch (_) {}
+      }
+      const stampHtml = `
+<div style="margin-top:28px;border:2px solid #2E7D32;border-radius:6px;padding:18px 24px;text-align:center;background:rgba(46,125,50,0.04);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+  <div style="font-size:10px;font-weight:800;color:#1A3D2B;letter-spacing:0.12em;margin-bottom:10px;text-transform:uppercase;">✓ Laudo Aprovado pelo Supervisor Técnico</div>
+  <div style="font-size:14px;font-weight:800;color:#1A3D2B;">${approval.supervisor_name || SUPERVISOR.name}</div>
+  <div style="font-size:11px;color:#555;margin-top:3px;">${SUPERVISOR.crp} — Neuropsicólogo · Supervisor Técnico · Diretor Clínico</div>
+  <div style="font-size:11px;color:#555;margin-top:2px;">Aprovado em: ${new Date(approval.approval_date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+  <div style="margin-top:10px;display:inline-block;border:1.5px solid #2E7D32;border-radius:4px;padding:6px 18px;">
+    <div style="font-size:10px;font-weight:800;color:#2E7D32;letter-spacing:0.06em;">NEUROAVALIAÇÃO ME</div>
+    <div style="font-size:9px;color:#666;margin-top:2px;">CRPJ 06/6481 &nbsp;|&nbsp; CNES 49795 &nbsp;|&nbsp; CNPJ 29.313.355/0001-12</div>
+  </div>
+</div>`
+
+      let updatedDoc
+      const approvalMarker = '<!-- APROVAÇÃO DO SUPERVISOR -->'
+      const refsMarker     = '<!-- REFERÊNCIAS -->'
+      if (baseHtml.includes(approvalMarker) && baseHtml.includes(refsMarker)) {
+        // Injeta carimbo preservando edições — substitui seção inteira entre os marcadores
+        updatedDoc = baseHtml.replace(
+          new RegExp(approvalMarker + '[\\s\\S]*?' + refsMarker),
+          approvalMarker + '\n' + stampHtml + '\n\n' + refsMarker
+        )
+      } else {
+        // Fallback: reconstrói do zero (laudo antigo sem marcadores)
+        updatedDoc = buildFullDocument({
+          patient, selectedTests, appliedBy, user, ad, td,
+          aiBody: aiBodyState,
+          dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
+          approvalInfo: approval,
+        })
+      }
       setReport(updatedDoc)
 
       if (savedReportId) {
@@ -2368,10 +2422,11 @@ export default function Reports() {
       setReportStatus('aprovado')
       setShowApproval(false)
       logAction(user, 'laudo_aprovado', { patientId, reportId: savedReportId })
-      // PDF automático após aprovação — passa HTML já com carimbo de aprovação
       setTimeout(() => print(updatedDoc), 500)
     } catch (e) {
-      setApprovalErr('Erro ao aprovar: ' + e.message)
+      console.error('[handleApprove]', e)
+      const msg = typeof e?.message === 'string' ? e.message : (e?.code || String(e) || 'erro desconhecido')
+      setApprovalErr('Erro ao aprovar: ' + msg)
     } finally {
       setApprovalLoading(false)
     }
