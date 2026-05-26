@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import PainelLaudos from '@/components/PainelLaudos'
 import { Link, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -281,6 +282,13 @@ export default function Dashboard() {
         <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{greeting}, {firstName}</h1>
         <p style={{ fontSize: 12, color: S.muted, marginTop: 4, textTransform: 'capitalize' }}>{dateLbl}</p>
       </div>
+
+      {/* ── Painel de Laudos Prevent Senior ─────────────────────────── */}
+      {isAdminOrSupervisor && (
+        <div style={{ marginBottom: 20 }}>
+          <PainelLaudos />
+        </div>
+      )}
 
       {isAdminOrSupervisor && (<>
       {/* ── Painel: Ações Necessárias ─────────────────────────────────── */}
