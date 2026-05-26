@@ -1941,6 +1941,7 @@ export default function Reports() {
   const [reportDate,     setReportDate]     = useState('')
   const [docxExporting,  setDocxExporting]  = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle') // 'idle'|'saving'|'saved'
+  const [validationErrors, setValidationErrors] = useState([])
   const autoSaveTimer = useRef(null)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
   const [quickAnamnese,  setQuickAnamnese]  = useState({
@@ -2128,6 +2129,47 @@ export default function Reports() {
   const getReportContent = () =>
     reportRef.current ? reportRef.current.innerHTML : report
 
+  const validateLaudo = (html) => {
+    const errors = []
+    const textOf = (start, end) =>
+      html.substring(start, end > start ? end : start + 2000)
+        .replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+
+    if (!html.includes('DADOS DO PACIENTE'))
+      errors.push({ section: 'Dados do Paciente', msg: 'seção ausente' })
+
+    const aIdx = html.indexOf('ANAMNESE')
+    const procIdx = html.indexOf('PROCEDIMENTO')
+    if (aIdx === -1) {
+      errors.push({ section: 'Anamnese', msg: 'seção ausente — preencha os dados clínicos do paciente' })
+    } else {
+      const aText = textOf(aIdx, procIdx > aIdx ? procIdx : 0).replace(/ANAMNESE/g, '').trim()
+      if (aText.length < 80)
+        errors.push({ section: 'Anamnese', msg: 'sem conteúdo — preencha os campos da anamnese' })
+    }
+
+    if (!html.includes('PROCEDIMENTO'))
+      errors.push({ section: 'Procedimento', msg: 'seção ausente — selecione os testes aplicados' })
+
+    const hasAnalise = ['ANÁLISE DAS QUEIXAS', 'cognitiv', 'funções executiv', 'memória', 'atenção']
+      .some(m => html.toLowerCase().includes(m.toLowerCase()))
+    if (!hasAnalise)
+      errors.push({ section: 'Análise Neuropsicológica', msg: 'texto clínico ausente — gere o laudo com IA' })
+
+    const cIdx = html.indexOf('CONCLUS')
+    if (cIdx === -1) {
+      errors.push({ section: 'Conclusão', msg: 'seção ausente' })
+    } else {
+      const refsIdx = html.indexOf('REFERÊNCI', cIdx)
+      const cText = textOf(cIdx, refsIdx > cIdx ? refsIdx : 0)
+        .replace(/CONCLUS[ÃA]O/gi, '').trim()
+      if (cText.length < 80)
+        errors.push({ section: 'Conclusão', msg: 'seção vazia — adicione o texto de conclusão' })
+    }
+
+    return errors
+  }
+
   const handleReportEdit = () => {
     if (!reportRef.current) return
     const newHtml = reportRef.current.innerHTML
@@ -2190,6 +2232,13 @@ export default function Reports() {
       alert('Conteúdo do laudo não encontrado. Tente recarregar a página.')
       return
     }
+    // Validação obrigatória antes de imprimir
+    const errors = validateLaudo(content)
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors([])
     const w = window.open('', '_blank')
     w.document.write(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
@@ -2665,6 +2714,21 @@ export default function Reports() {
                 Aprovado por <strong>{approvalInfo.supervisor_name}</strong> em{' '}
                 {approvalInfo.approval_date ? new Date(approvalInfo.approval_date).toLocaleDateString('pt-BR') : '—'}
               </span>
+            </div>
+          )}
+
+          {/* Erros de validação — bloqueia PDF */}
+          {validationErrors.length > 0 && (
+            <div style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.09)', borderBottom: '1px solid rgba(239,68,68,0.28)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <AlertCircle size={13} color='#EF4444' />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444' }}>PDF bloqueado — seções obrigatórias incompletas:</span>
+              </div>
+              {validationErrors.map((e, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#EF4444', paddingLeft: 19, marginBottom: 2 }}>
+                  • <strong>{e.section}</strong> — {e.msg}
+                </div>
+              ))}
             </div>
           )}
 
