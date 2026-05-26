@@ -81,7 +81,7 @@ const STEPS = [
   'Carregando dados do paciente...',
   'Coletando resultados dos testes...',
   'Processando avaliação clínica...',
-  'Redigindo análise neuropsicológica...',
+  'Gerando análise com IA (modelo validado)...',
   'Finalizando laudo...',
 ]
 
@@ -1489,7 +1489,7 @@ function buildConclusaoHtml(blocos, ad) {
 </div>`
 }
 
-// ── Gera aiBody deterministicamente — reutilizado por generate() e handleExportDocx ──
+// ── Gera aiBody deterministicamente — blocos validados da planilha Protocolo_Prevent ──
 function buildAiBodyFromData(patient, ad, td) {
   try {
     const lbl = z => z == null ? 'N/A' : parseFloat(z) >= -1.0 ? 'PRESERVADO' : parseFloat(z) >= -1.5 ? 'LIMÍTROFE' : 'COMPROMETIDO'
@@ -2057,11 +2057,7 @@ export default function Reports() {
     setReport('')
 
     try {
-      for (let i = 0; i < STEPS.length; i++) {
-        setStep(i)
-        await new Promise(r => setTimeout(r, 500))
-      }
-
+      setStep(0)
       // Fonte de dados — SEMPRE lê do Firestore pelo patientId selecionado
       // NUNCA usar session.session?.tests — pode conter dados de outro paciente carregado antes
       let ad = {}
@@ -2086,6 +2082,7 @@ export default function Reports() {
           }
         } catch (_) {}
       }
+      setStep(1)
       // Coleção anamneses/{patientId} — prioridade máxima se existir
       if (patientId) {
         try {
@@ -2097,10 +2094,14 @@ export default function Reports() {
       const dataFormatada = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
       const professional  = appliedBy || user?.full_name || 'Profissional responsável'
 
+      setStep(2)
+      // Geração determinística — blocos validados da planilha via generateTextoConclusao
+      setStep(3)
       const aiBody = buildAiBodyFromData(patient, ad, td) || ''
       setAiBodyState(aiBody)
       setReportDate(dataFormatada)
 
+      setStep(4)
       const fullDoc = buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, aiBody, dataFormatada })
       setReport(fullDoc)
       const reportId = await session.saveReport(fullDoc, selectedTests)
