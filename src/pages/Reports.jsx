@@ -2437,6 +2437,8 @@ export default function Reports() {
 
   const handleApprove = async () => {
     if (!isSupervisor) return
+    // Cancela autosave pendente para não sobrescrever o laudo aprovado no Firestore
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     setApprovalLoading(true)
     try {
       const now = new Date()
@@ -2481,7 +2483,7 @@ export default function Reports() {
 
       // Usar o HTML atual do laudo como base (preserva edições do admin)
       // Injetar o carimbo de aprovação em vez de reconstruir do zero
-      let baseHtml = report || getReportContent() || ''
+      let baseHtml = getReportContent() || report || ''
       // Fallback Firestore se conteúdo local estiver vazio
       if ((!baseHtml || baseHtml.length < 100) && savedReportId) {
         try {
