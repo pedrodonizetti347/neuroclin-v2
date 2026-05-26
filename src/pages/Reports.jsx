@@ -1136,8 +1136,8 @@ function buildMEMIMPSection(td) {
   const clsMEMIMP = (v, max) => {
     if (v == null) return { label: '—', color: '#555' }
     const pct = Number(v) / max
-    if (pct <= 0.25) return { label: 'PRESERVADO',  color: '#1F3864' }
-    if (pct <= 0.50) return { label: 'LIMÍTROFE',   color: '#E8821A' }
+    if (pct >= 0.75) return { label: 'PRESERVADO',  color: '#1F3864' }
+    if (pct >= 0.50) return { label: 'LIMÍTROFE',   color: '#E8821A' }
     return              { label: 'COMPROMETIDO', color: '#C00000' }
   }
 
@@ -1249,6 +1249,8 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const sexo = sex.includes('FEM') ? 'FEMININO' : 'MASCULINO'
 
   const npOri  = toFem(lbl(npZscores?.orientation))
+  const npOriT = toFem(lbl(npZscores?.orientation_time))  || npOri
+  const npOriS = toFem(lbl(npZscores?.orientation_space)) || npOri
   const npAtt  = toFem(lbl(npZscores?.attention))
   const npPerc = toFem(lbl(npZscores?.perception))
   const npMem  = toFem(lbl(npZscores?.memory))
@@ -1341,7 +1343,7 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const mmCls = (v, max) => {
     if (v == null) return 'PRESERVADA'
     const pct = Number(v) / max
-    return pct <= 0.25 ? 'PRESERVADA' : pct <= 0.50 ? 'LIMÍTROFE' : 'COMPROMETIDA'
+    return pct >= 0.75 ? 'PRESERVADA' : pct >= 0.50 ? 'LIMÍTROFE' : 'COMPROMETIDA'
   }
 
   // Observações / comportamento
@@ -1365,15 +1367,17 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     wasiPontuacao,
     wasiPercentil,
     wasiDesempenho,
-    orientacaoTemporal: npOri,
-    orientacaoEspacial: npOri,
+    orientacaoTemporal: npOriT,
+    orientacaoEspacial: npOriS,
     atencao: npAtt,
     atencaoDesc: toDesc(npAtt),
     percepcao: npPerc,
     percepcaoDesc: toDesc(npPerc),
     memoriaTrabalho: npMem,
     memoriaVCurtoPrazo: npMem,
-    memoriaProspectiva: mm ? mmCls(mm.patient_prospective, 32) : npMem,
+    memoriaProspectiva: td?.NEUPSILIN?.memory_prospective != null
+      ? (Number(td.NEUPSILIN.memory_prospective) >= 2 ? 'PRESERVADA' : Number(td.NEUPSILIN.memory_prospective) >= 1 ? 'LIMÍTROFE' : 'COMPROMETIDA')
+      : (mm ? mmCls(mm.patient_prospective, 40) : npMem),
     praxiaIdeomotora: npPrax,
     praxiaConstrutiva: npPrax,
     praxiaReflexiva: npPrax,
@@ -1526,7 +1530,7 @@ function buildAiBodyFromData(patient, ad, td) {
       } else {
         const nAge = npAgeGroup(np.age || age)
         const nEdu = npEduGroup(np.education_years || patient?.education)
-        const orientT = (Number(np.orientation_time)||0) + (Number(np.orientation_space)||0)
+        const orientT = (Number(np.orientation_time_total)||0) + (Number(np.orientation_space_total)||0)
         const attT    = (Number(np.attention_reverse_count)||0) + (Number(np.attention_digit_sequence)||0)
         const percT   = (Number(np.perception_line_equality)||0) + (Number(np.perception_visual_hemineglect)||0) + (Number(np.perception_face_perception)||0) + (Number(np.perception_face_recognition)||0)
         const episT   = (Number(np.memory_episodic_immediate)||0) + (Number(np.memory_episodic_delayed)||0) + (Number(np.memory_episodic_recognition)||0)
@@ -1536,7 +1540,9 @@ function buildAiBodyFromData(patient, ad, td) {
         const praxT   = (Number(np.praxis_ideomotor)||0) + (Number(np.praxis_constructive)||0) + (Number(np.praxis_reflexive)||0)
         const execT   = (Number(np.executive_problem_solving)||0) + (fluencyWordsToScore(np.executive_verbal_fluency) || 0)
         npZscores = {
-          orientation: npCalcZ(orientT, 'orientation', nAge, nEdu),
+          orientation:       npCalcZ(orientT, 'orientation', nAge, nEdu),
+          orientation_time:  npCalcZ(Number(np.orientation_time_total)||0,  'orientation_time',  nAge, nEdu),
+          orientation_space: npCalcZ(Number(np.orientation_space_total)||0, 'orientation_space', nAge, nEdu),
           attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
           perception:  npCalcZ(percT,   'perception',  nAge, nEdu),
           memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
