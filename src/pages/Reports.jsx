@@ -6,6 +6,7 @@ import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil, LockOpen } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
+import PatientSearchInput from '@/components/PatientSearchInput'
 import { logAction } from '@/lib/auditLog'
 import { generateTextoConclusao } from '../utils/generateTextoConclusao'
 
@@ -211,13 +212,22 @@ const classZ = (z) => {
 const negClsColor = (text) => {
   if (!text) return '#374151'
   const v = String(text).toUpperCase()
-  if (v.includes('GRAVE') || v.includes('COMPROM') || v.includes('SUGESTIVO') ||
+  // Vermelho — comprometido/grave
+  if (v.includes('GRAVE') || v.includes('SIGNIFICATIVO') || v.includes('SUGESTIVO') ||
       v.includes('PROVÁVEL') || v.includes('DEFICIT') || v.includes('DÉFICIT') ||
       v.includes('MUITO INFERIOR') || v.includes('DEFICITAR'))
     return '#C00000'
-  if (v.includes('NORMAL') || v.includes('SEM DECL') || v.includes('PRESERVADO') ||
-      v.includes('AUSÊNCIA') || v.includes('SEM ALTER'))
+  // Azul — preservado/sem alteração
+  if (v.startsWith('SEM ') || v.includes('NORMAL') || v.includes('PRESERVADO') ||
+      v.includes('AUSÊNCIA') || v.includes('MÍNIMO'))
     return '#1F3864'
+  // Laranja — leve/moderado/limítrofe
+  if (v.includes('LEVE') || v.includes('MODERADO') || v.includes('MODERADA') ||
+      v.includes('LIMÍTROFE') || v.includes('INDETERMINADO') || v.includes('MÉDIO'))
+    return '#E8821A'
+  // Vermelho — comprometimento restante (ex: "Comprometimento nas AVDs")
+  if (v.includes('COMPROM'))
+    return '#C00000'
   return '#374151'
 }
 
@@ -2682,10 +2692,11 @@ export default function Reports() {
 
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>1. PACIENTE</div>
-            <select value={patientId} onChange={e => setPatientId(e.target.value)} style={inputStyle}>
-              <option value="">— Selecionar paciente —</option>
-              {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </select>
+            <PatientSearchInput
+              patients={patients}
+              value={patientId}
+              onChange={id => setPatientId(id)}
+            />
             {patient && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(46,125,50,0.1)', borderRadius: 6, fontSize: 11, color: S.greenL }}>
                 {patient.birth_date && `${new Date().getFullYear() - new Date(patient.birth_date).getFullYear()} anos`}

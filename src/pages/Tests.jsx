@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import TestScanUpload from '@/components/tests/TestScanUpload'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
+import PatientSearchInput from '@/components/PatientSearchInput'
 import { FlaskConical, CheckCircle2, Save, Camera, Lock, LockOpen } from 'lucide-react'
 
 // ─── Paleta ──────────────────────────────────────────────────────────────────
@@ -60,9 +61,9 @@ const classify = {
   gds15: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v <= 4)  return { label: 'NORMAL', type: 'preserved' }
-    if (v <= 10) return { label: 'DEPRESSÃO LEVE/MODERADA', type: 'borderline' }
-    return { label: 'DEPRESSÃO GRAVE', type: 'impaired' }
+    if (v <= 4) return { label: 'Sem depressão',           type: 'preserved' }
+    if (v <= 9) return { label: 'Depressão leve',          type: 'borderline' }
+    return           { label: 'Depressão moderada/grave',  type: 'impaired' }
   },
   bdi2: (n) => {
     if (n === '' || n == null) return null
@@ -83,8 +84,9 @@ const classify = {
   gai: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v <= 9) return { label: 'NORMAL', type: 'preserved' }
-    return { label: 'PROVÁVEL ANSIEDADE', type: 'impaired' }
+    if (v <= 9)  return { label: 'Sem ansiedade',           type: 'preserved' }
+    if (v <= 14) return { label: 'Ansiedade leve',          type: 'borderline' }
+    return            { label: 'Ansiedade moderada/grave',  type: 'impaired' }
   },
   idate: (n) => {
     if (n === '' || n == null) return null
@@ -96,23 +98,22 @@ const classify = {
   iqcode: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v <= 3.38) return { label: 'SEM DECLÍNIO', type: 'preserved' }
-    if (v <= 3.6)  return { label: 'INDETERMINADO', type: 'borderline' }
-    return { label: 'SUGESTIVO DE DECLÍNIO', type: 'impaired' }
+    if (v <= 3.38) return { label: 'Sem declínio cognitivo', type: 'preserved' }
+    if (v <= 3.84) return { label: 'Declínio leve',          type: 'borderline' }
+    return              { label: 'Declínio significativo',   type: 'impaired' }
   },
   badl: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v < 3.5) return { label: 'NORMAL', type: 'preserved' }
-    if (v < 5.0) return { label: 'LEVE', type: 'borderline' }
-    if (v < 7.5) return { label: 'MODERADO', type: 'impaired' }
-    return { label: 'GRAVE', type: 'impaired' }
+    if (v < 3.5) return { label: 'Sem comprometimento nas AVDs', type: 'preserved' }
+    return            { label: 'Comprometimento nas AVDs',       type: 'impaired' }
   },
   pfeffer: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v <= 4) return { label: 'NORMAL', type: 'preserved' }
-    return { label: 'COMPROMETIMENTO FUNCIONAL', type: 'impaired' }
+    if (v <= 5) return { label: 'Sem comprometimento funcional',   type: 'preserved' }
+    if (v <= 9) return { label: 'Comprometimento leve',            type: 'borderline' }
+    return           { label: 'Comprometimento moderado/grave',    type: 'impaired' }
   },
   lawton: (n) => {
     if (n === '' || n == null) return null
@@ -4904,13 +4905,12 @@ export default function Tests() {
 
       <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
         <FlaskConical size={16} color={S.greenL} />
-        <select
-          value={patientId} onChange={e => { setPatientId(e.target.value); if (e.target.value) localStorage.setItem('neuroclin_last_patient', e.target.value) }}
-          style={{ ...inputStyle, width: 'auto', flex: 1, textAlign: 'left' }}
-        >
-          <option value="">— Selecionar paciente —</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
+        <PatientSearchInput
+          patients={patients}
+          value={patientId}
+          onChange={id => { setPatientId(id); if (id) localStorage.setItem('neuroclin_last_patient', id) }}
+          style={{ flex: 1 }}
+        />
         {patient && (
           <span style={{ fontSize: 11, color: S.greenL }}>
             {patient.birth_date && `${new Date().getFullYear() - new Date(patient.birth_date).getFullYear()} anos`}

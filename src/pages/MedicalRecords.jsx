@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { exportToDocx } from '@/utils/generateDocx'
 import AnamneseForm from '@/components/AnamneseForm'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
+import PatientSearchInput from '@/components/PatientSearchInput'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, FileText, FlaskConical, Save,
@@ -361,10 +362,13 @@ export default function MedicalRecords() {
       {/* Seletor de paciente */}
       <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, padding: 16, marginBottom: 16 }}>
         <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 8 }}>SELECIONAR PACIENTE</div>
-        <select value={patientId} onChange={e => setPatientId(e.target.value)} style={{ ...inputSt, maxWidth: 420 }}>
-          <option value="">— Buscar paciente —</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
+        <PatientSearchInput
+          patients={patients}
+          value={patientId}
+          onChange={id => setPatientId(id)}
+          placeholder="— Buscar paciente —"
+          style={{ maxWidth: 420 }}
+        />
       </div>
 
       {!patientId && (
