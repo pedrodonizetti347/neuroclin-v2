@@ -28,7 +28,7 @@ const FULL_TEST_NAMES = {
   'WASI-III':  'Escala de Inteligência de Wechsler Abreviada III (WASI-III)',
   'WCST':      'Teste Wisconsin de Classificação de Cartas (WCST)',
   'WCST-N':    'Teste Wisconsin de Classificação de Cartas — Versão Nelson (WCST-N)',
-  'MEMIMP':    'Inventário de Memória Prospectiva e Retrospectiva (MEMIMP)',
+  'MEMIMP':    'Questionário de Memória Prospectiva e Retrospectiva (PRMQ)',
   'DEX':       'Questionário Disexecutivo (DEX)',
   'FAB':       'Bateria de Avaliação Frontal (FAB)',
   'GDS-15':    'Escala de Depressão Geriátrica (GDS-15)',
@@ -1176,7 +1176,7 @@ function buildMEMIMPSection(td) {
   }).join('')
 
   const head = `<thead>
-    <tr><th colspan="5" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Inventário de Memória Prospectiva e Retrospectiva (MEMIMP)</th></tr>
+    <tr><th colspan="5" style="border:1px solid #9DB8D9;padding:9px 10px;background:${H};color:#fff;text-align:center;font-size:12pt;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Questionário de Memória Prospectiva e Retrospectiva (PRMQ)</th></tr>
     <tr>
       ${thCell('Domínio')}
       ${thCell('Familiar (8–40)', 'text-align:center;')}
