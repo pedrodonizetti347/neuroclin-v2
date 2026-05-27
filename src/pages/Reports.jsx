@@ -1166,8 +1166,8 @@ function buildMEMIMPSection(td) {
   }
 
   const rows_data = [
-    { label: 'Memória Prospectiva (itens 1–8)', fam: d.family_prospective,   pat: d.patient_prospective,   max: 40 },
-    { label: 'Memória Retrospectiva (itens 9–16)', fam: d.family_retrospective, pat: d.patient_retrospective, max: 40 },
+    { label: 'Memória Prospectiva — PM (itens 1,3,5,7,10,12,14,16)',  fam: d.family_prospective,   pat: d.patient_prospective,   max: 40 },
+    { label: 'Memória Retrospectiva — RM (itens 2,4,6,8,9,11,13,15)', fam: d.family_retrospective, pat: d.patient_retrospective, max: 40 },
     { label: 'TOTAL',                             fam: d.family_total,         pat: d.patient_total,         max: 80 },
   ]
 
@@ -1520,8 +1520,69 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   }
 }
 
+// ── Tabela DEX: Facilidades / Dificuldades × Frias / Quentes ──────────────────
+function buildDEXFriasQuentesTable(td) {
+  const d = td?.DEX
+  if (!d) return ''
+
+  const ALL_ITEMS = DEX_DOMAINS.flatMap(dom => dom.items)
+  const labelOf   = (idx) => ALL_ITEMS.find(it => it.idx === idx)?.label || `Item ${idx}`
+
+  const FRIAS_IDX   = [3, 6, 14, 18, 19]
+  const QUENTES_IDX = [2, 5, 7, 8, 9, 11, 12, 13, 15, 16, 20]
+
+  const itemsFor = (prefix, indices, lo, hi) =>
+    indices
+      .filter(idx => { const v = d[`${prefix}_q${idx}`]; if (v == null) return false; const n = Number(v); return n >= lo && n <= hi })
+      .map(labelOf)
+
+  const thSt = `border:1px solid #9DB8D9;padding:8px 10px;background:${H};color:#fff;font-weight:bold;font-size:10pt;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
+  const tdSt = `border:1px solid #9DB8D9;padding:8px 10px;vertical-align:top;font-size:10pt;`
+  const lbSt = `border:1px solid #9DB8D9;padding:8px 10px;background:${HR};font-weight:bold;font-size:10pt;white-space:nowrap;`
+
+  const cell = (items, clr) =>
+    items.length
+      ? `<td style="${tdSt}"><span style="color:${clr};font-weight:600;">${items.join(' · ')}</span></td>`
+      : `<td style="${tdSt}color:#aaa;">—</td>`
+
+  const renderBlock = (prefix, title) => {
+    const hasData = [...FRIAS_IDX, ...QUENTES_IDX].some(idx => d[`${prefix}_q${idx}`] != null)
+    if (!hasData) return ''
+    const fF = itemsFor(prefix, FRIAS_IDX,   0, 1)
+    const fQ = itemsFor(prefix, QUENTES_IDX, 0, 1)
+    const dF = itemsFor(prefix, FRIAS_IDX,   3, 4)
+    const dQ = itemsFor(prefix, QUENTES_IDX, 3, 4)
+    return `
+    <p style="font-weight:700;font-size:11pt;margin:14px 0 5px;">${title}</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+      <thead><tr>
+        <th style="${thSt}width:20%;"> </th>
+        <th style="${thSt}">Habilidades Frias</th>
+        <th style="${thSt}">Habilidades Quentes</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="${lbSt}">Facilidades<br/><span style="font-size:9pt;font-weight:normal;">(pontuação 0–1)</span></td>
+          ${cell(fF, '#1F3864')}${cell(fQ, '#1F3864')}
+        </tr>
+        <tr>
+          <td style="${lbSt}">Dificuldades<br/><span style="font-size:9pt;font-weight:normal;">(pontuação 3–4)</span></td>
+          ${cell(dF, '#C00000')}${cell(dQ, '#C00000')}
+        </tr>
+      </tbody>
+    </table>`
+  }
+
+  const patBlock = renderBlock('patient', 'Paciente — auto-avaliação')
+  const famBlock = renderBlock('family',  'Familiar — hetero-avaliação')
+  if (!patBlock && !famBlock) return ''
+
+  const secSt = `background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
+  return `<div style="margin-bottom:20px;"><div style="${secSt}">SÍNTESE DEX — HABILIDADES FRIAS E QUENTES</div>${patBlock}${famBlock}</div>`
+}
+
 // ── Gera HTML da conclusão a partir dos blocos determinísticos ────────────────
-function buildConclusaoHtml(blocos, ad) {
+function buildConclusaoHtml(blocos, ad, td = {}) {
   const paraStyle = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
   const secStyle  = `background:${H};color:#fff;padding:8px 12px;margin:22px 0 10px;font-size:12pt;font-weight:bold;letter-spacing:0.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact;`
   const sec = (title) => `<div style="${secStyle}">${title}</div>`
@@ -1582,6 +1643,8 @@ function buildConclusaoHtml(blocos, ad) {
   ${sec('CONCLUSÃO')}
   ${conclusaoBlocks}
 </div>
+
+${buildDEXFriasQuentesTable(td)}
 
 <div style="margin-bottom:20px;">
   ${sec('ENFIM')}
@@ -1672,7 +1735,7 @@ function buildAiBodyFromData(patient, ad, td) {
       : 'N.P.'
     const dadosPaciente = mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials)
     const blocos = generateTextoConclusao(dadosPaciente)
-    return buildConclusaoHtml(blocos, ad)
+    return buildConclusaoHtml(blocos, ad, td)
   } catch (_) {
     return null
   }
@@ -1798,29 +1861,32 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   if (informante && informante !== '—') igPartes.push(`informante: ${informante}`)
   const infoGeraisProsa = ad?.infoGerais || (igPartes.length > 0 ? `Paciente com ${igPartes.join(', ')}.` : '')
 
-  // 4. Relacionamentos
-  const relacionamentos = ad?.relacionamentos || ''
-
-  // 5. Vida acadêmica/laboral
-  const vidaAcadLaboral = ad?.vidaAcademicaLaboral || ''
-
-  // 6. Saúde e antecedentes familiares
+  // Saúde e antecedentes familiares (sem medicamentos no laudo)
   const histSaude = ad?.historicoSaude || ''
   const antecFam  = ad?.antecedenteFamiliar || ''
   const saudeParts = [
     histSaude,
-    antecFam  ? `Antecedentes familiares: ${antecFam}` : '',
-    (medicamentos && medicamentos !== '—') ? `Medicamentos em uso: ${medicamentos}` : '',
+    antecFam ? `Antecedentes familiares: ${antecFam}` : '',
   ].filter(Boolean)
   const saudeProsa = ad?.saudeAntecedentes || saudeParts.join(' ')
 
+  // Campos adicionais do laudo
+  const histClinica    = ad?.historiaClinicaAtual    || ad?.desenvolvimento_sintomas || ''
+  const habitosVida    = ad?.habitosVida             || ''
+  const histNeuropsico = ad?.historiaNeuropsicologica || ''
+  const queixasCogn    = ad?.queixasCognitivas       || ad?.queixas_cognitivas_emocionais || ''
+  const comportObs     = ad?.comportamentoObservacional || ''
+
   const anamneseSections = [
-    objAval       && `<p style="${AP}"><strong>Objetivo da avaliação:</strong> ${objAval}</p>`,
-    descDemanda   && `<p style="${AP}"><strong>Descrição da demanda:</strong> ${descDemanda}</p>`,
+    objAval         && `<p style="${AP}"><strong>Objetivo da avaliação:</strong> ${objAval}</p>`,
+    descDemanda     && `<p style="${AP}"><strong>Descrição da demanda:</strong> ${descDemanda}</p>`,
     infoGeraisProsa && `<p style="${AP}"><strong>Informações gerais:</strong> ${infoGeraisProsa}</p>`,
-    relacionamentos && `<p style="${AP}"><strong>Relacionamentos:</strong> ${relacionamentos}</p>`,
-    vidaAcadLaboral && `<p style="${AP}"><strong>Vida acadêmica/Laboral:</strong> ${vidaAcadLaboral}</p>`,
-    saudeProsa    && `<p style="${AP}"><strong>Saúde e antecedentes familiares:</strong> ${saudeProsa}</p>`,
+    saudeProsa      && `<p style="${AP}"><strong>Saúde e antecedentes familiares:</strong> ${saudeProsa}</p>`,
+    histClinica     && `<p style="${AP}"><strong>História clínica atual:</strong> ${histClinica}</p>`,
+    habitosVida     && `<p style="${AP}"><strong>Hábitos de vida:</strong> ${habitosVida}</p>`,
+    histNeuropsico  && `<p style="${AP}"><strong>História neuropsicológica:</strong> ${histNeuropsico}</p>`,
+    queixasCogn     && `<p style="${AP}"><strong>Queixas cognitivas relatadas:</strong> ${queixasCogn}</p>`,
+    comportObs      && `<p style="${AP}"><strong>Comportamento observacional:</strong> ${comportObs}</p>`,
   ].filter(Boolean)
   const anamneseHtml = anamneseSections.join('')
 
@@ -2088,6 +2154,8 @@ export default function Reports() {
   const [quickAnamnese,  setQuickAnamnese]  = useState({
     objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '',
     relacionamentos: '', vidaAcademicaLaboral: '', saudeAntecedentes: '',
+    historiaClinicaAtual: '', habitosVida: '', historiaNeuropsicologica: '',
+    queixasCognitivas: '', comportamentoObservacional: '',
   })
   const [savingQuick, setSavingQuick] = useState(false)
   const reportRef = useRef(null)
@@ -2130,12 +2198,17 @@ export default function Reports() {
           setAnamneseStatus('empty')
           // Pré-popula com o que existir no Firestore — nunca deixa em branco
           setQuickAnamnese({
-            objetivoAvaliacao:    data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
-            descricaoDemanda:     data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais || '',
-            infoGerais:           data.infoGerais || '',
-            relacionamentos:      data.relacionamentos || '',
-            vidaAcademicaLaboral: data.vidaAcademicaLaboral || '',
-            saudeAntecedentes:    data.saudeAntecedentes || data.historicoSaude || '',
+            objetivoAvaliacao:         data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
+            descricaoDemanda:          data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais || '',
+            infoGerais:                data.infoGerais || '',
+            relacionamentos:           data.relacionamentos || '',
+            vidaAcademicaLaboral:      data.vidaAcademicaLaboral || '',
+            saudeAntecedentes:         data.saudeAntecedentes || data.historicoSaude || '',
+            historiaClinicaAtual:      data.historiaClinicaAtual || data.desenvolvimento_sintomas || '',
+            habitosVida:               data.habitosVida || '',
+            historiaNeuropsicologica:  data.historiaNeuropsicologica || '',
+            queixasCognitivas:         data.queixasCognitivas || data.queixas_cognitivas_emocionais || '',
+            comportamentoObservacional: data.comportamentoObservacional || data.observacoes_comportamentais || '',
           })
         }
       })
@@ -2733,9 +2806,12 @@ export default function Reports() {
                     ['Objetivo da avaliação', 'objetivoAvaliacao'],
                     ['Descrição da demanda', 'descricaoDemanda'],
                     ['Informações gerais (texto corrido)', 'infoGerais'],
-                    ['Relacionamentos', 'relacionamentos'],
-                    ['Vida acadêmica/Laboral', 'vidaAcademicaLaboral'],
                     ['Saúde e antecedentes familiares', 'saudeAntecedentes'],
+                    ['História clínica atual', 'historiaClinicaAtual'],
+                    ['Hábitos de vida', 'habitosVida'],
+                    ['História neuropsicológica', 'historiaNeuropsicologica'],
+                    ['Queixas cognitivas relatadas', 'queixasCognitivas'],
+                    ['Comportamento observacional', 'comportamentoObservacional'],
                   ].map(([label, key]) => (
                     <div key={key} style={{ marginBottom: 8 }}>
                       <label style={{ fontSize: 10, color: S.muted, fontWeight: 700, display: 'block', marginBottom: 3 }}>
