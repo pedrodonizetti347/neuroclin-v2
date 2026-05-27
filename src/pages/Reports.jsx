@@ -1296,8 +1296,22 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const rvBirthCalc = rv?.birth_date
     ? Math.floor((Date.now() - new Date(rv.birth_date).getTime()) / (365.25*24*60*60*1000))
     : null
-  // patientAgeCalc tem prioridade — birth_date é mais confiável que idade digitada manualmente
-  const rvAgeKey = patientAgeCalc ?? rvBirthCalc ?? rv?.age
+  // Idade na DATA DO EXAME — usa _savedAt (timestamp Firestore) + birth_date
+  // Mais preciso que idade atual: paciente pode ter feito aniversário após avaliação
+  const rvTs = (() => {
+    const s = rv?._savedAt
+    if (!s) return null
+    if (typeof s.toDate === 'function') return s.toDate()
+    if (s instanceof Date) return s
+    if (typeof s.seconds === 'number') return new Date(s.seconds * 1000)
+    return null
+  })()
+  const rvBirthRef = rv?.birth_date || patient?.birth_date
+  const rvAgeAtTest = (rvTs && rvBirthRef)
+    ? Math.floor((rvTs.getTime() - new Date(rvBirthRef).getTime()) / (365.25*24*60*60*1000))
+    : null
+  // Prioridade: idade digitada no RAVLT > idade na data do exame > idade atual
+  const rvAgeKey = rv?.age ?? rvAgeAtTest ?? patientAgeCalc ?? rvBirthCalc
   const rvFaixa = rvAgeKey ? ravltGetFaixaIdRpt(Number(rvAgeKey)) : null
   const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
   const rvPctOf = (score, key) => {
