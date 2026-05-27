@@ -279,10 +279,18 @@ function buildEscalasSection(td) {
     addRow('Escala de Depressão Geriátrica (GDS-15)', td['GDS-15'].total_score, td['GDS-15'].classification, i++ % 2 === 1)
   if (td?.GAI?.total_score != null)
     addRow('Inventário de Ansiedade Geriátrica (GAI)', td.GAI.total_score, td.GAI.classification, i++ % 2 === 1)
-  if (td?.IQCODE?.total_score != null)
-    addRow('IQCODE', td.IQCODE.total_score, td.IQCODE.classification, i++ % 2 === 1)
-  if (td?.['B-ADL']?.total_score != null)
-    addRow('Escala Bayer (B-ADL)', td['B-ADL'].total_score, td['B-ADL'].classification, i++ % 2 === 1)
+  if (td?.IQCODE?.mean_score != null || td?.IQCODE?.total_score != null) {
+    const iqMean = td.IQCODE.mean_score ?? Math.round((td.IQCODE.total_score / 26) * 100) / 100
+    const iqClassif = iqMean <= 3.38 ? 'Sem declínio cognitivo'
+      : iqMean <= 3.60 ? 'Declínio leve'
+      : iqMean <= 3.84 ? 'Declínio moderado'
+      : 'Declínio grave'
+    addRow('IQCODE', iqMean, iqClassif, i++ % 2 === 1)
+  }
+  if (td?.['B-ADL']?.total_score != null) {
+    const badlClassif = Number(td['B-ADL'].total_score) < 3.5 ? 'Preservado' : 'Comprometido'
+    addRow('Escala Bayer (B-ADL)', td['B-ADL'].total_score, badlClassif, i++ % 2 === 1)
+  }
   if (td?.Pfeffer?.total_score != null)
     addRow('Questionário de Pfeffer', td.Pfeffer.total_score, td.Pfeffer.classification, i++ % 2 === 1)
   if (td?.['BDI-II']?.total_score != null)
@@ -1431,17 +1439,15 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     ? 'SUGERE QUADRO DE ANSIEDADE'
     : 'NÃO APRESENTA SINTOMATOLOGIA DE ANSIEDADE'
 
-  // IQCODE / B-ADL / Pfeffer
-  const iqcodeClass = (td?.IQCODE?.classification || '').toUpperCase()
-  const iqcode = iqcodeClass.includes('DECL') ? 'APRESENTA DECLÍNIO COGNITIVO'
-    : iqcodeClass.includes('LIMIT') ? 'APRESENTA POSSÍVEL DECLÍNIO COGNITIVO'
-    : 'NÃO APRESENTA DECLÍNIO COGNITIVO'
-  const badlClass = (td?.['B-ADL']?.classification || '').toUpperCase()
-  const badl = badlClass === 'NORMAL' ? 'NÃO APRESENTA COMPROMETIMENTO'
-    : badlClass.includes('LEVE') ? 'APRESENTA COMPROMETIMENTO LEVE'
-    : badlClass.includes('MODER') ? 'APRESENTA COMPROMETIMENTO MODERADO'
-    : badlClass.includes('GRAVE') ? 'APRESENTA COMPROMETIMENTO GRAVE'
-    : 'NÃO APRESENTA COMPROMETIMENTO'
+  // IQCODE / B-ADL / Pfeffer — recalculado do escore (ignora texto salvo)
+  const iqMeanScore = td?.IQCODE?.mean_score ?? (td?.IQCODE?.total_score != null ? Math.round((td.IQCODE.total_score / 26) * 100) / 100 : null)
+  const iqcode = iqMeanScore == null ? 'NÃO APRESENTA DECLÍNIO COGNITIVO'
+    : iqMeanScore <= 3.38 ? 'NÃO APRESENTA DECLÍNIO COGNITIVO'
+    : 'APRESENTA DECLÍNIO COGNITIVO'
+  const badlScore = td?.['B-ADL']?.total_score
+  const badl = badlScore == null ? 'NÃO APRESENTA COMPROMETIMENTO NAS AVDs'
+    : Number(badlScore) < 3.5 ? 'NÃO APRESENTA COMPROMETIMENTO NAS AVDs'
+    : 'APRESENTA COMPROMETIMENTO NAS AVDs'
   const pfefferClass = (td?.Pfeffer?.classification || '').toUpperCase()
   const pfeffer = pfefferClass.includes('COMPROM') ? 'APRESENTA COMPROMETIMENTO FUNCIONAL'
     : 'NÃO APRESENTA COMPROMETIMENTO'
@@ -1844,11 +1850,32 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   // 1. Objetivo da avaliação
   const objAval = ad?.objetivoAvaliacao || objetivo
 
-  // 2. Descrição da demanda — queixas cognitivas + história clínica em texto corrido
+  // 2. Descrição da demanda — queixas + história clínica + sintomas pontuados da anamnese
+  const _symptomGroups = [
+    { label: 'Memória',                     key: 'sintomas_memoria_idoso' },
+    { label: 'Atenção',                     key: 'sintomas_atencao_idoso' },
+    { label: 'Função executiva',            key: 'sintomas_funcao_executiva_idoso' },
+    { label: 'Resolução de problemas',      key: 'sintomas_resolucao_problemas' },
+    { label: 'Linguagem/Matemática',        key: 'sintomas_linguagem_matematica' },
+    { label: 'Habilidades visuoespaciais',  key: 'sintomas_hab_nao_verbais' },
+    { label: 'Humor/Comportamento',         key: 'sintomas_humor_comportamento' },
+    { label: 'Desinibição/Agitação',        key: 'sintomas_desinibicao_agitacao_idoso' },
+    { label: 'Físico/Motor',                key: 'sintomas_fisicos_motores_idoso' },
+    { label: 'Sensorial',                   key: 'sintomas_sensoriais_idoso' },
+  ]
+  const symptomsText = _symptomGroups
+    .map(({ label, key }) => {
+      const items = ad?.[key]
+      if (!Array.isArray(items) || items.length === 0) return null
+      return `${label}: ${items.join(', ')}`
+    })
+    .filter(Boolean)
+    .join('. ')
   const descDemanda = ad?.descricaoDemanda || [
     ad?.queixas,
     ad?.queixas_cognitivas_emocionais,
     ad?.desenvolvimento_sintomas,
+    symptomsText,
   ].filter(Boolean).join('. ') || ''
 
   // 3. Informações gerais — prosa automática
