@@ -134,7 +134,7 @@ function gerarMemoria(p) {
 
   return [
     introMemoria, codificacao, introTipos, curtoPrazo, memoriaOperacional,
-    introEpisodica, longoPrazo, velEsquecimento, recordacaoTempo,
+    introEpisodica, longoPrazo, recordacaoTempo,
     memoriaSematica, memoriaProspectiva, memoriaRetrospectiva,
   ].join(' ')
 }
@@ -189,12 +189,23 @@ function gerarLinguagem(p) {
   const intro =
     'Com relação à LINGUAGEM, nas provas específicas de linguagem, e compreensão verbal observou-se que:'
 
-  const defCatConc = clean(
-    `${G} paciente teve desempenho ${p.conceituacao} em tarefas que envolviam conceituação de palavras, desempenho ${p.categorizacaoVerbal} categorização de palavras e desempenho e ${p.definicaoPalavras} em definição de vocábulos.`
-  )
+  // Mapeamento de classificações para termos do texto de linguagem (contexto BAMS)
+  const toLangLabel = (val) => {
+    if (!val) return val
+    const v = String(val).toUpperCase()
+    if (v.includes('COMPROM') || v.includes('DÉFIC') || v.includes('DEFIC')) return 'DEFICITÁRIO'
+    if (v === 'PRESERVADA' || v === 'PRESERVADO') return 'MÉDIO'
+    return val
+  }
+
+  // Conceituação: só menciona quando não for PRESERVADA
+  const concNotPreserved = p.conceituacao && !String(p.conceituacao).toUpperCase().includes('PRESERV')
+  const defCatConc = concNotPreserved
+    ? clean(`${G} paciente teve desempenho ${toLangLabel(p.conceituacao)} em tarefas que envolviam conceituação de palavras, desempenho ${toLangLabel(p.categorizacaoVerbal)} categorização de palavras e desempenho ${toLangLabel(p.definicaoPalavras)} em definição de vocábulos.`)
+    : clean(`${G} paciente teve desempenho ${toLangLabel(p.categorizacaoVerbal)} categorização de palavras e desempenho ${toLangLabel(p.definicaoPalavras)} em definição de vocábulos.`)
 
   const fluencias = clean(
-    `Desempenho ${p.fluenciaSematica} frente ao esperado para sua faixa etária e grau de escolaridade em tarefas envolvendo a fluência semântica e desempenho ${p.fluenciaFonemica} em fluência verbal fonêmica.`
+    `Desempenho ${toLangLabel(p.fluenciaSematica)} frente ao esperado para sua faixa etária e grau de escolaridade em tarefas envolvendo a fluência semântica e desempenho ${p.fluenciaFonemica} em fluência verbal fonêmica.`
   )
 
   const tokenTexto = clean(

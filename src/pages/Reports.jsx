@@ -1293,7 +1293,11 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const patientAgeCalc = patient?.birth_date
     ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25*24*60*60*1000))
     : null
-  const rvAgeKey = rv?.age ?? patientAgeCalc
+  const rvBirthCalc = rv?.birth_date
+    ? Math.floor((Date.now() - new Date(rv.birth_date).getTime()) / (365.25*24*60*60*1000))
+    : null
+  // patientAgeCalc tem prioridade — birth_date é mais confiável que idade digitada manualmente
+  const rvAgeKey = patientAgeCalc ?? rvBirthCalc ?? rv?.age
   const rvFaixa = rvAgeKey ? ravltGetFaixaIdRpt(Number(rvAgeKey)) : null
   const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
   const rvPctOf = (score, key) => {
