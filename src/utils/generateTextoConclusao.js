@@ -134,7 +134,7 @@ function gerarMemoria(p) {
 
   return [
     introMemoria, codificacao, introTipos, curtoPrazo, memoriaOperacional,
-    introEpisodica, longoPrazo, velEsquecimento, recordacaoTempo, pistasVerbais,
+    introEpisodica, longoPrazo, velEsquecimento, recordacaoTempo,
     memoriaSematica, memoriaProspectiva, memoriaRetrospectiva,
   ].join(' ')
 }

@@ -1273,23 +1273,20 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (v >= 6) return 'LIMÍTROFE'
     return 'COMPROMETIDA'
   }
-  // A6/A7 reusam clsRAVLTFromPct — mesma função da tabela do laudo
-  const ravltFromZOrRaw = (zscore, rawScore) => {
+  // A6/A7 — z-score usa cutoffs NeuroClin padrão (lbl); raw usa norma por faixa etária
+  const ravltFromZOrRaw = (zscore, rawScore, normKey) => {
     if (zscore != null && zscore !== '') {
-      const pct = rptBamsZToPct(Number(zscore))
-      const cls = clsRAVLTFromPct(pct)
-      if (cls) {
-        const l = cls.label
-        if (l === 'Déficit')        return 'COMPROMETIDA'
-        if (l === 'Limítrofe')      return 'LIMÍTROFE'
-        if (l === 'Média Inferior') return 'MÉDIA INFERIOR'
-        return 'PRESERVADA'
-      }
+      const z = Number(zscore)
+      if (z < -1.5) return 'COMPROMETIDA'
+      if (z < -1.0) return 'LIMÍTROFE'
+      return 'PRESERVADA'
     }
+    if (normKey && rvNorma) return ravltLabelFromPct(rvPctOf(rawScore, normKey), rawScore)
     return classRvlt(rawScore)
   }
   const rv = td?.RAVLT
-  const rvFaixa = rv?.age ? ravltGetFaixaIdRpt(Number(rv.age)) : null
+  const rvAgeKey = rv?.age ?? patient?.age
+  const rvFaixa = rvAgeKey ? ravltGetFaixaIdRpt(Number(rvAgeKey)) : null
   const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
   const rvPctOf = (score, key) => {
     if (!rvNorma || score == null || score === '' || rvNorma.dp[key] <= 0) return null
@@ -1310,8 +1307,8 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   }
   const ravltA1 = rv ? ravltLabelFromPct(rvPctOf(rv.a1_score, 'a1'), rv.a1_score) : 'PRESERVADA'
   const ravltB1 = rv ? ravltLabelFromPct(rvPctOf(rv.b1_score, 'b1'), rv.b1_score) : 'PRESERVADA'
-  const ravltA6 = rv ? ravltFromZOrRaw(rv.a6_zscore, rv.a6_score) : 'PRESERVADA'
-  const ravltA7 = rv ? ravltFromZOrRaw(rv.a7_zscore, rv.a7_score) : 'PRESERVADA'
+  const ravltA6 = rv ? ravltFromZOrRaw(rv.a6_zscore, rv.a6_score, 'a6') : 'PRESERVADA'
+  const ravltA7 = rv ? ravltFromZOrRaw(rv.a7_zscore, rv.a7_score, 'a7') : 'PRESERVADA'
 
   let velEsq = 'PRESERVADA'
   if (rv?.forgetting_speed != null) {
@@ -1347,7 +1344,9 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   // BAMS
   const bams = td?.BAMS
   const bamsClass = (bams?.classification || bams?.interpretation || 'PRESERVADO').toUpperCase()
-  const bamsGlobal = toFem(bamsClass.includes('PRESERV') ? 'PRESERVADO' : bamsClass.includes('LIMIT') ? 'LIMÍTROFE' : 'COMPROMETIDO')
+  const bamsGlobal = (bams?.z_bams != null && bams.z_bams !== '')
+    ? toFem(lbl(parseFloat(bams.z_bams)))
+    : toFem(bamsClass.includes('PRESERV') ? 'PRESERVADO' : bamsClass.includes('LIMIT') ? 'LIMÍTROFE' : 'COMPROMETIDO')
   const bamsGlobalDesc = bamsClass.includes('PRESERV') ? 'DENTRO DO ESPERADO' : 'ABAIXO DO ESPERADO'
   const bamsSubCls = (raw, max) => {
     if (raw == null || max == null) return bamsGlobal
@@ -1437,9 +1436,9 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     praxiaConstrutiva: npPrax,
     praxiaReflexiva: npPraxReflex,
     fluenciaFonemica: npFluFon,
-    fluenciaSematica: bamsZlbl(bams?.z_categorizacao) ?? bamsGlobal,
+    fluenciaSematica: bamsCatZ != null ? toFem(lbl(bamsCatZ)) : bamsGlobal,
     definicaoPalavras: bamsZlbl(bams?.z_lexico) ?? bamsSubCls(bams?.dp_total, 10),
-    categorizacaoVerbal: bamsZlbl(bams?.z_categorizacao) ?? bamsSubCls(bams?.cv_total, 10),
+    categorizacaoVerbal: bamsSubCls(bams?.cv_total, 10),
     conceituacao: bamsZlbl(bams?.z_conceitualizacao) ?? bamsSubCls(bams?.cg_total, 10),
     escoreGlobal: bamsGlobal,
     escoreGlobalDesc: bamsGlobalDesc,
@@ -1607,7 +1606,9 @@ function buildAiBodyFromData(patient, ad, td) {
           praxis_ideomotor:         npCalcZ(Number(np.praxis_ideomotor)||0,       'praxis_ideomotor',         nAge, nEdu),
           praxis_reflexive:         npCalcZ(Number(np.praxis_reflexive)||0,       'praxis_reflexive',         nAge, nEdu),
           executive:                npCalcZ(execT,   'executive',                 nAge, nEdu),
-          executive_verbal_fluency: npCalcZ(fluencyWordsToScore(np.executive_verbal_fluency)||0, 'executive_verbal_fluency', nAge, nEdu),
+          executive_verbal_fluency: (np.executive_verbal_fluency != null && np.executive_verbal_fluency !== '')
+            ? npCalcZ(fluencyWordsToScore(np.executive_verbal_fluency)||0, 'executive_verbal_fluency', nAge, nEdu)
+            : null,
         }
       }
     }
