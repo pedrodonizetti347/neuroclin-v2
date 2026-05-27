@@ -215,6 +215,9 @@ const negClsColor = (text) => {
       v.includes('PROVÁVEL') || v.includes('DEFICIT') || v.includes('DÉFICIT') ||
       v.includes('MUITO INFERIOR') || v.includes('DEFICITAR'))
     return '#C00000'
+  if (v.includes('NORMAL') || v.includes('SEM DECL') || v.includes('PRESERVADO') ||
+      v.includes('AUSÊNCIA') || v.includes('SEM ALTER'))
+    return '#1F3864'
   return '#374151'
 }
 
@@ -2064,6 +2067,7 @@ export default function Reports() {
   const [approvalInfo,   setApprovalInfo]   = useState(null)
   const [approvalLoading,setApprovalLoading]= useState(false)
   const [editMode,       setEditMode]       = useState(false)
+  const [showEditConfirm,setShowEditConfirm]= useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
   const [docxExporting,  setDocxExporting]  = useState(false)

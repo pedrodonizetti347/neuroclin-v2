@@ -1836,32 +1836,32 @@ function IDATEForm({ data, onChange, label }) {
 
 // ─── IQCODE (Base44-compliant — 26 itens 1–5) ────────────────────────────────
 const IQCODE_ITEMS = [
-  'Reconhecer rostos de parentes e amigos próximos',
-  'Lembrar os nomes de parentes e amigos próximos',
-  'Lembrar coisas sobre parentes e amigos (profissão, aniversário, endereço)',
-  'Lembrar de coisas que aconteceram recentemente',
-  'Lembrar de conversas ocorridas há alguns dias',
-  'Esquecer o que disse há alguns dias',
-  'Lembrar seu próprio endereço e número de telefone',
-  'Lembrar a data de hoje (dia da semana, do mês, mês e ano)',
-  'Lembrar onde guardam as coisas normalmente',
-  'Encontrar objetos que foram colocados em lugar diferente do habitual',
-  'Adaptar-se a mudanças na rotina diária',
-  'Reconhecer e conhecer o uso de utensílios domésticos',
-  'Aprender a usar novos aparelhos',
+  'Reconhecer amigos e familiares',
+  'Lembrar-se do nome de amigos e familiares',
+  'Lembrar-se de coisas sobre os amigos e familiares, p.ex., profissão, aniversário, ocupação',
+  'Lembrar-se de coisas que aconteceram recentemente',
+  'Lembrar-se do que conversou nos últimos dias',
+  'Esquecer o que ele(a) queria dizer no meio da conversa',
+  'Lembrar-se do seu endereço e telefone',
+  'Lembrar-se do dia e mês correntes',
+  'Lembrar-se onde as coisas são guardadas usualmente',
+  'Lembrar-se onde foram guardadas coisas que foram colocadas em locais diferentes do usual',
+  'Adaptar-se às mudanças em sua rotina diária',
+  'Saber como os aparelhos da casa funcionam',
+  'Aprender como usar novos aparelhos em casa',
   'Aprender coisas novas em geral',
-  'Lembrar coisas que ocorreram em sua infância e juventude',
-  'Lembrar coisas que aprendeu quando jovem',
-  'Compreender o significado de palavras incomuns',
-  'Compreender artigos em jornais ou revistas',
-  'Acompanhar uma história em livro ou televisão',
-  'Escrever cartas a amigos e parentes',
-  'Conhecer acontecimentos nacionais e internacionais atuais',
-  'Conversar sobre assuntos que conhece bem',
-  'Lembrar de coisas que aconteceram com você recentemente',
-  'Tratar de seus próprios assuntos financeiros',
-  'Tratar de outros assuntos diários',
-  'Usar inteligência para entender o que está acontecendo e tomar decisões',
+  'Lembrar-se de coisas que aconteceram quando ele(a) era jovem',
+  'Lembrar-se de coisas que ele(a) aprendeu quando era jovem',
+  'Entender o significado de palavras pouco comuns',
+  'Entender artigos de revista ou jornais',
+  'Acompanhar uma história em um livro ou televisão',
+  'Escrever uma carta para um amigo ou uma proposta de trabalho',
+  'Conhecer sobre eventos históricos importantes do passado',
+  'Tomar decisões em problemas do dia-a-dia',
+  'Manusear dinheiro para as compras',
+  'Lidar com problemas financeiros',
+  'Lidar com outros problemas do dia-a-dia, p.ex., saber quanta comida comprar, saber quanto tempo passou entre visitas de amigos e familiares',
+  'Usar a sua inteligência para entender qual o sentido das coisas',
 ]
 
 function IQCODEForm({ data, onChange }) {
@@ -4318,22 +4318,22 @@ function TOKENForm({ data, onChange }) {
 
 // ─── MEMIMP / MemoryTest (Base44-compliant — 16 itens × 2 respondentes, 1–5) ──
 const MEMIMP_ITEMS = [
-  'Deixa de fazer algo planejado durante o dia',
-  'Esquece de passar uma mensagem a alguém',
-  'Esquece um compromisso ou reunião',
-  'Esquece de executar tarefa rotineira (ex: tomar remédio)',
-  'Esquece de comprar algo necessário',
-  'Não faz algo que deveria ter feito anteriormente',
-  'Esquece de retornar uma ligação',
-  'Esquece de verificar algo antes de sair de casa',
-  'Esquece palavras ou nomes de pessoas',
-  'Esquece onde colocou coisas',
-  'Perde o fio do raciocínio no meio de uma conversa',
-  'Esquece o que estava fazendo',
-  'Esquece detalhes de algo lido recentemente',
-  'Esquece algo que alguém disse recentemente',
-  'Confunde a ordem em que eventos aconteceram',
-  'Confunde datas ou horários',
+  'Decide fazer alguma coisa daqui a alguns minutos e depois esquece-se de a fazer?',
+  'Não consegue reconhecer um lugar que já visitou antes?',
+  'Esquece-se de fazer alguma coisa que era suposto fazer dali a alguns minutos mesmo que esteja à sua frente, como tomar um comprimido ou desligar a cafeteira?',
+  'Esquece-se de alguma coisa que lhe foi dita alguns minutos antes?',
+  'Esquece-se dos compromissos se não for lembrado para os fazer por outra pessoa ou por um lembrete como um calendário ou uma agenda?',
+  'Não consegue reconhecer uma personagem num programa de rádio ou de televisão de uma cena para a outra?',
+  'Esquece-se de comprar alguma coisa que planeou comprar, como um cartão de aniversário, mesmo quando vê a loja?',
+  'Não consegue recordar coisas que lhe aconteceram nos últimos dias?',
+  'Repete a mesma história à mesma pessoa em ocasiões diferentes?',
+  'Quando está de saída de uma sala ou de casa, esquece-se de levar alguma coisa que tencionava levar mesmo que ela esteja à sua frente?',
+  'Perde alguma coisa que acabou de pousar, como uma revista ou os óculos?',
+  'Esquece-se de dar um recado ou entregar algo a alguém quando lhe pedem?',
+  'Olha para alguma coisa sem se aperceber que a viu momentos antes?',
+  'Quando tenta contactar um/a amigo/a ou familiar e não consegue, esquece-se de tentar mais tarde?',
+  'Esquece-se do que viu na televisão no dia anterior?',
+  'Esquece-se de dizer a alguém algo que queria dizer alguns minutos antes?',
 ]
 
 function computeMemimp(n, prefix) {
@@ -4341,8 +4341,10 @@ function computeMemimp(n, prefix) {
   const answered = keys.filter(k => n[k] != null).length
   if (answered === 0) return { prospective: null, retrospective: null, total: null, mean: null, sd: null }
   const vals = keys.map(k => Number(n[k]) || 0)
-  const prospective    = vals.slice(0, 8).reduce((s, v) => s + v, 0)
-  const retrospective  = vals.slice(8).reduce((s, v) => s + v, 0)
+  const pmIdx = [0,2,4,6,9,11,13,15]
+  const rmIdx = [1,3,5,7,8,10,12,14]
+  const prospective    = pmIdx.reduce((s,i) => s + (vals[i]||0), 0)
+  const retrospective  = rmIdx.reduce((s,i) => s + (vals[i]||0), 0)
   const total          = prospective + retrospective
   const mean           = Math.round((total / 16) * 100) / 100
   const variance       = vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / 16
