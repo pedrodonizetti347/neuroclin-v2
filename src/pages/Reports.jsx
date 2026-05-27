@@ -1079,8 +1079,7 @@ function buildDEXSection(td) {
     if (v == null || v === '') return { label: '—', color: '#555' }
     const n = Number(v)
     if (n <= 1) return { label: 'PRESERVADO',  color: '#1F3864' }
-    if (n <= 2) return { label: 'LIMÍTROFE',    color: '#E8821A' }
-    return           { label: 'COMPROMETIDO', color: '#C00000' }
+    return             { label: 'COMPROMETIDO', color: '#C00000' }
   }
 
   const dexTotalCls = (v) => {
@@ -1550,8 +1549,8 @@ function buildDEXFriasQuentesTable(td) {
     if (!hasData) return ''
     const fF = itemsFor(prefix, FRIAS_IDX,   0, 1)
     const fQ = itemsFor(prefix, QUENTES_IDX, 0, 1)
-    const dF = itemsFor(prefix, FRIAS_IDX,   3, 4)
-    const dQ = itemsFor(prefix, QUENTES_IDX, 3, 4)
+    const dF = itemsFor(prefix, FRIAS_IDX,   2, 4)
+    const dQ = itemsFor(prefix, QUENTES_IDX, 2, 4)
     return `
     <p style="font-weight:700;font-size:11pt;margin:14px 0 5px;">${title}</p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
@@ -1566,7 +1565,7 @@ function buildDEXFriasQuentesTable(td) {
           ${cell(fF, '#1F3864')}${cell(fQ, '#1F3864')}
         </tr>
         <tr>
-          <td style="${lbSt}">Dificuldades<br/><span style="font-size:9pt;font-weight:normal;">(pontuação 3–4)</span></td>
+          <td style="${lbSt}">Dificuldades<br/><span style="font-size:9pt;font-weight:normal;">(pontuação 2–4)</span></td>
           ${cell(dF, '#C00000')}${cell(dQ, '#C00000')}
         </tr>
       </tbody>
@@ -1607,11 +1606,19 @@ function buildConclusaoHtml(blocos, ad, td = {}) {
     ad?.nivel_alerta ? `Nível de alerta: ${ad.nivel_alerta}.`  : null,
   ].filter(Boolean).join(' ') || '[Registrar o comportamento do paciente durante a avaliação]'
 
-  const conclusaoBlocks = [
+  const conclusaoPreFE = [
     blocos.discurso, blocos.inteligencia, blocos.orientacao, blocos.atencao,
-    blocos.memoria, blocos.funcoesExecutivas, blocos.linguagem,
-    blocos.percepcao, blocos.praxia, blocos.depressaoAnsiedade, blocos.declinioAVD,
+    blocos.memoria, blocos.funcoesExecutivas,
   ].filter(Boolean).map(t => p(t)).join('\n')
+
+  const conclusaoPosFE = [
+    blocos.linguagem, blocos.percepcao, blocos.praxia,
+    blocos.depressaoAnsiedade, blocos.declinioAVD,
+  ].filter(Boolean).map(t => p(t)).join('\n')
+
+  const conclusaoBlocks = conclusaoPreFE
+    + (buildDEXFriasQuentesTable(td) ? '\n' + buildDEXFriasQuentesTable(td) : '')
+    + (conclusaoPosFE ? '\n' + conclusaoPosFE : '')
 
   // ANÁLISE DAS QUEIXAS — popula com dados reais da anamnese quando disponíveis
   const objetivo = ad?.objetivo_avaliacao || ad?.motivo_encaminhamento || ''
@@ -1643,8 +1650,6 @@ function buildConclusaoHtml(blocos, ad, td = {}) {
   ${sec('CONCLUSÃO')}
   ${conclusaoBlocks}
 </div>
-
-${buildDEXFriasQuentesTable(td)}
 
 <div style="margin-bottom:20px;">
   ${sec('ENFIM')}
