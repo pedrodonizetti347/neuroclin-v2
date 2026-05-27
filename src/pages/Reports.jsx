@@ -207,6 +207,16 @@ const classZ = (z) => {
   if (n >= -1.5)  return { label: 'LIMÍTROFE',     color: '#E8821A' }
   return              { label: 'COMPROMETIDO',  color: '#C00000' }
 }
+// Cor para classificações textuais de escalas (GDS, GAI, IQCODE, BDI, HAD, etc.)
+const negClsColor = (text) => {
+  if (!text) return '#374151'
+  const v = String(text).toUpperCase()
+  if (v.includes('GRAVE') || v.includes('COMPROM') || v.includes('SUGESTIVO') ||
+      v.includes('PROVÁVEL') || v.includes('DEFICIT') || v.includes('DÉFICIT') ||
+      v.includes('MUITO INFERIOR') || v.includes('DEFICITAR'))
+    return '#C00000'
+  return '#374151'
+}
 
 // Remove markdown code fences that Claude sometimes wraps around HTML output
 const stripMdFences = (text) => {
@@ -241,11 +251,12 @@ function buildEscalasSection(td) {
   const rows = []
 
   const addRow = (label, score, classif, alt = false) => {
-    const bg = alt ? HR : '#fff'
+    const bg  = alt ? HR : '#fff'
+    const clr = negClsColor(classif)
     rows.push(`<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
       ${tdCell(label)}
       ${tdCell(score ?? '—', 'text-align:center;font-weight:bold;')}
-      ${tdCell(classif ?? '—', 'text-align:center;')}
+      ${tdCell(classif ? `<span style="color:${clr};font-weight:bold;">${classif}</span>` : '—', 'text-align:center;')}
     </tr>`)
   }
 
@@ -1298,6 +1309,12 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     : null
   // Idade na DATA DO EXAME — usa _savedAt (timestamp Firestore) + birth_date
   // Mais preciso que idade atual: paciente pode ter feito aniversário após avaliação
+  const rvBirthRef = rv?.birth_date || patient?.birth_date
+  // Idade na DATA DE APLICAÇÃO (campo explícito do formulário) — mais confiável que _savedAt
+  const rvAgeAtApp = (rv?.application_date && rvBirthRef)
+    ? Math.floor((new Date(rv.application_date).getTime() - new Date(rvBirthRef).getTime()) / (365.25*24*60*60*1000))
+    : null
+  // Fallback: _savedAt (menos confiável — muda se o teste for re-salvo após aniversário)
   const rvTs = (() => {
     const s = rv?._savedAt
     if (!s) return null
@@ -1306,12 +1323,11 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (typeof s.seconds === 'number') return new Date(s.seconds * 1000)
     return null
   })()
-  const rvBirthRef = rv?.birth_date || patient?.birth_date
   const rvAgeAtTest = (rvTs && rvBirthRef)
     ? Math.floor((rvTs.getTime() - new Date(rvBirthRef).getTime()) / (365.25*24*60*60*1000))
     : null
-  // Prioridade: idade digitada no RAVLT > idade na data do exame > idade atual
-  const rvAgeKey = rv?.age ?? rvAgeAtTest ?? patientAgeCalc ?? rvBirthCalc
+  // Prioridade: idade digitada > data_aplicação+nasc > _savedAt+nasc > idade_atual
+  const rvAgeKey = rv?.age ?? rvAgeAtApp ?? rvAgeAtTest ?? patientAgeCalc ?? rvBirthCalc
   const rvFaixa = rvAgeKey ? ravltGetFaixaIdRpt(Number(rvAgeKey)) : null
   const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
   const rvPctOf = (score, key) => {
