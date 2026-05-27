@@ -99,14 +99,15 @@ const classify = {
     if (n === '' || n == null) return null
     const v = Number(n)
     if (v <= 3.38) return { label: 'Sem declínio cognitivo', type: 'preserved' }
-    if (v <= 3.84) return { label: 'Declínio leve',          type: 'borderline' }
-    return              { label: 'Declínio significativo',   type: 'impaired' }
+    if (v <= 3.60) return { label: 'Declínio leve',          type: 'borderline' }
+    if (v <= 3.84) return { label: 'Declínio moderado',      type: 'borderline' }
+    return              { label: 'Declínio grave',           type: 'impaired' }
   },
   badl: (n) => {
     if (n === '' || n == null) return null
     const v = Number(n)
-    if (v < 3.5) return { label: 'Sem comprometimento nas AVDs', type: 'preserved' }
-    return            { label: 'Comprometimento nas AVDs',       type: 'impaired' }
+    if (v < 3.5) return { label: 'Preservado', type: 'preserved' }
+    return            { label: 'Comprometido', type: 'impaired' }
   },
   pfeffer: (n) => {
     if (n === '' || n == null) return null
