@@ -1242,7 +1242,12 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (v === 'COMPROMETIDO') return 'COMPROMETIDA'
     return val
   }
-  const toDesc  = (val) => (!val || String(val).toUpperCase().includes('PRESERV')) ? 'CAPACIDADE' : 'DIFICULDADE'
+  const toDesc  = (val) => {
+    if (!val) return 'CAPACIDADE'
+    const v = String(val).toUpperCase()
+    if (v.includes('LIMÍT') || v.includes('LIMIT') || v.includes('COMPROM') || v.includes('DÉFIC') || v.includes('DEFIC')) return 'DIFICULDADE'
+    return 'CAPACIDADE'
+  }
   const toRateD = (val) => (!val || String(val).toUpperCase().includes('PRESERV')) ? 'DENTRO DO ESPERADO' : 'ABAIXO DO ESPERADO'
 
   const sex  = (patient?.sex || '').toUpperCase()
@@ -1284,8 +1289,27 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     return classRvlt(rawScore)
   }
   const rv = td?.RAVLT
-  const ravltA1 = rv ? classRvlt(rv.a1_score) : 'PRESERVADA'
-  const ravltB1 = rv ? classRvlt(rv.b1_score) : 'PRESERVADA'
+  const rvFaixa = rv?.age ? ravltGetFaixaIdRpt(Number(rv.age)) : null
+  const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
+  const rvPctOf = (score, key) => {
+    if (!rvNorma || score == null || score === '' || rvNorma.dp[key] <= 0) return null
+    return rptBamsZToPct((Number(score) - rvNorma.media[key]) / rvNorma.dp[key])
+  }
+  const ravltLabelFromPct = (pct, rawScore) => {
+    if (pct != null) {
+      const cls = clsRAVLTFromPct(pct)
+      if (cls) {
+        const l = cls.label
+        if (l === 'Déficit')        return 'COMPROMETIDA'
+        if (l === 'Limítrofe')      return 'LIMÍTROFE'
+        if (l === 'Média Inferior') return 'MÉDIA INFERIOR'
+        return 'PRESERVADA'
+      }
+    }
+    return classRvlt(rawScore)
+  }
+  const ravltA1 = rv ? ravltLabelFromPct(rvPctOf(rv.a1_score, 'a1'), rv.a1_score) : 'PRESERVADA'
+  const ravltB1 = rv ? ravltLabelFromPct(rvPctOf(rv.b1_score, 'b1'), rv.b1_score) : 'PRESERVADA'
   const ravltA6 = rv ? ravltFromZOrRaw(rv.a6_zscore, rv.a6_score) : 'PRESERVADA'
   const ravltA7 = rv ? ravltFromZOrRaw(rv.a7_zscore, rv.a7_score) : 'PRESERVADA'
 
@@ -1332,6 +1356,17 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   }
   const bamsCatZ = (bams?.z_categorizacao != null && bams.z_categorizacao !== '')
     ? parseFloat(bams.z_categorizacao) : null
+  const bamsZlbl = (z) => {
+    if (z == null || z === '') return null
+    const pct = rptBamsZToPct(parseFloat(z))
+    const cls = clsRAVLTFromPct(pct)
+    if (!cls) return null
+    const l = cls.label
+    if (l === 'Déficit')        return 'COMPROMETIDA'
+    if (l === 'Limítrofe')      return 'LIMÍTROFE'
+    if (l === 'Média Inferior') return 'MÉDIA INFERIOR'
+    return 'PRESERVADA'
+  }
 
   // GDS / GAI
   const gdsClass = (td?.['GDS-15']?.classification || '').toUpperCase()
@@ -1402,10 +1437,10 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     praxiaConstrutiva: npPrax,
     praxiaReflexiva: npPraxReflex,
     fluenciaFonemica: npFluFon,
-    fluenciaSematica: bamsCatZ != null ? toFem(lbl(bamsCatZ)) : bamsGlobal,
-    definicaoPalavras: bamsSubCls(bams?.dp_total, 10),
-    categorizacaoVerbal: bamsSubCls(bams?.cv_total, 10),
-    conceituacao: bamsSubCls(bams?.cg_total, 10),
+    fluenciaSematica: bamsZlbl(bams?.z_categorizacao) ?? bamsGlobal,
+    definicaoPalavras: bamsZlbl(bams?.z_lexico) ?? bamsSubCls(bams?.dp_total, 10),
+    categorizacaoVerbal: bamsZlbl(bams?.z_categorizacao) ?? bamsSubCls(bams?.cv_total, 10),
+    conceituacao: bamsZlbl(bams?.z_conceitualizacao) ?? bamsSubCls(bams?.cg_total, 10),
     escoreGlobal: bamsGlobal,
     escoreGlobalDesc: bamsGlobalDesc,
     ravltA1, ravltA1Desc: toDesc(ravltA1),
