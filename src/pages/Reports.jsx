@@ -1273,19 +1273,27 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (v >= 6) return 'LIMÍTROFE'
     return 'COMPROMETIDA'
   }
-  // A6/A7 — z-score usa cutoffs NeuroClin padrão (lbl); raw usa norma por faixa etária
+  // A6/A7 — usa percentil (clsRAVLTFromPct) para 6 níveis como A1/B1
   const ravltFromZOrRaw = (zscore, rawScore, normKey) => {
     if (zscore != null && zscore !== '') {
-      const z = Number(zscore)
-      if (z < -1.5) return 'COMPROMETIDA'
-      if (z < -1.0) return 'LIMÍTROFE'
-      return 'PRESERVADA'
+      const pct = rptBamsZToPct(Number(zscore))
+      const cls = clsRAVLTFromPct(pct)
+      if (cls) {
+        const l = cls.label
+        if (l === 'Déficit')        return 'COMPROMETIDA'
+        if (l === 'Limítrofe')      return 'LIMÍTROFE'
+        if (l === 'Média Inferior') return 'MÉDIA INFERIOR'
+        return 'PRESERVADA'
+      }
     }
     if (normKey && rvNorma) return ravltLabelFromPct(rvPctOf(rawScore, normKey), rawScore)
     return classRvlt(rawScore)
   }
   const rv = td?.RAVLT
-  const rvAgeKey = rv?.age ?? patient?.age
+  const patientAgeCalc = patient?.birth_date
+    ? Math.floor((Date.now() - new Date(patient.birth_date).getTime()) / (365.25*24*60*60*1000))
+    : null
+  const rvAgeKey = rv?.age ?? patientAgeCalc
   const rvFaixa = rvAgeKey ? ravltGetFaixaIdRpt(Number(rvAgeKey)) : null
   const rvNorma = rvFaixa ? RAVLT_NORMAS_RPT[rvFaixa] : null
   const rvPctOf = (score, key) => {
@@ -1438,14 +1446,14 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     fluenciaFonemica: npFluFon,
     fluenciaSematica: bamsCatZ != null ? toFem(lbl(bamsCatZ)) : bamsGlobal,
     definicaoPalavras: bamsZlbl(bams?.z_lexico) ?? bamsSubCls(bams?.dp_total, 10),
-    categorizacaoVerbal: bamsSubCls(bams?.cv_total, 10),
+    categorizacaoVerbal: bamsZlbl(bams?.z_categorizacao) ?? bamsSubCls(bams?.cv_total, 10),
     conceituacao: bamsZlbl(bams?.z_conceitualizacao) ?? bamsSubCls(bams?.cg_total, 10),
     escoreGlobal: bamsGlobal,
     escoreGlobalDesc: bamsGlobalDesc,
     ravltA1, ravltA1Desc: toDesc(ravltA1),
     ravltB1,
     ravltA6, ravltA6Desc: toDesc(ravltA6),
-    ravltA7, ravltA7Desc: toDesc(ravltA7),
+    ravltA7, ravltA7Desc: ravltA7 === 'PRESERVADA' ? 'CAPACIDADE' : 'DIFICULDADE',
     velEsquecimento: velEsq,
     velEsquecimentoDesc: toRateD(velEsq),
     reconhecimento: recogn,
@@ -1607,7 +1615,7 @@ function buildAiBodyFromData(patient, ad, td) {
           praxis_reflexive:         npCalcZ(Number(np.praxis_reflexive)||0,       'praxis_reflexive',         nAge, nEdu),
           executive:                npCalcZ(execT,   'executive',                 nAge, nEdu),
           executive_verbal_fluency: (np.executive_verbal_fluency != null && np.executive_verbal_fluency !== '')
-            ? npCalcZ(fluencyWordsToScore(np.executive_verbal_fluency)||0, 'executive_verbal_fluency', nAge, nEdu)
+            ? npCalcZ(Number(np.executive_verbal_fluency)||0, 'executive_verbal_fluency', nAge, nEdu)
             : null,
         }
       }
