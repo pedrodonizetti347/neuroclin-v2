@@ -179,22 +179,24 @@ export default function Layout({ children }) {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch(import.meta.env.BASE_URL + 'version.json?_=' + Date.now())
+        const res = await fetch(import.meta.env.BASE_URL + 'version.json?_=' + Date.now(), { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
         if (data.v > BUILD_ID) setNewVersion(true)
       } catch {}
     }
     check()
-    const interval = setInterval(check, 60 * 1000)
-    return () => clearInterval(interval)
+    const interval = setInterval(check, 30 * 1000)
+    const onVisible = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
   }, [])
 
   useEffect(() => {
     if (!newVersion) return
     countdownRef.current = setInterval(() => {
       setCountdown(c => {
-        if (c <= 1) { window.location.reload(); return 0 }
+        if (c <= 1) { window.location.href = window.location.origin + window.location.pathname; return 0 }
         return c - 1
       })
     }, 1000)
