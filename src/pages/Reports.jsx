@@ -1637,11 +1637,6 @@ function buildConclusaoHtml(blocos, ad, td = {}) {
 
   return `
 <div style="margin-bottom:20px;">
-  ${sec('ANÁLISE DAS QUEIXAS E HISTÓRICO CLÍNICO')}
-  ${analiseQueixasHtml}
-</div>
-
-<div style="margin-bottom:20px;">
   ${sec('OBSERVAÇÕES COMPORTAMENTAIS')}
   ${p(obsTexto)}
 </div>
@@ -1849,8 +1844,12 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   // 1. Objetivo da avaliação
   const objAval = ad?.objetivoAvaliacao || objetivo
 
-  // 2. Descrição da demanda
-  const descDemanda = ad?.descricaoDemanda || queixas
+  // 2. Descrição da demanda — queixas cognitivas + história clínica em texto corrido
+  const descDemanda = ad?.descricaoDemanda || [
+    ad?.queixas,
+    ad?.queixas_cognitivas_emocionais,
+    ad?.desenvolvimento_sintomas,
+  ].filter(Boolean).join('. ') || ''
 
   // 3. Informações gerais — prosa automática
   const igPartes = []
