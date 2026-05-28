@@ -2209,15 +2209,15 @@ export default function Reports() {
 
   useEffect(() => {
     if (!user) return
-    const isAdmin = user.role === 'admin' || user.role === 'supervisor'
+    const canViewAll = user.role === 'admin' || user.role === 'supervisor' || user.role === 'entregador'
     const base = collection(db, 'patients')
-    const q = isAdmin
+    const q = canViewAll
       ? query(base, orderBy('createdAt', 'desc'))
       : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
     getDocs(q)
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {
-        const qFallback = isAdmin ? base : query(base, where('createdBy', '==', user.id))
+        const qFallback = canViewAll ? base : query(base, where('createdBy', '==', user.id))
         getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       })
   }, [user])
