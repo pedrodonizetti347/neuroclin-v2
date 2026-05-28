@@ -275,7 +275,7 @@ export default function MedicalRecords() {
 
   const isSupervisor    = user?.role === 'admin' || user?.role === 'supervisor'
   const isAdmin         = user?.role === 'admin'
-  const isProfessional  = user?.role === 'professional'
+  const isProfessional  = user?.role === 'professional' || user?.role === 'entregador'
   const isEstagiario    = user?.role === 'estagiario'
   const canDeleteReport = user?.uid === 'i5nwg569WabTUk69wzCWV5PRw9E3'
 

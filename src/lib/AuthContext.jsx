@@ -13,6 +13,7 @@ export const ROLE_LABELS = {
   supervisor:   'Supervisor',
   estagiario:   'Estagiário',
   professional: 'Profissional',
+  entregador:   'Entregador',
 }
 export function getRoleLabel(role) {
   return ROLE_LABELS[role] || role || 'Profissional'

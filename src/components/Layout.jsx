@@ -249,6 +249,7 @@ export default function Layout({ children }) {
           {NAV.filter(n => {
             if (user?.role === 'professional') return !['Laudos', 'Relatórios'].includes(n.label)
             if (user?.role === 'estagiario')   return !['Laudos', 'Relatórios', 'Devolutivas'].includes(n.label)
+            if (user?.role === 'entregador')   return !['Relatórios'].includes(n.label)
             return true
           }).map(({ label, icon: Icon, path }) => {
             const active = location.pathname === path
