@@ -159,7 +159,29 @@ export default function Analytics() {
   const anamnPct = totalPatients ? Math.round((anamneseFilled / totalPatients) * 100) : 0
 
   // ── Documentação de testes ──
-  const sessionsWithDocs = sessions.filter(s => s.testDocumentation && Object.keys(s.testDocumentation).length > 0)
+  // Fotos salvas em sessions.tests.{testKey}.scan_urls (campo nativo do sistema)
+  // testDocumentation é preenchido pelo novo código — fallback para retrocompatibilidade
+  const sessionsWithDocs = sessions.map(s => {
+    const testsObj = s.tests || {}
+    const docMap = {}
+
+    for (const [testKey, testData] of Object.entries(testsObj)) {
+      const urls = testData?.scan_urls
+      if (Array.isArray(urls) && urls.length > 0) {
+        const min = MIN_DOCS[testKey] ?? 1
+        docMap[testKey] = { count: urls.length, min, complete: urls.length >= min }
+      }
+    }
+
+    // Complementa com testDocumentation para chaves ainda não cobertas
+    for (const [testKey, data] of Object.entries(s.testDocumentation || {})) {
+      if (!docMap[testKey] && (data?.count || 0) > 0) {
+        docMap[testKey] = data
+      }
+    }
+
+    return { session: s, docMap }
+  }).filter(({ docMap }) => Object.keys(docMap).length > 0)
 
   // ── Produção por Profissional ──
   const byProfessional = filteredReports.reduce((acc, r) => {
@@ -328,18 +350,17 @@ export default function Analytics() {
                   <span style={{ fontSize: 11, color: S.muted }}>🔴 Sem fotos &nbsp;|&nbsp; 🟡 Incompleto &nbsp;|&nbsp; 🟢 Completo</span>
                 </div>
 
-                {sessionsWithDocs.map(s => {
-                  const td = s.testDocumentation || {}
-                  const keys = Object.keys(td)
+                {sessionsWithDocs.map(({ session: s, docMap }) => {
+                  const keys = Object.keys(docMap)
                   const patientId = s.patientId || s.id
                   const patient = patients.find(p => p.id === patientId)
                   const name = patient?.full_name || patient?.name || patientId
 
-                  const allComplete = keys.every(k => td[k]?.complete)
-                  const anyDocs     = keys.some(k => (td[k]?.count || 0) > 0)
+                  const allComplete = keys.every(k => docMap[k]?.complete)
+                  const anyDocs     = keys.some(k => (docMap[k]?.count || 0) > 0)
 
-                  const rowColor = allComplete ? 'rgba(76,175,80,0.06)' : anyDocs ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)'
-                  const rowBorder = allComplete ? 'rgba(76,175,80,0.2)' : anyDocs ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'
+                  const rowColor  = allComplete ? 'rgba(76,175,80,0.06)'  : anyDocs ? 'rgba(245,158,11,0.06)'  : 'rgba(239,68,68,0.06)'
+                  const rowBorder = allComplete ? 'rgba(76,175,80,0.2)'   : anyDocs ? 'rgba(245,158,11,0.2)'   : 'rgba(239,68,68,0.2)'
 
                   return (
                     <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, background: rowColor, border: `1px solid ${rowBorder}`, flexWrap: 'wrap' }}>
@@ -348,8 +369,8 @@ export default function Analytics() {
                       </span>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         {keys.map(k => {
-                          const min = MIN_DOCS[k] ?? 1
-                          const cnt = td[k]?.count || 0
+                          const cnt = docMap[k]?.count || 0
+                          const min = docMap[k]?.min ?? (MIN_DOCS[k] ?? 1)
                           const emoji = cnt === 0 ? '🔴' : cnt < min ? '🟡' : '🟢'
                           return (
                             <span key={k} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '2px 7px' }}>
