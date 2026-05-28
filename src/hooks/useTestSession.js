@@ -79,6 +79,7 @@ export function useTestSession(patientId) {
       await setDoc(ref, {
         patientId,
         lastUpdatedBy: userId,
+        anamnesisSavedBy: userId,
         anamnesis: data,
         updatedAt: serverTimestamp(),
       }, { merge: true })

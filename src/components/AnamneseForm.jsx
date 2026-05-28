@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { ChevronDown, ChevronUp, CheckCircle2, Loader2 } from 'lucide-react'
 
 const S = {
@@ -76,7 +76,7 @@ export default function AnamneseForm({ patientId }) {
     if (!patientId) return
     setSaving(true)
     try {
-      await setDoc(doc(db, 'anamneses', patientId), { ...data, patient_type: 'idoso', updatedAt: serverTimestamp() }, { merge: true })
+      await setDoc(doc(db, 'anamneses', patientId), { ...data, patient_type: 'idoso', savedBy: auth.currentUser?.uid || null, updatedAt: serverTimestamp() }, { merge: true })
       if (data.escolaridade) {
         await updateDoc(doc(db, 'patients', patientId), { education: data.escolaridade }).catch(() => {})
       }

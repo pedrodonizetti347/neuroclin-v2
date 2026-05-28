@@ -81,20 +81,28 @@ export default function Analytics() {
   const [reports, setReports]         = useState([])
   const [sessions, setSessions]       = useState([])
   const [users, setUsers]             = useState([])
+  const [anamneses, setAnamneses]     = useState([])
+
+  // Buscas por seção
+  const [searchDocs, setSearchDocs]         = useState('')
+  const [searchProd, setSearchProd]         = useState('')
+  const [searchAnamnese, setSearchAnamnese] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [pSnap, rSnap, sSnap, uSnap] = await Promise.all([
+      const [pSnap, rSnap, sSnap, uSnap, aSnap] = await Promise.all([
         getDocs(collection(db, 'patients')),
         getDocs(collection(db, 'reports')),
         getDocs(collection(db, 'sessions')),
         getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'anamneses')),
       ])
       setPatients(pSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(rSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setSessions(sSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setUsers(uSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setAnamneses(aSnap.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error('[Analytics]', e)
     }
@@ -212,18 +220,22 @@ export default function Analytics() {
     }
   }
 
-  // ── Anamneses por Profissional — role 'professional' ou 'supervisor' ──
+  // ── Anamneses por Profissional — usa savedBy da coleção 'anamneses' (campo adicionado ago/26)
+  // Fallback: sessions.anamnesisSavedBy → sessions.lastUpdatedBy (para dados anteriores)
   const anamneseByProfessional = {}
-  for (const s of sessions) {
-    if (!s.anamnesis || Object.keys(s.anamnesis).length === 0) continue
-    const savedBy = s.lastUpdatedBy
-    if (!savedBy) continue
-    const info = userInfoMap[savedBy]
+  for (const a of anamneses) {
+    // Determina o userId: savedBy (campo direto) > fallback nas sessions
+    let userId = a.savedBy || null
+    if (!userId) {
+      const sess = sessions.find(s => (s.patientId || s.id) === a.id)
+      userId = sess?.anamnesisSavedBy || sess?.lastUpdatedBy || null
+    }
+    if (!userId) continue
+    const info = userInfoMap[userId]
     if (!info || (info.role !== 'professional' && info.role !== 'supervisor')) continue
     if (!anamneseByProfessional[info.name]) anamneseByProfessional[info.name] = { total: 0, pacientes: [] }
-    const patientId = s.patientId || s.id
-    const patient = patients.find(p => p.id === patientId)
-    const patientName = patient?.full_name || patient?.name || patientId
+    const patient = patients.find(p => p.id === a.id)
+    const patientName = patient?.full_name || patient?.name || a.id
     anamneseByProfessional[info.name].total++
     anamneseByProfessional[info.name].pacientes.push(patientName)
   }
@@ -361,72 +373,79 @@ export default function Analytics() {
               <p style={{ fontSize: 13, color: S.muted }}>Nenhuma documentação de teste registrada ainda.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Legenda */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+                <input value={searchDocs} onChange={e => setSearchDocs(e.target.value)} placeholder="Buscar paciente..." style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none', marginBottom: 4 }} />
+                <div style={{ display: 'flex', gap: 16, marginBottom: 4, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, color: S.muted }}>🔴 Sem fotos &nbsp;|&nbsp; 🟡 Incompleto &nbsp;|&nbsp; 🟢 Completo</span>
                 </div>
-
-                {sessionsWithDocs.map(({ session: s, docMap }) => {
-                  const keys = Object.keys(docMap)
-                  const patientId = s.patientId || s.id
-                  const patient = patients.find(p => p.id === patientId)
-                  const name = patient?.full_name || patient?.name || patientId
-
-                  const allComplete = keys.every(k => docMap[k]?.complete)
-                  const anyDocs     = keys.some(k => (docMap[k]?.count || 0) > 0)
-
-                  const rowColor  = allComplete ? 'rgba(76,175,80,0.06)'  : anyDocs ? 'rgba(245,158,11,0.06)'  : 'rgba(239,68,68,0.06)'
-                  const rowBorder = allComplete ? 'rgba(76,175,80,0.2)'   : anyDocs ? 'rgba(245,158,11,0.2)'   : 'rgba(239,68,68,0.2)'
-
-                  return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, background: rowColor, border: `1px solid ${rowBorder}`, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, flex: '1 1 160px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {name}
-                      </span>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        {keys.map(k => {
-                          const cnt = docMap[k]?.count || 0
-                          const min = docMap[k]?.min ?? (MIN_DOCS[k] ?? 1)
-                          const emoji = cnt === 0 ? '🔴' : cnt < min ? '🟡' : '🟢'
-                          return (
-                            <span key={k} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '2px 7px' }}>
-                              {emoji} {k} ({cnt}/{min})
-                            </span>
-                          )
-                        })}
+                {sessionsWithDocs
+                  .filter(({ session: s, docMap }) => {
+                    if (!searchDocs) return true
+                    const patientId = s.patientId || s.id
+                    const patient = patients.find(p => p.id === patientId)
+                    const name = patient?.full_name || patient?.name || patientId
+                    return name.toLowerCase().includes(searchDocs.toLowerCase())
+                  })
+                  .map(({ session: s, docMap }) => {
+                    const keys = Object.keys(docMap)
+                    const patientId = s.patientId || s.id
+                    const patient = patients.find(p => p.id === patientId)
+                    const name = patient?.full_name || patient?.name || patientId
+                    const allComplete = keys.every(k => docMap[k]?.complete)
+                    const anyDocs     = keys.some(k => (docMap[k]?.count || 0) > 0)
+                    const rowColor  = allComplete ? 'rgba(76,175,80,0.06)'  : anyDocs ? 'rgba(245,158,11,0.06)'  : 'rgba(239,68,68,0.06)'
+                    const rowBorder = allComplete ? 'rgba(76,175,80,0.2)'   : anyDocs ? 'rgba(245,158,11,0.2)'   : 'rgba(239,68,68,0.2)'
+                    return (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, background: rowColor, border: `1px solid ${rowBorder}`, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, flex: '1 1 160px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {keys.map(k => {
+                            const cnt = docMap[k]?.count || 0
+                            const min = docMap[k]?.min ?? (MIN_DOCS[k] ?? 1)
+                            const emoji = cnt === 0 ? '🔴' : cnt < min ? '🟡' : '🟢'
+                            return (
+                              <span key={k} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '2px 7px' }}>
+                                {emoji} {k} ({cnt}/{min})
+                              </span>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             )}
           </Section>
+
           {/* ── SEÇÃO 6 — Produção por Profissional ── */}
           <Section title="Produção por profissional" style={{ marginBottom: 20 }}>
             {Object.keys(byProfessional).length === 0 ? (
               <p style={{ fontSize: 13, color: S.muted }}>Nenhum laudo no período selecionado.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(byProfessional).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => {
-                  const pct = totalReports ? Math.round((data.total / totalReports) * 100) : 0
-                  const aprvPct = data.total ? Math.round((data.aprovados / data.total) * 100) : 0
-                  return (
-                    <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                          <span style={{ fontSize: 12, color: S.muted }}>{data.total} laudo{data.total !== 1 ? 's' : ''}</span>
-                          <span style={{ fontSize: 11, color: S.greenL, background: 'rgba(76,175,80,0.12)', borderRadius: 5, padding: '1px 7px' }}>
-                            {data.aprovados} aprovado{data.aprovados !== 1 ? 's' : ''} ({aprvPct}%)
-                          </span>
+                <input value={searchProd} onChange={e => setSearchProd(e.target.value)} placeholder="Buscar profissional..." style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none', marginBottom: 4 }} />
+                {Object.entries(byProfessional)
+                  .filter(([name]) => !searchProd || name.toLowerCase().includes(searchProd.toLowerCase()))
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([name, data]) => {
+                    const pct = totalReports ? Math.round((data.total / totalReports) * 100) : 0
+                    const aprvPct = data.total ? Math.round((data.aprovados / data.total) * 100) : 0
+                    return (
+                      <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, color: S.muted }}>{data.total} laudo{data.total !== 1 ? 's' : ''}</span>
+                            <span style={{ fontSize: 11, color: S.greenL, background: 'rgba(76,175,80,0.12)', borderRadius: 5, padding: '1px 7px' }}>
+                              {data.aprovados} aprovado{data.aprovados !== 1 ? 's' : ''} ({aprvPct}%)
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)' }}>
+                          <div style={{ height: '100%', borderRadius: 3, background: S.blue, width: `${pct}%`, transition: 'width 0.6s ease' }} />
                         </div>
                       </div>
-                      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)' }}>
-                        <div style={{ height: '100%', borderRadius: 3, background: S.blue, width: `${pct}%`, transition: 'width 0.6s ease' }} />
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             )}
           </Section>
@@ -459,26 +478,36 @@ export default function Analytics() {
           {/* ── SEÇÃO 8 — Anamneses por Profissional ── */}
           <Section title="Anamneses por profissional">
             {Object.keys(anamneseByProfessional).length === 0 ? (
-              <p style={{ fontSize: 13, color: S.muted }}>Nenhuma anamnese com profissional identificado.</p>
+              <p style={{ fontSize: 13, color: S.muted }}>
+                Nenhuma anamnese com profissional identificado.{' '}
+                <span style={{ fontSize: 11 }}>Os próximos salvamentos registrarão o autor automaticamente.</span>
+              </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(anamneseByProfessional).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => (
-                  <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
-                      <span style={{ fontSize: 12, color: S.blue, background: 'rgba(96,165,250,0.12)', borderRadius: 5, padding: '1px 8px' }}>
-                        {data.total} anamnese{data.total !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {data.pacientes.map((p, i) => (
-                        <span key={i} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 5, padding: '2px 7px' }}>
-                          {p}
+                <input value={searchAnamnese} onChange={e => setSearchAnamnese(e.target.value)} placeholder="Buscar paciente..." style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none', marginBottom: 4 }} />
+                {Object.entries(anamneseByProfessional).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => {
+                  const filteredPacientes = searchAnamnese
+                    ? data.pacientes.filter(p => p.toLowerCase().includes(searchAnamnese.toLowerCase()))
+                    : data.pacientes
+                  if (searchAnamnese && filteredPacientes.length === 0) return null
+                  return (
+                    <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
+                        <span style={{ fontSize: 12, color: S.blue, background: 'rgba(96,165,250,0.12)', borderRadius: 5, padding: '1px 8px' }}>
+                          {data.total} anamnese{data.total !== 1 ? 's' : ''}
                         </span>
-                      ))}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {filteredPacientes.map((p, i) => (
+                          <span key={i} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 5, padding: '2px 7px' }}>
+                            {p}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </Section>
