@@ -192,24 +192,40 @@ export default function Analytics() {
     return acc
   }, {})
 
-  // ── Correção de Testes por Estagiário ──
-  // Lê sessions.tests[testKey]._savedBy para contar testes por usuário
-  const userNameMap = users.reduce((acc, u) => {
-    acc[u.id] = u.full_name || u.name || u.email || u.id
+  // ── Mapa de usuários: id → { name, role } ──
+  const userInfoMap = users.reduce((acc, u) => {
+    acc[u.id] = { name: u.full_name || u.name || u.email || u.id, role: u.role || '' }
     return acc
   }, {})
 
-  const testsByUser = {}
+  // ── Correção de Testes — apenas role 'estagiario' ──
+  const testsByEstagiario = {}
   for (const s of sessions) {
-    const testsObj = s.tests || {}
-    for (const [testKey, testData] of Object.entries(testsObj)) {
+    for (const [testKey, testData] of Object.entries(s.tests || {})) {
       const savedBy = testData?._savedBy
       if (!savedBy) continue
-      const name = userNameMap[savedBy] || savedBy
-      if (!testsByUser[name]) testsByUser[name] = { total: 0, testes: {} }
-      testsByUser[name].total++
-      testsByUser[name].testes[testKey] = (testsByUser[name].testes[testKey] || 0) + 1
+      const info = userInfoMap[savedBy]
+      if (!info || info.role !== 'estagiario') continue
+      if (!testsByEstagiario[info.name]) testsByEstagiario[info.name] = { total: 0, testes: {} }
+      testsByEstagiario[info.name].total++
+      testsByEstagiario[info.name].testes[testKey] = (testsByEstagiario[info.name].testes[testKey] || 0) + 1
     }
+  }
+
+  // ── Anamneses por Profissional — role 'professional' ou 'supervisor' ──
+  const anamneseByProfessional = {}
+  for (const s of sessions) {
+    if (!s.anamnesis || Object.keys(s.anamnesis).length === 0) continue
+    const savedBy = s.lastUpdatedBy
+    if (!savedBy) continue
+    const info = userInfoMap[savedBy]
+    if (!info || (info.role !== 'professional' && info.role !== 'supervisor')) continue
+    if (!anamneseByProfessional[info.name]) anamneseByProfessional[info.name] = { total: 0, pacientes: [] }
+    const patientId = s.patientId || s.id
+    const patient = patients.find(p => p.id === patientId)
+    const patientName = patient?.full_name || patient?.name || patientId
+    anamneseByProfessional[info.name].total++
+    anamneseByProfessional[info.name].pacientes.push(patientName)
   }
 
   // ── CSV export ──
@@ -416,17 +432,12 @@ export default function Analytics() {
           </Section>
 
           {/* ── SEÇÃO 7 — Correção de Testes por Estagiário ── */}
-          <Section title="Correção de testes por aplicador">
-            {Object.keys(testsByUser).length === 0 ? (
-              <div>
-                <p style={{ fontSize: 13, color: S.muted, marginBottom: 8 }}>Nenhum teste com aplicador identificado.</p>
-                <p style={{ fontSize: 11, color: S.muted, lineHeight: 1.6 }}>
-                  Os testes salvos a partir de agora registrarão automaticamente o aplicador via o campo <code style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 4, padding: '1px 5px' }}>_savedBy</code>.
-                </p>
-              </div>
+          <Section title="Correção de testes por estagiário" style={{ marginBottom: 20 }}>
+            {Object.keys(testsByEstagiario).length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhum estagiário com testes registrados no sistema.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(testsByUser).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => (
+                {Object.entries(testsByEstagiario).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => (
                   <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                       <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
@@ -436,6 +447,33 @@ export default function Analytics() {
                       {Object.entries(data.testes).sort((a, b) => b[1] - a[1]).map(([testKey, cnt]) => (
                         <span key={testKey} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 8px' }}>
                           {testKey}: {cnt}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* ── SEÇÃO 8 — Anamneses por Profissional ── */}
+          <Section title="Anamneses por profissional">
+            {Object.keys(anamneseByProfessional).length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhuma anamnese com profissional identificado.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(anamneseByProfessional).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => (
+                  <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
+                      <span style={{ fontSize: 12, color: S.blue, background: 'rgba(96,165,250,0.12)', borderRadius: 5, padding: '1px 8px' }}>
+                        {data.total} anamnese{data.total !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {data.pacientes.map((p, i) => (
+                        <span key={i} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 5, padding: '2px 7px' }}>
+                          {p}
                         </span>
                       ))}
                     </div>
