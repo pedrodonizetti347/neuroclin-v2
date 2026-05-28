@@ -4822,11 +4822,11 @@ export default function Tests() {
 
   const activeConf     = TEST_CONFIG.flatMap(g => g.items).find(t => t.key === activeKey)
   const patient        = patients.find(p => p.id === patientId)
-  const isProfessional = user?.role === 'professional'
-  const _testData      = session.getTest(activeKey) || {}
+  const isProfessional  = user?.role === 'professional' || user?.role === 'entregador'
+  const _testData       = session.getTest(activeKey) || {}
   const isConcluded     = _testData.status === 'concluido'
-  const isEstagiario   = user?.role === 'estagiario'
-  const formBlocked    = isProfessional
+  const isEstagiario    = user?.role === 'estagiario'
+  const formBlocked     = isProfessional
   const canManageStatus = !isProfessional
 
   // Ao montar/trocar paciente: envia dados do localStorage backup ao Firestore imediatamente
