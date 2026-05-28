@@ -4701,6 +4701,11 @@ function isTestFilled(testData) {
 }
 
 // ─── Configuração dos testes ──────────────────────────────────────────────────
+const SCAN_MAX = {
+  'NEUPSILIN': 10, 'DEX': 4, 'MEMIMP': 2,
+  'BAMS': 2, 'TOKEN': 2, 'B-ADL': 2, 'Pfeffer': 2,
+}
+
 const TEST_CONFIG = [
   { group: 'Rastreio Cognitivo', items: [
     { key: 'MoCA',      label: 'MoCA',      Form: MoCAForm },
@@ -5077,7 +5082,7 @@ export default function Tests() {
                   testKey={activeKey}
                   existingUrls={session.getTest(activeKey)?.scan_urls || []}
                   onUrlsChange={(urls) => handleChange(activeKey, { ...session.getTest(activeKey), scan_urls: urls })}
-                  maxPhotos={activeKey === 'NEUPSILIN' ? 6 : 5}
+                  maxPhotos={SCAN_MAX[activeKey] ?? 1}
                 />
               ) : (
                 <div style={{ marginTop: 16, padding: '18px 16px', borderRadius: 10, border: '2px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', textAlign: 'center' }}>

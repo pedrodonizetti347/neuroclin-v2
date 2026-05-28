@@ -5,7 +5,15 @@ import { storage, auth, db } from '@/lib/firebase'
 import { Camera, CheckCircle2, Loader2, X, Plus } from 'lucide-react'
 
 // Mínimo de fotos por instrumento para documentação completa
-const MIN_DOCS = { NEUPSILIN: 4, DEX: 2 }
+const MIN_DOCS = {
+  'NEUPSILIN': 10,
+  'DEX':        4,
+  'MEMIMP':     2,
+  'BAMS':       2,
+  'TOKEN':      2,
+  'B-ADL':      2,
+  'Pfeffer':    2,
+}
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
