@@ -1,21 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { storage, auth } from '@/lib/firebase'
-import { Camera, CheckCircle2, Loader2, X, ZoomIn, Plus } from 'lucide-react'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { storage, auth, db } from '@/lib/firebase'
+import { Camera, CheckCircle2, Loader2, X, Plus } from 'lucide-react'
+
+// Mínimo de fotos por instrumento para documentação completa
+const MIN_DOCS = { NEUPSILIN: 4, DEX: 2 }
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const MAX_PX = 1600
     const img = new Image()
     const url = URL.createObjectURL(file)
-
     const cleanup = () => URL.revokeObjectURL(url)
-
-    img.onerror = () => {
-      cleanup()
-      reject(new Error('Não foi possível carregar a imagem. Verifique o formato do arquivo.'))
-    }
-
+    img.onerror = () => { cleanup(); reject(new Error('Não foi possível carregar a imagem.')) }
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas')
@@ -24,26 +22,18 @@ function compressImage(file) {
           if (width > height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
           else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
         }
-        canvas.width = width
-        canvas.height = height
+        canvas.width = width; canvas.height = height
         canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          cleanup()
-          resolve(blob || file)
-        }, 'image/jpeg', 0.80)
-      } catch (e) {
-        cleanup()
-        reject(e)
-      }
+        canvas.toBlob((blob) => { cleanup(); resolve(blob || file) }, 'image/jpeg', 0.80)
+      } catch (e) { cleanup(); reject(e) }
     }
-
     img.src = url
   })
 }
 
 // Props:
 //   patientId: string
-//   testKey: string (ex: 'RAVLT', 'FAB')
+//   testKey: string (ex: 'RAVLT', 'NEUPSILIN', 'DEX')
 //   existingUrls: string[]
 //   onUrlsChange: (urls: string[]) => void
 //   maxPhotos: number (default 5)
@@ -54,15 +44,26 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
   const [error, setError]             = useState('')
   const inputRef = useRef()
 
+  const minNeeded = MIN_DOCS[testKey] ?? 1
+
   useEffect(() => {
-    if (!uploading && existingUrls.length > 0) {
-      setPreviews(existingUrls)
-    }
+    if (!uploading && existingUrls.length > 0) setPreviews(existingUrls)
   }, [existingUrls])
+
+  const saveDocStatus = async (count) => {
+    if (!patientId) return
+    try {
+      await setDoc(doc(db, 'sessions', patientId), {
+        testDocumentation: {
+          [testKey]: { count, min: minNeeded, complete: count >= minNeeded, updatedAt: serverTimestamp() }
+        }
+      }, { merge: true })
+    } catch {}
+  }
 
   const uploadFile = async (file) => {
     const user = auth.currentUser
-    if (!user) throw new Error('Sessão expirada. Recarregue a página e tente novamente.')
+    if (!user) throw new Error('Sessão expirada. Recarregue a página.')
     const blob = await compressImage(file)
     const path = `test-scans/${patientId}/${testKey}/${user.uid}_${Date.now()}.jpg`
     const storageRef = ref(storage, path)
@@ -71,12 +72,7 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
   }
 
   const withTimeout = (promise, ms = 45000) =>
-    Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Tempo esgotado. Verifique sua conexão e tente novamente.')), ms)
-      ),
-    ])
+    Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo esgotado.')), ms))])
 
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files || [])
@@ -85,11 +81,11 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
     setUploading(true)
     try {
       const remaining = maxPhotos - previews.length
-      const toProcess = files.slice(0, remaining)
-      const newUrls = await Promise.all(toProcess.map(f => withTimeout(uploadFile(f))))
+      const newUrls = await Promise.all(files.slice(0, remaining).map(f => withTimeout(uploadFile(f))))
       const updated = [...previews, ...newUrls]
       setPreviews(updated)
       onUrlsChange?.(updated)
+      saveDocStatus(updated.length)
     } catch (err) {
       setError('Erro ao enviar imagem. Tente novamente.')
       console.error('[TestScanUpload]', err)
@@ -103,19 +99,34 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
     const updated = previews.filter((_, i) => i !== idx)
     setPreviews(updated)
     onUrlsChange?.(updated)
+    saveDocStatus(updated.length)
   }
 
+  // Semáforo
+  const semaforo = previews.length === 0
+    ? { cor: '#EF4444', emoji: '🔴', label: 'Sem documentação' }
+    : previews.length < minNeeded
+      ? { cor: '#F59E0B', emoji: '🟡', label: `${previews.length}/${minNeeded} fotos — incompleto` }
+      : { cor: '#4CAF50', emoji: '🟢', label: `Documentação completa (${previews.length}/${minNeeded})` }
+
   const S = {
-    border:  'rgba(255,255,255,0.12)',
-    muted:   'rgba(255,255,255,0.45)',
-    greenL:  '#4CAF50',
-    amber:   '#F59E0B',
+    border: 'rgba(255,255,255,0.12)',
+    muted:  'rgba(255,255,255,0.45)',
+    greenL: '#4CAF50',
+    amber:  '#F59E0B',
   }
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 11, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 8 }}>
-        FOTOS DA FOLHA DE APLICAÇÃO
+      {/* Título + semáforo */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: S.muted, fontWeight: 700, letterSpacing: '0.06em' }}>
+          FOTOS DA FOLHA DE APLICAÇÃO
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 14 }}>{semaforo.emoji}</span>
+          <span style={{ fontSize: 10, color: semaforo.cor, fontWeight: 700 }}>{semaforo.label}</span>
+        </div>
       </div>
 
       {previews.length > 0 && (
@@ -156,7 +167,7 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
         <div style={{ border: `2px dashed ${S.amber}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', background: 'rgba(245,158,11,0.06)' }}>
           <Camera size={28} color={S.amber} style={{ margin: '0 auto 8px' }} />
           <p style={{ fontSize: 12, fontWeight: 700, color: S.amber, marginBottom: 4 }}>Foto da folha de aplicação</p>
-          <p style={{ fontSize: 11, color: S.muted, marginBottom: 12 }}>Tire foto com o celular ou selecione arquivo</p>
+          <p style={{ fontSize: 11, color: S.muted, marginBottom: 12 }}>Mínimo: {minNeeded} foto{minNeeded > 1 ? 's' : ''} para este instrumento</p>
           <button
             onClick={() => inputRef.current?.click()}
             disabled={uploading || !patientId}
@@ -171,9 +182,8 @@ export default function TestScanUpload({ patientId, testKey, existingUrls = [], 
       {error && <p style={{ fontSize: 11, color: '#EF4444', marginTop: 6 }}>{error}</p>}
 
       {previews.length > 0 && (
-        <p style={{ fontSize: 11, color: S.greenL, marginTop: 4 }}>
-          <CheckCircle2 size={11} style={{ display: 'inline', marginRight: 4 }} />
-          {previews.length} foto{previews.length > 1 ? 's' : ''} salva{previews.length > 1 ? 's' : ''}
+        <p style={{ fontSize: 11, color: semaforo.cor, marginTop: 4 }}>
+          {semaforo.emoji} {previews.length} foto{previews.length > 1 ? 's' : ''} salva{previews.length > 1 ? 's' : ''}
           {previews.length < maxPhotos && ` · pode adicionar mais ${maxPhotos - previews.length}`}
         </p>
       )}

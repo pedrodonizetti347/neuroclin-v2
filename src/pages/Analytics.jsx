@@ -1,34 +1,341 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
-import { FileText, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuth } from '@/lib/AuthContext'
+import { BarChart2, Users, FileText, CheckCircle, Clock, Download, AlertTriangle, RefreshCw } from 'lucide-react'
+
+const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const MIN_DOCS = { NEUPSILIN: 4, DEX: 2 }
 
 const S = {
+  bg:     '#0F1B2D',
   card:   '#1A2744',
   green:  '#2E7D32',
   greenL: '#4CAF50',
   border: 'rgba(255,255,255,0.08)',
   muted:  'rgba(255,255,255,0.45)',
+  amber:  '#F59E0B',
+  red:    '#EF4444',
+  blue:   '#60A5FA',
 }
 
-export default function Analytics() {
+// ── Gráfico de barras SVG simples ────────────────────────────────────────────
+function BarChart({ data, color = S.greenL, height = 140 }) {
+  if (!data?.length) return null
+  const max = Math.max(...data.map(d => d.value), 1)
+  const barW = 100 / data.length
   return (
-    <div style={{ maxWidth: 600, margin: '60px auto', padding: '0 16px' }}>
-      <div style={{ background: S.card, borderRadius: 14, border: `1px solid ${S.border}`, padding: '48px 40px', textAlign: 'center' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(46,125,50,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-          <FileText size={28} color={S.greenL} />
+    <svg viewBox={`0 0 100 ${height}`} style={{ width: '100%', height }} preserveAspectRatio="none">
+      {data.map((d, i) => {
+        const h = Math.max((d.value / max) * (height - 28), d.value > 0 ? 3 : 0)
+        const y = height - 18 - h
+        return (
+          <g key={i}>
+            <rect x={i * barW + barW * 0.18} y={y} width={barW * 0.64} height={h} fill={color} rx="1.5" opacity="0.9" />
+            <text x={i * barW + barW / 2} y={height - 3} textAnchor="middle" fontSize="5" fill="rgba(255,255,255,0.4)">{d.label}</text>
+            {d.value > 0 && <text x={i * barW + barW / 2} y={y - 3} textAnchor="middle" fontSize="5.5" fill="rgba(255,255,255,0.85)" fontWeight="700">{d.value}</text>}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ── Card de KPI ───────────────────────────────────────────────────────────────
+function KpiCard({ icon: Icon, label, value, color = S.greenL, sub }) {
+  return (
+    <div style={{ background: S.card, borderRadius: 12, padding: '20px 22px', border: `1px solid ${S.border}`, flex: 1, minWidth: 140 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={17} color={color} />
         </div>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 10, letterSpacing: '0.02em' }}>
-          GERAÇÃO DE LAUDOS
-        </h1>
-        <p style={{ fontSize: 13, color: S.muted, lineHeight: 1.7, marginBottom: 28, maxWidth: 400, margin: '0 auto 28px' }}>
-          A geração de laudos neuropsicológicos foi consolidada na página{' '}
-          <strong style={{ color: '#fff' }}>LAUDOS</strong>, com o novo modelo de laudo da Neuroavaliação,
-          aprovação do supervisor e exportação para Word.
-        </p>
-        <Link to="/laudos" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10, background: S.green, color: '#fff', fontWeight: 700, fontSize: 14, textDecoration: 'none', letterSpacing: '0.04em' }}>
-          <FileText size={16} /> IR PARA LAUDOS <ArrowRight size={16} />
-        </Link>
+        <span style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', lineHeight: 1.3 }}>{label}</span>
       </div>
+      <div style={{ fontSize: 34, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value ?? '—'}</div>
+      {sub && <div style={{ fontSize: 11, color: S.muted, marginTop: 6 }}>{sub}</div>}
+    </div>
+  )
+}
+
+// ── Seção com título ──────────────────────────────────────────────────────────
+function Section({ title, children, style }) {
+  return (
+    <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, padding: '20px 24px', ...style }}>
+      <h2 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: S.muted, margin: '0 0 18px', textTransform: 'uppercase' }}>{title}</h2>
+      {children}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+export default function Analytics() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
+  const now = new Date()
+  const [filterYear, setFilterYear]   = useState(now.getFullYear())
+  const [filterMonth, setFilterMonth] = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [patients, setPatients]       = useState([])
+  const [reports, setReports]         = useState([])
+  const [sessions, setSessions]       = useState([])
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [pSnap, rSnap, sSnap] = await Promise.all([
+        getDocs(collection(db, 'patients')),
+        getDocs(collection(db, 'reports')),
+        getDocs(collection(db, 'sessions')),
+      ])
+      setPatients(pSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setReports(rSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setSessions(sSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error('[Analytics]', e)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  // ── Acesso restrito ──
+  if (!isAdmin) {
+    return (
+      <div style={{ maxWidth: 480, margin: '80px auto', padding: '0 16px', textAlign: 'center' }}>
+        <AlertTriangle size={40} color={S.amber} style={{ marginBottom: 16 }} />
+        <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Acesso restrito</h2>
+        <p style={{ color: S.muted, fontSize: 13 }}>Esta área é exclusiva para administradores do sistema.</p>
+      </div>
+    )
+  }
+
+  // ── Utilidade: converte timestamp Firestore ou Date para objeto Date ──
+  const toDate = (ts) => {
+    if (!ts) return null
+    if (ts.toDate) return ts.toDate()
+    return new Date(ts)
+  }
+
+  const inRange = (ts) => {
+    const d = toDate(ts)
+    if (!d) return false
+    if (d.getFullYear() !== filterYear) return false
+    if (filterMonth !== null && d.getMonth() !== filterMonth) return false
+    return true
+  }
+
+  const filteredReports = reports.filter(r => inRange(r.createdAt))
+
+  // ── KPIs ──
+  const totalPatients = patients.length
+  const totalReports  = filteredReports.length
+  const approved      = filteredReports.filter(r => r.status === 'aprovado').length
+  const pending       = filteredReports.filter(r => r.status !== 'aprovado').length
+
+  // ── Laudos por mês (sempre ano inteiro) ──
+  const byMonth = Array.from({ length: 12 }, (_, i) => ({
+    label: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][i],
+    value: reports.filter(r => {
+      const d = toDate(r.createdAt)
+      return d && d.getFullYear() === filterYear && d.getMonth() === i
+    }).length,
+  }))
+
+  // ── Convênios / Fonte ──
+  const sourceCount = filteredReports.reduce((acc, r) => {
+    const s = r.source || 'particular'
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {})
+  const sourceLabel = { prevent: 'Prevent Senior', particular: 'Particular' }
+
+  // ── Anamneses ──
+  const anamneseFilled = sessions.filter(s => s.anamnesis && Object.keys(s.anamnesis).length > 0).length
+  const anamnPct = totalPatients ? Math.round((anamneseFilled / totalPatients) * 100) : 0
+
+  // ── Documentação de testes ──
+  const sessionsWithDocs = sessions.filter(s => s.testDocumentation && Object.keys(s.testDocumentation).length > 0)
+
+  // ── CSV export ──
+  const exportCSV = () => {
+    const header = ['ID', 'Profissional', 'Status', 'Convênio', 'Data']
+    const rows = filteredReports.map(r => [
+      r.id,
+      r.professionalName || '',
+      r.status || '',
+      sourceLabel[r.source] || r.source || 'Particular',
+      toDate(r.createdAt)?.toLocaleDateString('pt-BR') || '',
+    ])
+    const csv = [header, ...rows].map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `laudos_${filterYear}${filterMonth !== null ? `_${filterMonth + 1}` : ''}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  const years = []
+  for (let y = now.getFullYear() - 2; y <= now.getFullYear(); y++) years.push(y)
+
+  return (
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px 60px', color: '#fff' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '0.04em', margin: 0 }}>RELATÓRIOS E ESTATÍSTICAS</h1>
+          <p style={{ fontSize: 12, color: S.muted, margin: '4px 0 0' }}>Painel administrativo — visão geral do sistema</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={loadData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 12, cursor: 'pointer' }}>
+            <RefreshCw size={13} /> Atualizar
+          </button>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: `1px solid ${S.greenL}`, background: 'transparent', color: S.greenL, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            <Download size={13} /> Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      {/* ── FILTRO ── */}
+      <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.07em' }}>FILTRAR POR:</span>
+        <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
+          style={{ background: '#0F1B2D', border: `1px solid ${S.border}`, borderRadius: 7, color: '#fff', padding: '5px 10px', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={filterMonth ?? ''} onChange={e => setFilterMonth(e.target.value === '' ? null : Number(e.target.value))}
+          style={{ background: '#0F1B2D', border: `1px solid ${S.border}`, borderRadius: 7, color: '#fff', padding: '5px 10px', fontSize: 13, cursor: 'pointer', outline: 'none' }}>
+          <option value="">Todos os meses</option>
+          {MONTHS_FULL.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        {filterMonth !== null && (
+          <button onClick={() => setFilterMonth(null)} style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', color: S.muted, fontSize: 11, cursor: 'pointer' }}>
+            Limpar filtro
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '80px 0', color: S.muted, fontSize: 14 }}>
+          <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: 12 }} />
+          <div>Carregando dados...</div>
+        </div>
+      ) : (
+        <>
+          {/* ── SEÇÃO 1 — KPIs ── */}
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+            <KpiCard icon={Users}       label="Pacientes cadastrados" value={totalPatients} color={S.greenL} />
+            <KpiCard icon={FileText}    label={filterMonth !== null ? `Laudos em ${MONTHS_FULL[filterMonth]}` : `Laudos em ${filterYear}`} value={totalReports} color={S.blue} />
+            <KpiCard icon={CheckCircle} label="Aprovados" value={approved} color={S.greenL} sub={totalReports ? `${Math.round(approved/totalReports*100)}% do total` : undefined} />
+            <KpiCard icon={Clock}       label="Em revisão" value={pending} color={S.amber} />
+          </div>
+
+          {/* ── SEÇÃO 2 — Laudos por mês ── */}
+          <Section title={`Laudos por mês — ${filterYear}`} style={{ marginBottom: 20 }}>
+            {byMonth.every(d => d.value === 0) ? (
+              <p style={{ fontSize: 13, color: S.muted, textAlign: 'center', padding: '24px 0' }}>Nenhum laudo registrado em {filterYear}.</p>
+            ) : (
+              <BarChart data={byMonth} color={S.greenL} height={150} />
+            )}
+          </Section>
+
+          {/* ── SEÇÃO 3 — Convênios ── */}
+          <Section title="Laudos por convênio" style={{ marginBottom: 20 }}>
+            {Object.keys(sourceCount).length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhum laudo no período selecionado.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {Object.entries(sourceCount).sort((a, b) => b[1] - a[1]).map(([src, cnt]) => {
+                  const label = sourceLabel[src] || (src.charAt(0).toUpperCase() + src.slice(1))
+                  const pct = totalReports ? Math.round((cnt / totalReports) * 100) : 0
+                  return (
+                    <div key={src}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{label}</span>
+                        <span style={{ fontSize: 13, color: S.muted }}>{cnt} laudo{cnt !== 1 ? 's' : ''} ({pct}%)</span>
+                      </div>
+                      <div style={{ height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.07)' }}>
+                        <div style={{ height: '100%', borderRadius: 4, background: S.greenL, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Section>
+
+          {/* ── SEÇÃO 4 — Anamneses ── */}
+          <Section title="Anamneses preenchidas" style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 36, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{anamneseFilled}</div>
+              <div style={{ fontSize: 13, color: S.muted }}>de {totalPatients} pacientes</div>
+              <div style={{ flex: 1, minWidth: 120 }}>
+                <div style={{ height: 10, borderRadius: 5, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 5, background: anamnPct >= 80 ? S.greenL : anamnPct >= 50 ? S.amber : S.red, width: `${anamnPct}%`, transition: 'width 0.6s ease' }} />
+                </div>
+                <div style={{ fontSize: 11, color: S.muted, marginTop: 5 }}>{anamnPct}% preenchidas</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}`, fontSize: 12, color: S.muted }}>
+              {totalPatients - anamneseFilled === 0
+                ? '✅ Todos os pacientes têm anamnese preenchida.'
+                : `⚠️ ${totalPatients - anamneseFilled} paciente${totalPatients - anamneseFilled !== 1 ? 's' : ''} sem anamnese preenchida.`}
+            </div>
+          </Section>
+
+          {/* ── SEÇÃO 5 — Documentação de testes ── */}
+          <Section title="Documentação de testes (fotos das folhas)">
+            {sessionsWithDocs.length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhuma documentação de teste registrada ainda.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Legenda */}
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: S.muted }}>🔴 Sem fotos &nbsp;|&nbsp; 🟡 Incompleto &nbsp;|&nbsp; 🟢 Completo</span>
+                </div>
+
+                {sessionsWithDocs.map(s => {
+                  const td = s.testDocumentation || {}
+                  const keys = Object.keys(td)
+                  const patientId = s.patientId || s.id
+                  const patient = patients.find(p => p.id === patientId)
+                  const name = patient?.full_name || patient?.name || patientId
+
+                  const allComplete = keys.every(k => td[k]?.complete)
+                  const anyDocs     = keys.some(k => (td[k]?.count || 0) > 0)
+
+                  const rowColor = allComplete ? 'rgba(76,175,80,0.06)' : anyDocs ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)'
+                  const rowBorder = allComplete ? 'rgba(76,175,80,0.2)' : anyDocs ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'
+
+                  return (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, background: rowColor, border: `1px solid ${rowBorder}`, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, flex: '1 1 160px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {name}
+                      </span>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {keys.map(k => {
+                          const min = MIN_DOCS[k] ?? 1
+                          const cnt = td[k]?.count || 0
+                          const emoji = cnt === 0 ? '🔴' : cnt < min ? '🟡' : '🟢'
+                          return (
+                            <span key={k} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '2px 7px' }}>
+                              {emoji} {k} ({cnt}/{min})
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Section>
+        </>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

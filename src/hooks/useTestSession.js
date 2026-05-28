@@ -273,6 +273,7 @@ export function useTestSession(patientId) {
         selectedTests,
         reportHtml,
         status:    'rascunho',
+        source:    'prevent',
         createdAt: serverTimestamp(),
       })
       return ref.id
