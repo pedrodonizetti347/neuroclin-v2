@@ -80,18 +80,21 @@ export default function Analytics() {
   const [patients, setPatients]       = useState([])
   const [reports, setReports]         = useState([])
   const [sessions, setSessions]       = useState([])
+  const [users, setUsers]             = useState([])
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [pSnap, rSnap, sSnap] = await Promise.all([
+      const [pSnap, rSnap, sSnap, uSnap] = await Promise.all([
         getDocs(collection(db, 'patients')),
         getDocs(collection(db, 'reports')),
         getDocs(collection(db, 'sessions')),
+        getDocs(collection(db, 'users')),
       ])
       setPatients(pSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setReports(rSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setSessions(sSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setUsers(uSnap.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error('[Analytics]', e)
     }
@@ -157,6 +160,35 @@ export default function Analytics() {
 
   // ── Documentação de testes ──
   const sessionsWithDocs = sessions.filter(s => s.testDocumentation && Object.keys(s.testDocumentation).length > 0)
+
+  // ── Produção por Profissional ──
+  const byProfessional = filteredReports.reduce((acc, r) => {
+    const name = r.professionalName || r.professionalId || 'Não identificado'
+    if (!acc[name]) acc[name] = { total: 0, aprovados: 0 }
+    acc[name].total++
+    if (r.status === 'aprovado') acc[name].aprovados++
+    return acc
+  }, {})
+
+  // ── Correção de Testes por Estagiário ──
+  // Lê sessions.tests[testKey]._savedBy para contar testes por usuário
+  const userNameMap = users.reduce((acc, u) => {
+    acc[u.id] = u.full_name || u.name || u.email || u.id
+    return acc
+  }, {})
+
+  const testsByUser = {}
+  for (const s of sessions) {
+    const testsObj = s.tests || {}
+    for (const [testKey, testData] of Object.entries(testsObj)) {
+      const savedBy = testData?._savedBy
+      if (!savedBy) continue
+      const name = userNameMap[savedBy] || savedBy
+      if (!testsByUser[name]) testsByUser[name] = { total: 0, testes: {} }
+      testsByUser[name].total++
+      testsByUser[name].testes[testKey] = (testsByUser[name].testes[testKey] || 0) + 1
+    }
+  }
 
   // ── CSV export ──
   const exportCSV = () => {
@@ -286,7 +318,7 @@ export default function Analytics() {
           </Section>
 
           {/* ── SEÇÃO 5 — Documentação de testes ── */}
-          <Section title="Documentação de testes (fotos das folhas)">
+          <Section title="Documentação de testes (fotos das folhas)" style={{ marginBottom: 20 }}>
             {sessionsWithDocs.length === 0 ? (
               <p style={{ fontSize: 13, color: S.muted }}>Nenhuma documentação de teste registrada ainda.</p>
             ) : (
@@ -329,6 +361,65 @@ export default function Analytics() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </Section>
+          {/* ── SEÇÃO 6 — Produção por Profissional ── */}
+          <Section title="Produção por profissional" style={{ marginBottom: 20 }}>
+            {Object.keys(byProfessional).length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhum laudo no período selecionado.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(byProfessional).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => {
+                  const pct = totalReports ? Math.round((data.total / totalReports) * 100) : 0
+                  const aprvPct = data.total ? Math.round((data.aprovados / data.total) * 100) : 0
+                  return (
+                    <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <span style={{ fontSize: 12, color: S.muted }}>{data.total} laudo{data.total !== 1 ? 's' : ''}</span>
+                          <span style={{ fontSize: 11, color: S.greenL, background: 'rgba(76,175,80,0.12)', borderRadius: 5, padding: '1px 7px' }}>
+                            {data.aprovados} aprovado{data.aprovados !== 1 ? 's' : ''} ({aprvPct}%)
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)' }}>
+                        <div style={{ height: '100%', borderRadius: 3, background: S.blue, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Section>
+
+          {/* ── SEÇÃO 7 — Correção de Testes por Estagiário ── */}
+          <Section title="Correção de testes por aplicador">
+            {Object.keys(testsByUser).length === 0 ? (
+              <div>
+                <p style={{ fontSize: 13, color: S.muted, marginBottom: 8 }}>Nenhum teste com aplicador identificado.</p>
+                <p style={{ fontSize: 11, color: S.muted, lineHeight: 1.6 }}>
+                  Os testes salvos a partir de agora registrarão automaticamente o aplicador via o campo <code style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 4, padding: '1px 5px' }}>_savedBy</code>.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(testsByUser).sort((a, b) => b[1].total - a[1].total).map(([name, data]) => (
+                  <div key={name} style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{name}</span>
+                      <span style={{ fontSize: 12, color: S.muted }}>{data.total} teste{data.total !== 1 ? 's' : ''} preenchido{data.total !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {Object.entries(data.testes).sort((a, b) => b[1] - a[1]).map(([testKey, cnt]) => (
+                        <span key={testKey} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.06)', borderRadius: 5, padding: '2px 8px' }}>
+                          {testKey}: {cnt}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </Section>
