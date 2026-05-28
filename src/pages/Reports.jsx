@@ -2577,6 +2577,8 @@ export default function Reports() {
       await updateDoc(doc(db, 'reports', savedReportId), {
         status: 'rascunho',
         supervisor_approval: null,
+        reopenedAt: serverTimestamp(),
+        reopenedBy: user?.id || '',
         updatedAt: serverTimestamp(),
       })
       setReportStatus('rascunho')
@@ -2715,11 +2717,14 @@ export default function Reports() {
           if (mainSnap.exists()) td = mergeTests(mainSnap.data().tests || {}, td)
         } catch (_) {}
       }
+      let isReapproval = false
       if (savedReportId) {
         try {
           const repSnap = await getDoc(doc(db, 'reports', savedReportId))
-          if (repSnap.exists() && repSnap.data().testsData)
-            td = mergeTests(repSnap.data().testsData, td)
+          if (repSnap.exists()) {
+            if (repSnap.data().testsData) td = mergeTests(repSnap.data().testsData, td)
+            isReapproval = !!repSnap.data().reopenedAt
+          }
         } catch (_) {}
       }
 
@@ -2773,12 +2778,14 @@ export default function Reports() {
           status: 'aprovado',
           supervisor_approval: approval,
           reportHtml: updatedDoc,
+          reopenedAt: null,
+          reopenedBy: null,
           updatedAt: serverTimestamp(),
         })
       }
       setApprovalInfo(approval)
       setReportStatus('aprovado')
-      logAction(user, 'laudo_aprovado', { patientId, reportId: savedReportId })
+      logAction(user, isReapproval ? 'laudo_reaprovado' : 'laudo_aprovado', { patientId, reportId: savedReportId })
       setTimeout(() => print(updatedDoc), 500)
     } catch (e) {
       console.error('[handleApprove]', e)
