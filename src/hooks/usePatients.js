@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   collection, addDoc, updateDoc,
-  doc, getDocs, query, orderBy, where, serverTimestamp, writeBatch
+  doc, getDocs, getDoc, query, orderBy, where, serverTimestamp, writeBatch
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
@@ -92,5 +92,53 @@ export function usePatients() {
     logAction(user, 'paciente_excluido', { patientId: id, patientName, softDelete: true })
   }
 
-  return { patients, loading, error, create, update, remove, reload: load }
+  const merge = async (primaryId, secondaryId) => {
+    const primaryName   = patients.find(p => p.id === primaryId)?.full_name   || primaryId
+    const secondaryName = patients.find(p => p.id === secondaryId)?.full_name || secondaryId
+
+    const mergedMeta = {
+      deleted:       true,
+      deletedAt:     serverTimestamp(),
+      deletedBy:     user?.id       || 'unknown',
+      deletedByName: user?.full_name || 'Desconhecido',
+      mergedInto:    primaryId,
+    }
+
+    // Migrar laudos: atualiza patientId de secundário → primário
+    const reportsSnap = await getDocs(query(collection(db, 'reports'), where('patientId', '==', secondaryId)))
+    const batch = writeBatch(db)
+    reportsSnap.docs.forEach(d => batch.update(d.ref, { patientId: primaryId, updatedAt: serverTimestamp() }))
+
+    // Migrar anamnese se primário não tiver
+    const primaryAnamRef   = doc(db, 'anamneses', primaryId)
+    const secondaryAnamRef = doc(db, 'anamneses', secondaryId)
+    const [primaryAnam, secondaryAnam] = await Promise.all([getDoc(primaryAnamRef), getDoc(secondaryAnamRef)])
+    if (!primaryAnam.exists() && secondaryAnam.exists()) {
+      batch.set(primaryAnamRef, { ...secondaryAnam.data(), patientId: primaryId, updatedAt: serverTimestamp() })
+    }
+    if (secondaryAnam.exists()) batch.update(secondaryAnamRef, mergedMeta)
+
+    // Migrar testes: campos do secundário que não existem no primário
+    const primarySessRef   = doc(db, 'sessions', primaryId)
+    const secondarySessRef = doc(db, 'sessions', secondaryId)
+    const [primarySess, secondarySess] = await Promise.all([getDoc(primarySessRef), getDoc(secondarySessRef)])
+    if (secondarySess.exists()) {
+      const primData = primarySess.exists() ? primarySess.data() : {}
+      const secData  = secondarySess.data()
+      const toMerge  = {}
+      const skip     = new Set(['deleted', 'deletedAt', 'deletedBy', 'deletedByName', 'mergedInto'])
+      Object.keys(secData).forEach(k => { if (!skip.has(k) && !primData[k]) toMerge[k] = secData[k] })
+      if (Object.keys(toMerge).length > 0) batch.set(primarySessRef, toMerge, { merge: true })
+      batch.set(secondarySessRef, mergedMeta, { merge: true })
+    }
+
+    // Soft-delete paciente secundário
+    batch.update(doc(db, 'patients', secondaryId), mergedMeta)
+
+    await batch.commit()
+    setPatients(prev => prev.filter(p => p.id !== secondaryId))
+    logAction(user, 'paciente_mesclado', { primaryId, secondaryId, primaryName, secondaryName, laudosMigrados: reportsSnap.docs.length })
+  }
+
+  return { patients, loading, error, create, update, remove, merge, reload: load }
 }

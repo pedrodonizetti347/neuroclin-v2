@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
 import { useAuth } from '@/lib/AuthContext'
 import { searchPatients, clearPatientsCache, getCachedCount } from '@/services/prodoctorApi'
-import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, RefreshCw, AlertTriangle, Lock } from 'lucide-react'
+import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, RefreshCw, AlertTriangle, Lock, GitMerge } from 'lucide-react'
 
 const EMPTY = {
   full_name: '', cpf: '', birth_date: '', sex: '',
@@ -209,7 +209,7 @@ function ProDoctorSearch({ value, onChange, onSelect, birthDate }) {
 }
 
 export default function Patients() {
-  const { patients, loading, create, update, remove } = usePatients()
+  const { patients, loading, create, update, remove, merge } = usePatients()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin' || user?.role === 'supervisor'
 
@@ -226,6 +226,14 @@ export default function Patients() {
   const [deletePassword,setDeletePassword]= useState('')
   const [deleteError,   setDeleteError]   = useState('')
   const [deleting,      setDeleting]      = useState(false)
+
+  const [dupWarning,     setDupWarning]     = useState({ open: false, duplicates: [], pendingForm: null })
+  const [mergeDialog,    setMergeDialog]    = useState(false)
+  const [mergePrimary,   setMergePrimary]   = useState('')
+  const [mergeSecondary, setMergeSecondary] = useState('')
+  const [mergePassword,  setMergePassword]  = useState('')
+  const [mergeError,     setMergeError]     = useState('')
+  const [merging,        setMerging]        = useState(false)
 
   const handlePdRefresh = async () => {
     setPdRefreshing(true)
@@ -266,17 +274,64 @@ export default function Patients() {
     setPdImported(true)
   }
 
-  const handleSave = async () => {
-    if (!form.full_name?.trim()) return alert('Nome é obrigatório')
+  const normalizeName = (name) =>
+    name?.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ') || ''
+
+  const findSimilarPatients = (name, cpf) => {
+    const norm = normalizeName(name)
+    if (norm.length < 3) return []
+    return patients.filter(p => {
+      const pNorm = normalizeName(p.full_name)
+      if (cpf && p.cpf && cpf.replace(/\D/g, '') === p.cpf.replace(/\D/g, '')) return true
+      return pNorm === norm ||
+        (norm.length > 6 && pNorm.includes(norm)) ||
+        (pNorm.length > 6 && norm.includes(pNorm))
+    })
+  }
+
+  const doSave = async (formData) => {
     setSaving(true)
     try {
-      if (editing) await update(editing.id, form)
-      else await create(form)
+      if (editing) await update(editing.id, formData)
+      else await create(formData)
       closeDialog()
+      setDupWarning({ open: false, duplicates: [], pendingForm: null })
     } catch (e) {
       alert('Erro ao salvar: ' + e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!form.full_name?.trim()) return alert('Nome é obrigatório')
+    if (!editing) {
+      const similar = findSimilarPatients(form.full_name, form.cpf)
+      if (similar.length > 0) {
+        setDupWarning({ open: true, duplicates: similar, pendingForm: form })
+        return
+      }
+    }
+    await doSave(form)
+  }
+
+  const handleMergeConfirm = async () => {
+    if (!mergePrimary || !mergeSecondary) return setMergeError('Selecione os dois pacientes.')
+    if (mergePrimary === mergeSecondary) return setMergeError('Selecione pacientes diferentes.')
+    const correct = import.meta.env.VITE_ADMIN_DELETE_PASSWORD
+    if (mergePassword !== correct) return setMergeError('Senha incorreta.')
+    setMerging(true)
+    try {
+      await merge(mergePrimary, mergeSecondary)
+      setMergeDialog(false)
+      setMergePrimary('')
+      setMergeSecondary('')
+      setMergePassword('')
+      setMergeError('')
+    } catch (e) {
+      setMergeError(e.message)
+    } finally {
+      setMerging(false)
     }
   }
 
@@ -337,6 +392,15 @@ export default function Patients() {
                 ? `ProDoctor (${pdCacheQty})`
                 : 'Atualizar ProDoctor'}
           </button>
+          {isAdmin && (
+            <button onClick={() => setMergeDialog(true)} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#F5F3FF', color: '#5B21B6', border: '1.5px solid #DDD6FE', borderRadius: 10,
+              padding: '9px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer'
+            }}>
+              <GitMerge size={14} /> Mesclar pacientes
+            </button>
+          )}
           <button onClick={openNew} style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: '#185FA5', color: '#fff', border: 'none',
@@ -486,6 +550,143 @@ export default function Patients() {
             display: 'flex', alignItems: 'center', gap: 6, opacity: !deletePassword ? 0.5 : 1
           }}>
             {deleting ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Excluindo...</> : 'Excluir paciente'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal — aviso de duplicidade */}
+      <Modal
+        open={dupWarning.open}
+        onClose={() => setDupWarning({ open: false, duplicates: [], pendingForm: null })}
+        title="Possível paciente duplicado"
+      >
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <AlertTriangle size={18} color="#D69E2E" />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e', marginBottom: 4 }}>
+              Paciente já cadastrado?
+            </div>
+            <div style={{ fontSize: 13, color: '#888' }}>
+              Encontramos {dupWarning.duplicates.length} paciente(s) com nome similar. Verifique antes de cadastrar.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          {dupWarning.duplicates.map((p, i) => (
+            <div key={p.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+              background: '#FAFAFA', borderRadius: 10, border: '1px solid #E8ECF0',
+              marginBottom: i < dupWarning.duplicates.length - 1 ? 8 : 0
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E6F1FB', color: '#0C447C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                {initials(p.full_name)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#042C53' }}>{p.full_name}</div>
+                <div style={{ fontSize: 11, color: '#888', display: 'flex', gap: 8, marginTop: 2 }}>
+                  {p.birth_date && <span>{new Date().getFullYear() - new Date(p.birth_date).getFullYear()} anos</span>}
+                  {p.cpf && <span>CPF: {p.cpf}</span>}
+                </div>
+              </div>
+              <Link to={`/pacientes/${p.id}`} style={{
+                padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                background: '#E6F1FB', color: '#185FA5', textDecoration: 'none'
+              }}>
+                Ver prontuário
+              </Link>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setDupWarning({ open: false, duplicates: [], pendingForm: null })}
+            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E8ECF0', background: '#fff', color: '#666', fontSize: 13, cursor: 'pointer' }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => dupWarning.pendingForm && doSave(dupWarning.pendingForm)}
+            disabled={saving}
+            style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#185FA5', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: saving ? 0.7 : 1 }}
+          >
+            {saving && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />}
+            Cadastrar mesmo assim
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal — mesclar pacientes duplicados */}
+      <Modal
+        open={mergeDialog}
+        onClose={() => { setMergeDialog(false); setMergeError(''); setMergePassword('') }}
+        title="Mesclar pacientes duplicados"
+      >
+        <div style={{ fontSize: 13, color: '#7C3AED', marginBottom: 20, padding: '10px 14px', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8 }}>
+          <strong>Atenção:</strong> laudos, anamnese e dados de testes do paciente secundário serão migrados para o principal. O registro secundário será desativado. Esta ação não pode ser desfeita.
+        </div>
+
+        <Field label="Paciente principal (será mantido)">
+          <select style={inputStyle} value={mergePrimary} onChange={e => { setMergePrimary(e.target.value); setMergeError('') }}>
+            <option value="">Selecionar...</option>
+            {patients.map(p => (
+              <option key={p.id} value={p.id} disabled={p.id === mergeSecondary}>{p.full_name}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Paciente secundário (será removido)">
+          <select style={inputStyle} value={mergeSecondary} onChange={e => { setMergeSecondary(e.target.value); setMergeError('') }}>
+            <option value="">Selecionar...</option>
+            {patients.map(p => (
+              <option key={p.id} value={p.id} disabled={p.id === mergePrimary}>{p.full_name}</option>
+            ))}
+          </select>
+        </Field>
+
+        {mergePrimary && mergeSecondary && mergePrimary !== mergeSecondary && (
+          <div style={{ padding: '10px 14px', background: '#F0FFF4', border: '1px solid #9AE6B4', borderRadius: 8, fontSize: 12, color: '#276749', marginBottom: 16 }}>
+            <strong>{patients.find(p => p.id === mergeSecondary)?.full_name}</strong> será desativado.
+            Todos os dados serão migrados para <strong>{patients.find(p => p.id === mergePrimary)?.full_name}</strong>.
+          </div>
+        )}
+
+        <Field label="Senha de administrador">
+          <input
+            type="password"
+            value={mergePassword}
+            onChange={e => { setMergePassword(e.target.value); setMergeError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleMergeConfirm()}
+            placeholder="Digite a senha para confirmar..."
+            style={{ ...inputStyle, borderColor: mergeError ? '#FC8181' : '#E8ECF0' }}
+          />
+          {mergeError && <div style={{ fontSize: 12, color: '#E53E3E', marginTop: 6 }}>{mergeError}</div>}
+        </Field>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => { setMergeDialog(false); setMergeError(''); setMergePassword('') }}
+            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E8ECF0', background: '#fff', color: '#666', fontSize: 13, cursor: 'pointer' }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleMergeConfirm}
+            disabled={merging || !mergePrimary || !mergeSecondary || !mergePassword || mergePrimary === mergeSecondary}
+            style={{
+              padding: '8px 16px', borderRadius: 8, border: 'none',
+              background: '#2E7D32', color: '#fff', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              opacity: (!mergePrimary || !mergeSecondary || !mergePassword || mergePrimary === mergeSecondary) ? 0.5 : 1
+            }}
+          >
+            {merging
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Mesclando...</>
+              : <><GitMerge size={13} /> Confirmar mescla</>
+            }
           </button>
         </div>
       </Modal>
