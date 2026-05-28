@@ -2630,6 +2630,10 @@ export default function Reports() {
         obs_anterior: oldObs, obs_novo: corrObs,
         enfim_anterior: oldEnfim, enfim_novo: corrEnfim,
       })
+      logAction(user, 'laudo_aprovado_entregador', {
+        patientId, reportId: savedReportId,
+        motivo: corrMotivo,
+      })
       setCorrModal(false)
     } catch (e) {
       setCorrError('Erro ao salvar: ' + e.message)
