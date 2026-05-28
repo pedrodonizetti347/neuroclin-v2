@@ -13,6 +13,9 @@ const MIN_DOCS = {
   'TOKEN':      2,
   'B-ADL':      2,
   'Pfeffer':    2,
+  'WCST':       2,
+  'WASI':       6,
+  'WASI-III':   6,
 }
 
 function compressImage(file) {
