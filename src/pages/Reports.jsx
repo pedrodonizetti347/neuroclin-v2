@@ -3,7 +3,7 @@ import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, ser
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
-import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil, LockOpen } from 'lucide-react'
+import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil, LockOpen, Lock } from 'lucide-react'
 import { exportToDocx } from '@/utils/generateDocx'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import PatientSearchInput from '@/components/PatientSearchInput'
@@ -2180,6 +2180,10 @@ export default function Reports() {
   const [docxExporting,  setDocxExporting]  = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle') // 'idle'|'saving'|'saved'
   const [validationErrors, setValidationErrors] = useState([])
+  const [reopenModal,    setReopenModal]    = useState(false)
+  const [reopenPassword, setReopenPassword] = useState('')
+  const [reopenError,    setReopenError]    = useState('')
+  const [reopenLoading,  setReopenLoading]  = useState(false)
   const autoSaveTimer = useRef(null)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
   const [quickAnamnese,  setQuickAnamnese]  = useState({
@@ -2566,6 +2570,9 @@ export default function Reports() {
 
   const reopenReport = async () => {
     if (!savedReportId || !isSupervisor) return
+    const correct = import.meta.env.VITE_ADMIN_DELETE_PASSWORD
+    if (reopenPassword !== correct) { setReopenError('Senha incorreta.'); return }
+    setReopenLoading(true)
     try {
       await updateDoc(doc(db, 'reports', savedReportId), {
         status: 'rascunho',
@@ -2575,8 +2582,18 @@ export default function Reports() {
       setReportStatus('rascunho')
       setApprovalInfo(null)
       setEditMode(true)
+      setReopenModal(false)
+      setReopenPassword('')
+      setReopenError('')
+      logAction(user, 'laudo_reaberto', {
+        patientId,
+        reportId: savedReportId,
+        authorizedBy: user?.full_name || user?.id,
+      })
     } catch (e) {
-      console.error(e)
+      setReopenError('Erro ao reabrir: ' + e.message)
+    } finally {
+      setReopenLoading(false)
     }
   }
 
@@ -2966,11 +2983,17 @@ export default function Reports() {
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {/* Editar na tela */}
-              {report && (
+              {/* Editar na tela — oculto quando laudo está aprovado */}
+              {report && reportStatus !== 'aprovado' && (
                 <button onMouseDown={e => { e.preventDefault(); handleToggleEditMode() }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${editMode ? 'rgba(96,165,250,0.7)' : S.border}`, background: editMode ? 'rgba(96,165,250,0.18)' : 'transparent', cursor: 'pointer', color: editMode ? '#60A5FA' : S.muted }}>
                   <Pencil size={12} /> {editMode ? '✕  SAIR DA EDIÇÃO' : 'EDITAR'}
                 </button>
+              )}
+              {/* Indicador de somente leitura — laudo aprovado aguardando autorização */}
+              {report && reportStatus === 'aprovado' && !editMode && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: S.muted, padding: '5px 10px', borderRadius: 7, border: `1px solid ${S.border}` }}>
+                  <Lock size={11} /> SOMENTE LEITURA
+                </span>
               )}
               {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
               {savedReportId && !isSupervisor && reportStatus === 'rascunho' && (
@@ -2984,9 +3007,9 @@ export default function Reports() {
                   {approvalLoading ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</> : <><ShieldCheck size={13} /> APROVAR LAUDO</>}
                 </button>
               )}
-              {/* Reabrir laudo aprovado — apenas admin/supervisor */}
+              {/* Reabrir laudo aprovado — apenas admin/supervisor, exige senha */}
               {savedReportId && isSupervisor && reportStatus === 'aprovado' && (
-                <button onClick={reopenReport} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', color: '#F59E0B' }}>
+                <button onClick={() => { setReopenModal(true); setReopenPassword(''); setReopenError('') }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', color: '#F59E0B' }}>
                   <LockOpen size={13} /> REABRIR LAUDO
                 </button>
               )}
@@ -2998,6 +3021,48 @@ export default function Reports() {
               )}
             </div>
           </div>
+
+          {/* Modal — reabrir laudo aprovado com senha */}
+          {reopenModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(4,44,83,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <div style={{ background: '#1A2744', borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <LockOpen size={15} /> Reabrir laudo aprovado
+                  </span>
+                  <button onClick={() => setReopenModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={18} /></button>
+                </div>
+                <div style={{ padding: 20 }}>
+                  <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, marginBottom: 18, fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
+                    <strong style={{ color: '#F59E0B' }}>Atenção:</strong> Este laudo já foi aprovado e entregue. O conteúdo atual será preservado. Para realizar alterações, é necessária autorização do Administrador.
+                  </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
+                      <Lock size={11} /> SENHA DE ADMINISTRADOR
+                    </label>
+                    <input
+                      type="password"
+                      value={reopenPassword}
+                      onChange={e => { setReopenPassword(e.target.value); setReopenError('') }}
+                      onKeyDown={e => e.key === 'Enter' && reopenReport()}
+                      placeholder="Digite a senha para autorizar..."
+                      autoFocus
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1.5px solid ${reopenError ? '#EF4444' : 'rgba(255,255,255,0.12)'}`, background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    {reopenError && <div style={{ fontSize: 11, color: '#EF4444', marginTop: 5 }}>{reopenError}</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setReopenModal(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={reopenReport} disabled={reopenLoading || !reopenPassword} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: reopenLoading ? 'rgba(245,158,11,0.4)' : '#F59E0B', color: '#1A2744', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: !reopenPassword ? 0.5 : 1 }}>
+                      {reopenLoading ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Autorizando...</> : <><LockOpen size={12} /> Autorizar e reabrir</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Info de aprovação */}
           {approvalInfo?.approved && (
