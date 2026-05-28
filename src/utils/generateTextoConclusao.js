@@ -146,23 +146,14 @@ function gerarFuncoesExecutivas(p) {
   const intro =
     'Quando se avalia as FUNÇÕES EXECUTIVAS procura-se entender a capacidade de planejamento, o controle inibitório, a flexibilidade cognitiva, a estratégia de organização e a categorização dos estímulos. Esses processos cognitivos, enquanto conjunto atua de forma coordenada, são à base da intencionalidade e autogestão do indivíduo, e permitem o direcionamento a metas, escolha de estratégias eficazes, avaliação da eficiência e adequação dos comportamentos. Além disso, os aspectos executivos também são modulados pelos aspectos emocionais, ou seja, o seu funcionamento pode ser influenciado pelas emoções intensas experimentadas pela pessoa. O funcionamento executivo está relacionado ao grau de autonomia e eficiência no desempenho funcional que o indivíduo apresenta nas suas atividades acadêmicas, profissionais e de relacionamentos interpessoais. Esses aspectos foram avaliados isoladamente e/ou conjuntamente a partir de entrevistas, observação clínica e testes psicológicos. Os resultados são descritos abaixo:'
 
-  const sugereDepressao = p.depressao === 'SUGERE QUADRO DE DEPRESSÃO'
-  const sugereAnsiedade = p.ansiedade === 'SUGERE QUADRO DE ANSIEDADE'
-  let volitivos
-  if (sugereDepressao || sugereAnsiedade) {
-    const quadros = [
-      sugereDepressao ? p.depressao : '',
-      sugereDepressao && sugereAnsiedade ? ' e ' : '',
-      sugereAnsiedade ? p.ansiedade : '',
-    ].join('')
-    volitivos = clean(
-      `Os aspectos volitivos (motivação, interesse por hobbies e planos de vida) parecem estar comprometidos no momento, apresentando ${quadros}.`
-    )
-  } else {
-    volitivos = clean(
-      `Os aspectos volitivos (motivação, interesse por hobbies e planos de vida) parecem não estar comprometidos no momento.`
-    )
-  }
+  const depLower = (p.depressao || '').toLowerCase()
+  const ansLower = (p.ansiedade || '').toLowerCase()
+  const semDepressao = depLower.includes('sem depress') || depLower.includes('mínimo') || depLower.includes('ausência') || depLower.includes('minimo') || depLower.includes('ausencia')
+  const semAnsiedade = ansLower.includes('sem ansi') || ansLower.includes('ausência') || ansLower.includes('mínimo') || ansLower.includes('ausencia') || ansLower.includes('minimo')
+  const estadoVolitivo = (semDepressao && semAnsiedade) ? 'preservados' : 'comprometidos'
+  const volitivos = clean(
+    `Os aspectos volitivos (motivação, interesse por hobbies e planos de vida) parecem estar ${estadoVolitivo} no momento, apresentando ${p.depressao} e ${p.ansiedade}.`
+  )
 
   const planejamento = clean(
     `Capacidade de planejamento, tomada de decisão e hierarquização dos passos adequados quando ocorre dentro de uma estrutura. Em tarefas onde se pode avaliar esses construtos ${p.nome} apresentou desempenho ${p.categoriasCompletas} de planejamento, abstração e insight para retomar, aprender e alterar suas estratégias quando na realização de alguma tarefa quando essa não é bem-sucedida.`
@@ -252,7 +243,7 @@ function gerarPraxia(p) {
 function gerarDepressaoAnsiedade(p) {
   const g = art(p.sexo)
   return clean(
-    `Em escalas onde se mediram o nível de depressão e ansiedade vivenciad${g}s pel${g} paciente no momento ${g} paciente ${p.depressao} e ${p.ansiedade}.`
+    `Em escalas onde se mediram o nível de depressão e ansiedade vivenciad${g}s pel${g} paciente, os resultados indicam: ${p.depressao} e ${p.ansiedade}.`
   )
 }
 

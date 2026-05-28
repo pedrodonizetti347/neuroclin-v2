@@ -1429,15 +1429,15 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     return 'PRESERVADA'
   }
 
-  // GDS / GAI
-  const gdsClass = (td?.['GDS-15']?.classification || '').toUpperCase()
-  const depressao = (gdsClass.includes('DEPRESS') || gdsClass.includes('SUGEST') || Number(td?.['GDS-15']?.total_score) >= 6)
-    ? 'SUGERE QUADRO DE DEPRESSÃO'
-    : 'NÃO APRESENTA SINTOMATOLOGIA DE DEPRESSÃO'
-  const gaiClass = (td?.GAI?.classification || '').toUpperCase()
-  const ansiedade = (gaiClass.includes('ANSIED') || gaiClass.includes('SUGEST') || Number(td?.GAI?.total_score) >= 10)
-    ? 'SUGERE QUADRO DE ANSIEDADE'
-    : 'NÃO APRESENTA SINTOMATOLOGIA DE ANSIEDADE'
+  // GDS / GAI — texto real da classificação (com fallbacks BDI-II, HAD, IDATE)
+  const depressao = td?.['GDS-15']?.classification
+    || td?.['BDI-II']?.classification
+    || td?.HAD?.had_d_class
+    || 'Sem depressão'
+  const ansiedade = td?.GAI?.classification
+    || td?.['IDATE-E']?.classification
+    || td?.HAD?.had_a_class
+    || 'Sem ansiedade'
 
   // IQCODE / B-ADL / Pfeffer — recalculado do escore (ignora texto salvo)
   const iqMeanScore = td?.IQCODE?.mean_score ?? (td?.IQCODE?.total_score != null ? Math.round((td.IQCODE.total_score / 26) * 100) / 100 : null)
