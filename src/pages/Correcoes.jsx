@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   collection, getDocs, addDoc, updateDoc, doc,
-  query, orderBy, serverTimestamp, where
+  query, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { searchPatients, listProfessionals } from '@/services/prodoctorApi'
+import { sincronizarFluxoPrevent } from '@/services/fluxoAvaliacaoService'
 import {
   ClipboardList, Plus, X, Check, RefreshCw,
-  User, Calendar, Clock, Search, Loader2,
-  AlertCircle, CheckCircle2, FileText, UserCheck, RotateCcw
+  Clock, Search, Loader2, AlertCircle,
+  CheckCircle2, FileText, UserCheck, RotateCcw,
+  User, Calendar, Shield, Zap,
 } from 'lucide-react'
 
 const S = {
@@ -23,29 +25,65 @@ const S = {
   red:    '#EF4444',
   blue:   '#3B82F6',
   purple: '#8B5CF6',
+  orange: '#F97316',
 }
 
-const STATUS = {
+// Fluxo legado (status)
+const STATUS_LEGADO = {
   aguardando: {
     label: 'Aguardando', color: '#EF4444',
     bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)',
-    icon: AlertCircle, ordem: 1,
+    icon: AlertCircle, ordem: 10,
   },
   corrigindo: {
     label: 'Corrigindo', color: '#F59E0B',
     bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)',
-    icon: Clock, ordem: 2,
+    icon: Clock, ordem: 11,
   },
   finalizado: {
     label: 'Finalizado', color: '#4CAF50',
     bg: 'rgba(76,175,80,0.15)', border: 'rgba(76,175,80,0.3)',
-    icon: CheckCircle2, ordem: 3,
+    icon: CheckCircle2, ordem: 12,
   },
   retirado: {
     label: 'Retirado', color: '#3B82F6',
     bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)',
-    icon: UserCheck, ordem: 4,
+    icon: UserCheck, ordem: 13,
   },
+}
+
+// Novo fluxo (etapaAtual)
+const ETAPA = {
+  aguardando_correcao: {
+    label: 'Ag. Correção', color: '#EF4444',
+    bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)',
+    icon: AlertCircle, ordem: 1,
+  },
+  em_correcao: {
+    label: 'Em Correção', color: '#F59E0B',
+    bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)',
+    icon: Clock, ordem: 2,
+  },
+  aguardando_aprovacao: {
+    label: 'Ag. Aprovação', color: '#8B5CF6',
+    bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)',
+    icon: Shield, ordem: 3,
+  },
+  pronto_devolutiva: {
+    label: 'Pronto p/ Dev.', color: '#4CAF50',
+    bg: 'rgba(76,175,80,0.15)', border: 'rgba(76,175,80,0.3)',
+    icon: CheckCircle2, ordem: 4,
+  },
+}
+
+const ALL_STATUS = { ...ETAPA, ...STATUS_LEGADO }
+
+function getEfetivo(item) {
+  return item.etapaAtual || item.status || 'aguardando'
+}
+
+function getCfg(item) {
+  return ALL_STATUS[getEfetivo(item)] || STATUS_LEGADO.aguardando
 }
 
 function fmtDate(val) {
@@ -82,8 +120,8 @@ const labelStyle = {
   textTransform: 'uppercase', letterSpacing: '0.05em',
 }
 
-function StatusBadge({ status }) {
-  const cfg = STATUS[status] || STATUS.aguardando
+function StatusBadge({ item }) {
+  const cfg = getCfg(item)
   const Icon = cfg.icon
   return (
     <span style={{
@@ -97,42 +135,118 @@ function StatusBadge({ status }) {
   )
 }
 
-function CorrecaoCard({ item, onChangeStatus, isEstagiario, isBeliane }) {
-  const cfg = STATUS[item.status] || STATUS.aguardando
+function ConvenioBadge({ convenio }) {
+  if (!convenio) return null
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8,
+      background: 'rgba(13,148,136,0.2)', color: '#2DD4BF',
+      border: '1px solid rgba(45,212,191,0.3)', whiteSpace: 'nowrap',
+      textTransform: 'uppercase', letterSpacing: '0.05em',
+    }}>
+      {convenio === 'prevent_senior' ? 'Prevent Sênior' : convenio}
+    </span>
+  )
+}
+
+function AnamneseBadge({ preenchida }) {
+  if (preenchida) return (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: 'rgba(76,175,80,0.15)', color: '#4CAF50', border: '1px solid rgba(76,175,80,0.3)' }}>
+      Anamnese OK
+    </span>
+  )
+  return (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}>
+      Anamnese Pendente
+    </span>
+  )
+}
+
+function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
+  const cfg = getCfg(item)
+  const etapa = item.etapaAtual
+  const status = item.status
+  const temEtapa = !!etapa
 
   function renderAcoes() {
     const btns = []
-    if (isEstagiario && item.status === 'aguardando' && item.estagiarioId === item._uid) {
-      btns.push(
-        <button key="iniciar" onClick={() => onChangeStatus(item.id, 'corrigindo')}
-          style={btnStyle('#F59E0B', 'rgba(245,158,11,0.15)')}>
-          <Clock size={11} /> Iniciar correção
-        </button>
-      )
-    }
-    if (isEstagiario && item.status === 'corrigindo' && item.estagiarioId === item._uid) {
-      btns.push(
-        <button key="finalizar" onClick={() => onChangeStatus(item.id, 'finalizado')}
-          style={btnStyle('#4CAF50', 'rgba(76,175,80,0.15)')}>
-          <Check size={11} /> Finalizar correção
-        </button>
-      )
-    }
-    if (isBeliane && item.status === 'finalizado') {
-      btns.push(
-        <button key="retirado" onClick={() => onChangeStatus(item.id, 'retirado')}
-          style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}>
-          <UserCheck size={11} /> Marcar como retirado
-        </button>
-      )
-    }
-    if (isBeliane && item.status === 'retirado') {
-      btns.push(
-        <button key="desfazer" onClick={() => onChangeStatus(item.id, 'finalizado')}
-          style={btnStyle('rgba(255,255,255,0.4)', 'rgba(255,255,255,0.05)')}>
-          <RotateCcw size={11} /> Desfazer retirada
-        </button>
-      )
+
+    if (temEtapa) {
+      // Estagiário — novo fluxo
+      if (isEstagiario && etapa === 'aguardando_correcao' && item.estagiarioId === userId) {
+        btns.push(
+          <button key="iniciar" onClick={() => onMudarEtapa(item.id, 'em_correcao')}
+            style={btnStyle('#F59E0B', 'rgba(245,158,11,0.15)')}>
+            <Clock size={11} /> Iniciar correção
+          </button>
+        )
+      }
+      if (isEstagiario && etapa === 'em_correcao' && item.estagiarioId === userId) {
+        btns.push(
+          <button key="finalizar" onClick={() => onMudarEtapa(item.id, 'aguardando_aprovacao')}
+            style={btnStyle('#8B5CF6', 'rgba(139,92,246,0.15)')}>
+            <Check size={11} /> Finalizar correção
+          </button>
+        )
+      }
+      // Admin/supervisor — aprovação
+      if (isAdmin && etapa === 'aguardando_aprovacao') {
+        btns.push(
+          <button key="aprovar" onClick={() => onMudarEtapa(item.id, 'pronto_devolutiva')}
+            style={btnStyle('#4CAF50', 'rgba(76,175,80,0.15)')}>
+            <CheckCircle2 size={11} /> Aprovar
+          </button>
+        )
+        btns.push(
+          <button key="devolver" onClick={() => onMudarEtapa(item.id, 'em_correcao')}
+            style={btnStyle('rgba(255,255,255,0.35)', 'rgba(255,255,255,0.06)')}>
+            <RotateCcw size={11} /> Devolver
+          </button>
+        )
+      }
+      // Profissional — auto-atribuição
+      if (isProfissional && !item.profissionalUid) {
+        btns.push(
+          <button key="assumir" onClick={() => onAssumir(item.id)}
+            style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}>
+            <User size={11} /> Assumir caso
+          </button>
+        )
+      }
+    } else {
+      // Fluxo legado
+      if (isEstagiario && status === 'aguardando' && item.estagiarioId === userId) {
+        btns.push(
+          <button key="iniciar" onClick={() => onChangeStatus(item.id, 'corrigindo')}
+            style={btnStyle('#F59E0B', 'rgba(245,158,11,0.15)')}>
+            <Clock size={11} /> Iniciar correção
+          </button>
+        )
+      }
+      if (isEstagiario && status === 'corrigindo' && item.estagiarioId === userId) {
+        btns.push(
+          <button key="finalizar" onClick={() => onChangeStatus(item.id, 'finalizado')}
+            style={btnStyle('#4CAF50', 'rgba(76,175,80,0.15)')}>
+            <Check size={11} /> Finalizar
+          </button>
+        )
+      }
+      if (isBeliane && status === 'finalizado') {
+        btns.push(
+          <button key="retirado" onClick={() => onChangeStatus(item.id, 'retirado')}
+            style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}>
+            <UserCheck size={11} /> Marcar retirado
+          </button>
+        )
+      }
+      if (isBeliane && status === 'retirado') {
+        btns.push(
+          <button key="desfazer" onClick={() => onChangeStatus(item.id, 'finalizado')}
+            style={btnStyle('rgba(255,255,255,0.4)', 'rgba(255,255,255,0.05)')}>
+            <RotateCcw size={11} /> Desfazer
+          </button>
+        )
+      }
     }
     return btns
   }
@@ -141,71 +255,88 @@ function CorrecaoCard({ item, onChangeStatus, isEstagiario, isBeliane }) {
     <div style={{
       background: S.card, border: `1px solid ${cfg.border}`,
       borderRadius: 10, padding: '14px 16px', marginBottom: 8,
-      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+      display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
     }}>
-      <div style={{ minWidth: 120 }}><StatusBadge status={item.status} /></div>
+      <div style={{ minWidth: 120 }}><StatusBadge item={item} /></div>
+
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{item.paciente || '—'}</div>
-        <div style={{ fontSize: 11, color: S.muted, marginTop: 2 }}>Prof: {item.profissional || '—'}</div>
+        <div style={{ fontSize: 11, color: S.muted, marginTop: 2 }}>
+          Prof: {item.profissionalNome || item.profissional || '—'}
+          {item.profissionalUid && <span style={{ color: '#4CAF50', marginLeft: 4 }}>✓ atribuído</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 5, marginTop: 5, flexWrap: 'wrap' }}>
+          {item.convenio && <ConvenioBadge convenio={item.convenio} />}
+          {temEtapa && <AnamneseBadge preenchida={item.anamnese_preenchida} />}
+        </div>
       </div>
+
       <div style={{ minWidth: 120 }}>
         <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Estagiário</div>
         <div style={{ fontSize: 12, fontWeight: 600, color: item.estagiarioNome ? '#fff' : S.muted }}>
           {item.estagiarioNome || 'Não atribuído'}
         </div>
       </div>
-      <div style={{ minWidth: 200, display: 'flex', gap: 16 }}>
+
+      <div style={{ minWidth: 200, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Entregue em</div>
-          <div style={{ fontSize: 12, color: '#fff' }}>{fmtDate(item.dataEntrega)}</div>
+          <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
+            {temEtapa ? 'Data de corte' : 'Entregue em'}
+          </div>
+          <div style={{ fontSize: 12, color: '#fff' }}>
+            {fmtDate(item.dataCorte || item.dataEntrega)}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Devolutiva</div>
           <div style={{ fontSize: 12, color: '#8B5CF6' }}>{fmtDate(item.dataDevolutiva)}</div>
         </div>
-        {item.dataFinalizacao && (
+        {item.finalizadoEm && (
           <div>
-            <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Corrigido em</div>
+            <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Corrigido</div>
+            <div style={{ fontSize: 12, color: '#4CAF50' }}>{fmtDate(item.finalizadoEm)}</div>
+          </div>
+        )}
+        {item.dataFinalizacao && !item.finalizadoEm && (
+          <div>
+            <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Corrigido</div>
             <div style={{ fontSize: 12, color: '#4CAF50' }}>{fmtDate(item.dataFinalizacao)}</div>
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{renderAcoes()}</div>
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>{renderAcoes()}</div>
     </div>
   )
 }
 
 function ModalCadastro({ estagiarios, onSave, onClose }) {
   const [form, setForm] = useState({
-    pacienteNome: '',
-    pacienteCodigo: '',
-    profissionalId: '',
+    pacienteNome:     '',
+    pacienteCodigo:   '',
+    profissionalId:   '',
     profissionalNome: '',
-    estagiarioId: '',
-    dataEntrega: new Date().toISOString().split('T')[0],
-    dataDevolutiva: '',
+    estagiarioId:     '',
+    convenio:         'prevent_senior',
+    dataCorte:        new Date().toISOString().split('T')[0],
+    dataDevolutiva:   '',
   })
 
   const [buscaPaciente,       setBuscaPaciente]       = useState('')
   const [resultadosPac,       setResultadosPac]        = useState([])
   const [buscandoPac,         setBuscandoPac]          = useState(false)
   const [pacienteSelecionado, setPacienteSelecionado]  = useState(false)
-
-  const [profissionais,     setProfissionais]    = useState([])
-  const [carregandoProfs,   setCarregandoProfs]  = useState(true)
-
-  const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState('')
+  const [profissionais,       setProfissionais]        = useState([])
+  const [carregandoProfs,     setCarregandoProfs]      = useState(true)
+  const [saving,              setSaving]               = useState(false)
+  const [error,               setError]                = useState('')
   const buscaRef = useRef(null)
 
   useEffect(() => {
     listProfessionals()
-      .then(lista => {
-        setProfissionais(lista.map(p => ({
-          id:   String(p.codigo ?? p.id ?? ''),
-          nome: p.nome ?? p.nomeCivil ?? '',
-        })).filter(p => p.id && p.nome))
-      })
+      .then(lista => setProfissionais(lista.map(p => ({
+        id: String(p.codigo ?? p.id ?? ''), nome: p.nome ?? p.nomeCivil ?? '',
+      })).filter(p => p.id && p.nome)))
       .catch(() => setProfissionais([]))
       .finally(() => setCarregandoProfs(false))
   }, [])
@@ -215,14 +346,9 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
     if (buscaPaciente.length < 2) { setResultadosPac([]); return }
     const timer = setTimeout(async () => {
       setBuscandoPac(true)
-      try {
-        const res = await searchPatients(buscaPaciente)
-        setResultadosPac(res.slice(0, 8))
-      } catch {
-        setResultadosPac([])
-      } finally {
-        setBuscandoPac(false)
-      }
+      try { setResultadosPac((await searchPatients(buscaPaciente)).slice(0, 8)) }
+      catch { setResultadosPac([]) }
+      finally { setBuscandoPac(false) }
     }, 400)
     return () => clearTimeout(timer)
   }, [buscaPaciente, pacienteSelecionado])
@@ -238,7 +364,6 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
     setBuscaPaciente('')
     setForm(f => ({ ...f, pacienteNome: '', pacienteCodigo: '' }))
     setPacienteSelecionado(false)
-    setResultadosPac([])
     setTimeout(() => buscaRef.current?.focus(), 50)
   }
 
@@ -247,33 +372,38 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
   async function salvar() {
     if (!form.pacienteNome)     return setError('Selecione o paciente.')
     if (!form.profissionalNome) return setError('Selecione o profissional.')
-    if (!form.dataEntrega)      return setError('Informe a data de entrega.')
+    if (!form.dataCorte)        return setError('Informe a data de corte (5ª consulta).')
     setSaving(true); setError('')
     const estag = estagiarios.find(e => e.id === form.estagiarioId)
     await onSave({
-      paciente:       form.pacienteNome,
-      pacienteCodigo: form.pacienteCodigo,
-      profissionalId: form.profissionalId,
-      profissional:   form.profissionalNome,
-      estagiarioId:   form.estagiarioId || null,
-      estagiarioNome: estag?.nome || estag?.name || estag?.full_name || null,
-      dataEntrega:    new Date(form.dataEntrega + 'T12:00:00'),
-      dataDevolutiva: form.dataDevolutiva ? new Date(form.dataDevolutiva + 'T12:00:00') : null,
-      status:         'aguardando',
-      criadoEm:       serverTimestamp(),
+      paciente:             form.pacienteNome,
+      pacienteCodigo:       form.pacienteCodigo || null,
+      profissionalId:       form.profissionalId,
+      profissionalNome:     form.profissionalNome,
+      profissional:         form.profissionalNome, // compat legado
+      profissionalUid:      null,
+      estagiarioId:         form.estagiarioId || null,
+      estagiarioNome:       estag?.nome || estag?.name || estag?.full_name || null,
+      convenio:             form.convenio || 'prevent_senior',
+      dataCorte:            new Date(form.dataCorte + 'T12:00:00'),
+      dataDevolutiva:       form.dataDevolutiva ? new Date(form.dataDevolutiva + 'T12:00:00') : null,
+      etapaAtual:           'aguardando_correcao',
+      anamnese_preenchida:  false,
+      entregueEmCorrecaoEm: null,
+      assumidoEm:           null,
+      finalizadoEm:         null,
+      aprovadoEm:           null,
+      criadoEm:             serverTimestamp(),
+      origem:               'manual',
     })
     setSaving(false)
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 2000,
-      background: 'rgba(4,44,83,0.7)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }}>
-      <div style={{ background: '#1A2744', borderRadius: 14, width: '100%', maxWidth: 520, border: '1px solid rgba(255,255,255,0.08)' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(4,44,83,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#1A2744', borderRadius: 14, width: '100%', maxWidth: 540, border: '1px solid rgba(255,255,255,0.08)', maxHeight: '90vh', overflowY: 'auto' }}>
 
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#1A2744', zIndex: 1 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Plus size={15} color="#4CAF50" /> Novo prontuário para correção
           </span>
@@ -282,7 +412,7 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
 
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Busca de paciente */}
+          {/* Paciente */}
           <div>
             <label style={labelStyle}>Paciente (ProDoctor)</label>
             <div style={{ position: 'relative' }}>
@@ -296,9 +426,7 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
                   disabled={pacienteSelecionado}
                   style={inputStyle({ paddingLeft: 30, paddingRight: pacienteSelecionado ? 36 : 12, opacity: pacienteSelecionado ? 0.8 : 1 })}
                 />
-                {buscandoPac && (
-                  <Loader2 size={13} style={{ position: 'absolute', right: 10, color: '#4CAF50', animation: 'spin 1s linear infinite' }} />
-                )}
+                {buscandoPac && <Loader2 size={13} style={{ position: 'absolute', right: 10, color: '#4CAF50', animation: 'spin 1s linear infinite' }} />}
                 {pacienteSelecionado && (
                   <button onClick={limparPaciente} title="Limpar" style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', display: 'flex', padding: 2 }}>
                     <X size={14} />
@@ -306,67 +434,55 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
                 )}
               </div>
               {resultadosPac.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                  background: '#1A2744', border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: 8, marginTop: 4, maxHeight: 220, overflowY: 'auto',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                }}>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#1A2744', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, marginTop: 4, maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
                   {resultadosPac.map(p => (
-                    <button key={p.prodoctor_id} onClick={() => selecionarPaciente(p)} style={{
-                      width: '100%', textAlign: 'left', padding: '10px 14px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      display: 'flex', flexDirection: 'column', gap: 2,
-                    }}
+                    <button key={p.prodoctor_id} onClick={() => selecionarPaciente(p)} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 2 }}
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                    >
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{p.full_name}</span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                        Cód: {p.prodoctor_id}
-                        {p.birth_date ? ` · Nasc: ${new Date(p.birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
-                      </span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Cód: {p.prodoctor_id}{p.birth_date ? ` · Nasc: ${new Date(p.birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}</span>
                     </button>
                   ))}
                 </div>
               )}
               {!buscandoPac && buscaPaciente.length >= 2 && resultadosPac.length === 0 && !pacienteSelecionado && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#1A2744', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, marginTop: 4, padding: '12px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                  Nenhum paciente encontrado no ProDoctor
+                  Nenhum paciente encontrado
                 </div>
               )}
             </div>
           </div>
 
-          {/* Profissional do ProDoctor */}
+          {/* Profissional */}
           <div>
-            <label style={labelStyle}>Profissional que aplicou (ProDoctor)</label>
+            <label style={labelStyle}>Profissional responsável (ProDoctor)</label>
             {carregandoProfs ? (
               <div style={{ ...inputStyle(), display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.4)' }}>
-                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Carregando profissionais...
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Carregando...
               </div>
             ) : (
-              <select
-                value={form.profissionalId}
-                onChange={e => {
-                  const prof = profissionais.find(p => p.id === e.target.value)
-                  set('profissionalId', e.target.value)
-                  set('profissionalNome', prof?.nome || '')
-                }}
-                style={inputStyle()}
-              >
+              <select value={form.profissionalId} onChange={e => {
+                const prof = profissionais.find(p => p.id === e.target.value)
+                set('profissionalId', e.target.value)
+                set('profissionalNome', prof?.nome || '')
+              }} style={inputStyle()}>
                 <option value="">Selecione...</option>
-                {profissionais.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
+                {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             )}
           </div>
 
-          {/* Estagiário (do Firebase) */}
+          {/* Convênio */}
           <div>
-            <label style={labelStyle}>Estagiário responsável <span style={{ color: 'rgba(255,255,255,0.4)' }}>(opcional)</span></label>
+            <label style={labelStyle}>Convênio</label>
+            <select value={form.convenio} onChange={e => set('convenio', e.target.value)} style={inputStyle()}>
+              <option value="prevent_senior">Prevent Sênior</option>
+            </select>
+          </div>
+
+          {/* Estagiário */}
+          <div>
+            <label style={labelStyle}>Estagiário <span style={{ color: 'rgba(255,255,255,0.4)' }}>(opcional)</span></label>
             <select value={form.estagiarioId} onChange={e => set('estagiarioId', e.target.value)} style={inputStyle()}>
               <option value="">Atribuir depois...</option>
               {estagiarios.map(e => <option key={e.id} value={e.id}>{e.nome || e.name || e.full_name}</option>)}
@@ -376,20 +492,16 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
           {/* Datas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={labelStyle}>Data de entrega</label>
-              <input type="date" value={form.dataEntrega} onChange={e => set('dataEntrega', e.target.value)} style={inputStyle()} />
+              <label style={labelStyle}>Data corte (5ª consulta)</label>
+              <input type="date" value={form.dataCorte} onChange={e => set('dataCorte', e.target.value)} style={inputStyle()} />
             </div>
             <div>
-              <label style={labelStyle}>Data da devolutiva <span style={{ color: '#8B5CF6' }}>●</span></label>
+              <label style={labelStyle}>Devolutiva (6ª consulta) <span style={{ color: '#8B5CF6' }}>●</span></label>
               <input type="date" value={form.dataDevolutiva} onChange={e => set('dataDevolutiva', e.target.value)} style={inputStyle()} />
             </div>
           </div>
 
-          {error && (
-            <div style={{ fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertCircle size={12} /> {error}
-            </div>
-          )}
+          {error && <div style={{ fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}><AlertCircle size={12} /> {error}</div>}
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
             <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer' }}>
@@ -407,29 +519,30 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
 
 export default function Correcoes() {
   const { user } = useAuth()
-  const isAdmin     = user?.role === 'admin' || user?.role === 'supervisor'
-  const isBeliane   = isAdmin || user?.role === 'secretaria'
+  const isAdmin      = user?.role === 'admin' || user?.role === 'supervisor'
+  const isBeliane    = isAdmin || user?.role === 'secretaria'
   const isEstagiario = user?.role === 'estagiario'
+  const isProfissional = user?.role === 'profissional' || user?.role === 'professional'
 
-  const [itens,         setItens]         = useState([])
-  const [profissionais, setProfissionais] = useState([])
-  const [estagiarios,   setEstagiarios]   = useState([])
-  const [loading,       setLoading]       = useState(true)
-  const [modalAberto,   setModalAberto]   = useState(false)
-  const [filtroStatus,  setFiltroStatus]  = useState('todos')
-  const [filtroBusca,   setFiltroBusca]   = useState('')
-  const [filtroEstag,   setFiltroEstag]   = useState('todos')
+  const [itens,        setItens]        = useState([])
+  const [estagiarios,  setEstagiarios]  = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [syncing,      setSyncing]      = useState(false)
+  const [syncResult,   setSyncResult]   = useState(null)
+  const [modalAberto,  setModalAberto]  = useState(false)
+  const [filtroEtapa,  setFiltroEtapa]  = useState('todos')
+  const [filtroBusca,  setFiltroBusca]  = useState('')
+  const [filtroEstag,  setFiltroEstag]  = useState('todos')
 
   async function carregar() {
     setLoading(true)
     try {
-      const q    = query(collection(db, 'correcoes'), orderBy('dataEntrega', 'desc'))
+      const q    = query(collection(db, 'correcoes'), orderBy('criadoEm', 'desc'))
       const snap = await getDocs(q)
-      setItens(snap.docs.map(d => ({ id: d.id, _uid: user?.uid, ...d.data() })))
+      setItens(snap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       const profSnap = await getDocs(collection(db, 'users'))
       const todos = profSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setProfissionais(todos.filter(u => ['profissional','supervisor','admin'].includes(u.role)))
       setEstagiarios(todos.filter(u => u.role === 'estagiario'))
     } catch (e) {
       console.error('[Correcoes]', e)
@@ -446,37 +559,103 @@ export default function Correcoes() {
     await carregar()
   }
 
+  // Fluxo legado
   async function mudarStatus(id, novoStatus) {
     const extra = {}
-    if (novoStatus === 'finalizado') extra.dataFinalizacao = new Date()
+    if (novoStatus === 'finalizado') extra.dataFinalizacao    = new Date()
     if (novoStatus === 'corrigindo') extra.dataInicioCorrecao = new Date()
-    if (novoStatus === 'retirado')   extra.dataRetirada = new Date()
+    if (novoStatus === 'retirado')   extra.dataRetirada       = new Date()
     await updateDoc(doc(db, 'correcoes', id), { status: novoStatus, ...extra })
     setItens(prev => prev.map(i => i.id === id ? { ...i, status: novoStatus, ...extra } : i))
   }
 
+  // Novo fluxo
+  async function mudarEtapa(id, novaEtapa) {
+    const extra = {}
+    if (novaEtapa === 'em_correcao')          extra.assumidoEm           = new Date()
+    if (novaEtapa === 'aguardando_aprovacao')  extra.finalizadoEm         = new Date()
+    if (novaEtapa === 'pronto_devolutiva')     extra.aprovadoEm           = new Date()
+    if (novaEtapa === 'aguardando_correcao')   extra.entregueEmCorrecaoEm = new Date()
+    await updateDoc(doc(db, 'correcoes', id), { etapaAtual: novaEtapa, ...extra })
+    setItens(prev => prev.map(i => i.id === id ? { ...i, etapaAtual: novaEtapa, ...extra } : i))
+  }
+
+  // Auto-atribuição de profissional
+  async function assumirCaso(id) {
+    const updates = {
+      profissionalUid:  user.uid,
+      profissionalNome: user.full_name || user.email || 'Profissional',
+    }
+    await updateDoc(doc(db, 'correcoes', id), updates)
+    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+  }
+
+  // Sincronização ProDoctor
+  async function sincronizar() {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await sincronizarFluxoPrevent()
+      setSyncResult(res)
+      await carregar()
+    } catch (e) {
+      setSyncResult({ erro: e.message })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // Filtro de visibilidade por role
   const itensFiltrados = itens.filter(i => {
-    if (filtroStatus !== 'todos' && i.status !== filtroStatus) return false
-    if (filtroEstag  !== 'todos' && i.estagiarioId !== filtroEstag) return false
+    // Visibilidade por role
+    if (isEstagiario && !isBeliane && !isAdmin) {
+      if (i.estagiarioId !== user?.uid) return false
+    }
+    if (isProfissional && !isBeliane && !isAdmin) {
+      if (i.profissionalUid !== user?.uid && i.profissionalUid != null) return false
+    }
+    // Filtro de etapa/status
+    if (filtroEtapa !== 'todos' && getEfetivo(i) !== filtroEtapa) return false
+    // Filtro por estagiário
+    if (filtroEstag !== 'todos' && i.estagiarioId !== filtroEstag) return false
+    // Busca textual
     if (filtroBusca) {
       const q = filtroBusca.toLowerCase()
       if (!i.paciente?.toLowerCase().includes(q) &&
+          !i.profissionalNome?.toLowerCase().includes(q) &&
           !i.profissional?.toLowerCase().includes(q) &&
           !i.estagiarioNome?.toLowerCase().includes(q)) return false
     }
-    if (isEstagiario && !isBeliane && !isAdmin) return i.estagiarioId === user?.uid
     return true
   })
 
-  const contadores = {
-    aguardando: itens.filter(i => i.status === 'aguardando').length,
-    corrigindo: itens.filter(i => i.status === 'corrigindo').length,
-    finalizado: itens.filter(i => i.status === 'finalizado').length,
-    retirado:   itens.filter(i => i.status === 'retirado').length,
-  }
+  // Contadores
+  const contadores = {}
+  Object.keys(ALL_STATUS).forEach(k => {
+    contadores[k] = itens.filter(i => getEfetivo(i) === k).length
+  })
+  const total = itens.length
+
+  // Agrupamento para exibição
+  const grupos = {}
+  itensFiltrados.forEach(i => {
+    const key = getEfetivo(i)
+    if (!grupos[key]) grupos[key] = []
+    grupos[key].push(i)
+  })
+  const gruposOrdenados = Object.entries(grupos).sort((a, b) => {
+    const ordA = ALL_STATUS[a[0]]?.ordem ?? 99
+    const ordB = ALL_STATUS[b[0]]?.ordem ?? 99
+    return ordA - ordB
+  })
+
+  // Chips de filtro — novo fluxo primeiro, depois legado
+  const CHIPS_NOVO   = Object.entries(ETAPA)
+  const CHIPS_LEGADO = Object.entries(STATUS_LEGADO)
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -484,14 +663,20 @@ export default function Correcoes() {
             <ClipboardList size={18} color="#4CAF50" /> CONTROLE DE CORREÇÕES
           </h1>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>
-            Gestão do fluxo de prontuários entre profissionais e estagiários
+            Gestão do fluxo de avaliação neuropsicológica — Prevent Sênior
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={carregar} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Atualizar
           </button>
-          {(isBeliane || isAdmin) && (
+          {isBeliane && (
+            <button onClick={sincronizar} disabled={syncing} title="Buscar pacientes no ProDoctor que atingiram a 5ª consulta" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(13,148,136,0.4)', background: 'rgba(13,148,136,0.1)', color: '#2DD4BF', fontSize: 12, fontWeight: 600, cursor: syncing ? 'not-allowed' : 'pointer' }}>
+              <Zap size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar ProDoctor'}
+            </button>
+          )}
+          {isBeliane && (
             <button onClick={() => setModalAberto(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2E7D32', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
               <Plus size={14} /> Novo prontuário
             </button>
@@ -499,32 +684,70 @@ export default function Correcoes() {
         </div>
       </div>
 
-      {/* Contadores / filtro rápido */}
+      {/* Resultado da sincronização */}
+      {syncResult && (
+        <div style={{ marginBottom: 14, padding: '10px 16px', borderRadius: 8, background: syncResult.erro ? 'rgba(239,68,68,0.1)' : 'rgba(76,175,80,0.1)', border: `1px solid ${syncResult.erro ? 'rgba(239,68,68,0.3)' : 'rgba(76,175,80,0.3)'}`, fontSize: 12, color: syncResult.erro ? '#EF4444' : '#4CAF50', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {syncResult.erro
+            ? <><AlertCircle size={13} /> Erro: {syncResult.erro}</>
+            : <><CheckCircle2 size={13} /> Sincronização concluída — {syncResult.criados} criados, {syncResult.atualizados} atualizados, {syncResult.ignorados} ignorados
+              {syncResult.aviso && <span style={{ color: S.amber, marginLeft: 8 }}>({syncResult.aviso})</span>}
+            </>
+          }
+          <button onClick={() => setSyncResult(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={13} /></button>
+        </div>
+      )}
+
+      {/* Chips de filtro — novo fluxo */}
       {!loading && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          {Object.entries(STATUS).map(([key, cfg]) => {
-            const Icon = cfg.icon
-            const ativo = filtroStatus === key
-            return (
-              <button key={key} onClick={() => setFiltroStatus(ativo ? 'todos' : key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: ativo ? cfg.bg : '#1A2744', border: `1px solid ${ativo ? cfg.color : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer' }}>
-                <Icon size={14} color={cfg.color} />
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: cfg.color, lineHeight: 1 }}>{contadores[key]}</div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cfg.label}</div>
-                </div>
-              </button>
-            )
-          })}
-          <button onClick={() => setFiltroStatus('todos')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: filtroStatus === 'todos' ? 'rgba(255,255,255,0.08)' : '#1A2744', border: `1px solid ${filtroStatus === 'todos' ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer' }}>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{itens.length}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total</div>
-            </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Fluxo atual</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+            {CHIPS_NOVO.map(([key, cfg]) => {
+              const Icon = cfg.icon
+              const ativo = filtroEtapa === key
+              return (
+                <button key={key} onClick={() => setFiltroEtapa(ativo ? 'todos' : key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: ativo ? cfg.bg : '#1A2744', border: `1px solid ${ativo ? cfg.color : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer' }}>
+                  <Icon size={12} color={cfg.color} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: cfg.color, lineHeight: 1 }}>{contadores[key] || 0}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cfg.label}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Chips legado (só se houver) */}
+          {Object.values(STATUS_LEGADO).some((_,i) => contadores[Object.keys(STATUS_LEGADO)[i]] > 0) && (
+            <>
+              <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Fluxo legado</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                {CHIPS_LEGADO.map(([key, cfg]) => {
+                  if (!contadores[key]) return null
+                  const Icon = cfg.icon
+                  const ativo = filtroEtapa === key
+                  return (
+                    <button key={key} onClick={() => setFiltroEtapa(ativo ? 'todos' : key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: ativo ? cfg.bg : '#1A2744', border: `1px solid ${ativo ? cfg.color : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', opacity: 0.75 }}>
+                      <Icon size={12} color={cfg.color} />
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: cfg.color, lineHeight: 1 }}>{contadores[key]}</div>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{cfg.label}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Total */}
+          <button onClick={() => setFiltroEtapa('todos')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: filtroEtapa === 'todos' ? 'rgba(255,255,255,0.08)' : '#1A2744', border: `1px solid ${filtroEtapa === 'todos' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`, cursor: 'pointer', fontSize: 11, color: '#fff' }}>
+            Total: <strong>{total}</strong>
           </button>
         </div>
       )}
 
-      {/* Filtros */}
+      {/* Filtros de busca */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)', pointerEvents: 'none' }} />
@@ -552,17 +775,17 @@ export default function Correcoes() {
           <ClipboardList size={40} color="rgba(255,255,255,0.2)" style={{ margin: '0 auto 12px' }} />
           <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 4 }}>Nenhum prontuário encontrado</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-            {isBeliane ? 'Clique em "Novo prontuário" para cadastrar.' : 'Nenhum prontuário atribuído a você no momento.'}
+            {isBeliane ? 'Cadastre manualmente ou sincronize com o ProDoctor.' : 'Nenhum prontuário atribuído a você no momento.'}
           </div>
         </div>
       )}
 
-      {/* Lista agrupada por status */}
+      {/* Lista agrupada */}
       {!loading && itensFiltrados.length > 0 && (
         <div>
-          {Object.entries(STATUS).sort((a,b) => a[1].ordem - b[1].ordem).map(([statusKey, cfg]) => {
-            const grupo = itensFiltrados.filter(i => i.status === statusKey)
-            if (grupo.length === 0) return null
+          {gruposOrdenados.map(([statusKey, grupo]) => {
+            const cfg = ALL_STATUS[statusKey]
+            if (!cfg) return null
             const Icon = cfg.icon
             return (
               <div key={statusKey} style={{ marginBottom: 24 }}>
@@ -571,7 +794,18 @@ export default function Correcoes() {
                   <span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>· {grupo.length} prontuário{grupo.length !== 1 ? 's' : ''}</span>
                 </div>
                 {grupo.map(item => (
-                  <CorrecaoCard key={item.id} item={item} onChangeStatus={mudarStatus} isEstagiario={isEstagiario} isBeliane={isBeliane || isAdmin} />
+                  <CorrecaoCard
+                    key={item.id}
+                    item={item}
+                    onChangeStatus={mudarStatus}
+                    onMudarEtapa={mudarEtapa}
+                    onAssumir={assumirCaso}
+                    isEstagiario={isEstagiario}
+                    isBeliane={isBeliane}
+                    isAdmin={isAdmin}
+                    isProfissional={isProfissional}
+                    userId={user?.uid}
+                  />
                 ))}
               </div>
             )

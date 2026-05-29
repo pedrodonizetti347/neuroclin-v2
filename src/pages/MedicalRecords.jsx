@@ -457,7 +457,7 @@ export default function MedicalRecords() {
                       </div>
                     )}
                     <div style={{ position: 'relative' }}>
-                      <AnamneseForm patientId={patientId} />
+                      <AnamneseForm patientId={patientId} prodoctorId={patient?.prodoctor_id} />
                     </div>
                   </>
                 )}

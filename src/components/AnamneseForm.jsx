@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { ChevronDown, ChevronUp, CheckCircle2, Loader2 } from 'lucide-react'
+import { marcarAnamnesePreenchida } from '@/services/fluxoAvaliacaoService'
 
 const S = {
   green: '#2E7D32', greenL: '#4CAF50',
@@ -57,7 +58,7 @@ function Sec({ title, children, open: initOpen = false }) {
   )
 }
 
-export default function AnamneseForm({ patientId }) {
+export default function AnamneseForm({ patientId, prodoctorId }) {
   const [form, setForm] = useState({ patient_type: 'idoso' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -80,10 +81,11 @@ export default function AnamneseForm({ patientId }) {
       if (data.escolaridade) {
         await updateDoc(doc(db, 'patients', patientId), { education: data.escolaridade }).catch(() => {})
       }
+      if (prodoctorId) marcarAnamnesePreenchida(prodoctorId)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
-  }, [patientId])
+  }, [patientId, prodoctorId])
 
   const ch = useCallback((key, val) => {
     setForm(prev => {

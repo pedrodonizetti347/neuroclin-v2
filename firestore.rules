@@ -34,7 +34,11 @@ service cloud.firestore {
       return isAuth() && (isAdminOrSupervisor() || userRole() == 'secretaria');
     }
 
-    // Perfis de usuário — leitura simples sem get() circular
+    function isProfissional() {
+      return isAuth() && userRole() in ['profissional', 'professional'];
+    }
+
+    // Perfis de usuário
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow read: if isAdminOrSupervisor();
@@ -45,8 +49,7 @@ service cloud.firestore {
       allow update, delete: if isAdminOrSupervisor();
     }
 
-    // Pacientes — qualquer autenticado lê e cria; só admin/supervisor atualiza
-    // DELETE bloqueado via cliente — exclusão é sempre soft-delete (deleted:true)
+    // Pacientes
     match /patients/{patientId} {
       allow read: if isAuth();
       allow create: if isAuth();
@@ -54,17 +57,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Sessões de testes — qualquer autenticado lê e escreve (create/update)
-    // DELETE bloqueado via cliente — dados clínicos jamais são apagados diretamente
+    // Sessões de testes
     match /sessions/{sessionId} {
       allow read: if isAuth();
       allow create, update: if isAuth();
       allow delete: if false;
     }
 
-    // Laudos — admin/supervisor tem acesso total; profissional acessa os seus
-    // Entregador lê e atualiza apenas laudos aprovados
-    // DELETE bloqueado via cliente — exclusão é sempre soft-delete (deleted:true)
+    // Laudos
     match /reports/{reportId} {
       allow read, create, update: if isAdminOrSupervisor();
       allow read, create, update: if isAuth() && resource.data.professionalId == request.auth.uid;
@@ -73,55 +73,89 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Observações clínicas (notes) — por patientId
+    // Observações clínicas
     match /notes/{patientId} {
       allow read, create, update: if isAdminOrSupervisor();
       allow read, create, update: if isAuth() && get(/databases/$(database)/documents/patients/$(patientId)).data.createdBy == request.auth.uid;
       allow delete: if false;
     }
 
-    // Anamneses clínicas — DELETE bloqueado; qualquer autenticado cria/atualiza
+    // Anamneses clínicas
     match /anamneses/{patientId} {
       allow read: if isAuth();
       allow create, update: if isAuth();
       allow delete: if false;
     }
 
-    // Configurações da clínica — apenas admin/supervisor
+    // Configurações da clínica
     match /clinic_settings/{doc} {
       allow read, write: if isAdminOrSupervisor();
     }
 
-    // Log de auditoria — qualquer autenticado grava; só admin/supervisor lê
-    // DELETE bloqueado — logs são imutáveis
+    // Log de auditoria
     match /audit_logs/{logId} {
       allow read: if isAdminOrSupervisor();
       allow create: if isAuth();
       allow update, delete: if false;
     }
 
-    // Controle de correções de estagiários
+    // Controle de correções e fluxo de avaliação
     match /correcoes/{correcaoId} {
+      // Leitura:
+      //   admin/beliane → tudo
+      //   estagiário → apenas os seus
+      //   profissional → os seus + os sem atribuição (para self-assign)
       allow read: if isAuth() && (
         isBeliane() ||
-        (isEstagiario() && resource.data.estagiarioId == request.auth.uid)
+        (isEstagiario() && resource.data.estagiarioId == request.auth.uid) ||
+        (isProfissional() && (
+          resource.data.profissionalUid == request.auth.uid ||
+          resource.data.profissionalUid == null
+        ))
       );
-      allow create: if isBeliane() &&
-        request.resource.data.keys().hasAll(['paciente', 'profissional', 'dataEntrega', 'status']) &&
-        request.resource.data.status == 'aguardando';
+
+      // Criação: apenas admin/beliane (inclui sincronização pelo fluxoAvaliacaoService)
+      allow create: if isBeliane();
+
+      // Atualização: regras por role
       allow update: if isAuth() && (
         isBeliane() ||
+
+        // Estagiário: transições de etapa (novo fluxo) e status (legado)
         (
           isEstagiario() &&
           resource.data.estagiarioId == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'dataInicioCorrecao', 'dataFinalizacao']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'etapaAtual', 'assumidoEm', 'finalizadoEm',
+            'status', 'dataInicioCorrecao', 'dataFinalizacao'
+          ]) &&
           (
-            (resource.data.status == 'aguardando' && request.resource.data.status == 'corrigindo') ||
-            (resource.data.status == 'corrigindo' && request.resource.data.status == 'finalizado')
+            (resource.data.etapaAtual == 'aguardando_correcao'   && request.resource.data.etapaAtual == 'em_correcao') ||
+            (resource.data.etapaAtual == 'em_correcao'           && request.resource.data.etapaAtual == 'aguardando_aprovacao') ||
+            (resource.data.status     == 'aguardando'            && request.resource.data.status     == 'corrigindo') ||
+            (resource.data.status     == 'corrigindo'            && request.resource.data.status     == 'finalizado')
           )
+        ) ||
+
+        // Profissional: auto-atribuição (quando profissionalUid é null) ou atualização de anamnese
+        (
+          isProfissional() &&
+          (resource.data.profissionalUid == null || resource.data.profissionalUid == request.auth.uid) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'profissionalUid', 'profissionalNome',
+            'anamnese_preenchida', 'anamnesePreenchidaEm'
+          ])
+        ) ||
+
+        // Qualquer autenticado pode marcar anamnese como preenchida (fire-and-forget do AnamneseForm)
+        (
+          isAuth() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['anamnese_preenchida', 'anamnesePreenchidaEm']) &&
+          request.resource.data.anamnese_preenchida == true
         )
       );
+
       allow delete: if isAdmin();
     }
   }
