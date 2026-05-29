@@ -317,7 +317,9 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
         </div>
         <div>
           <div style={{ fontSize: 10, color: S.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Devolutiva</div>
-          <div style={{ fontSize: 12, color: '#8B5CF6' }}>{fmtDate(item.dataDevolutiva)}</div>
+          <div style={{ fontSize: 12, color: item.dataDevolutiva ? '#8B5CF6' : S.muted, fontStyle: item.dataDevolutiva ? 'normal' : 'italic' }}>
+            {item.dataDevolutiva ? fmtDate(item.dataDevolutiva) : 'A agendar'}
+          </div>
         </div>
         {item.finalizadoEm && (
           <div>
@@ -723,9 +725,18 @@ export default function Correcoes() {
         <div style={{ marginBottom: 14, padding: '10px 16px', borderRadius: 8, background: syncResult.erro ? 'rgba(239,68,68,0.1)' : 'rgba(76,175,80,0.1)', border: `1px solid ${syncResult.erro ? 'rgba(239,68,68,0.3)' : 'rgba(76,175,80,0.3)'}`, fontSize: 12, color: syncResult.erro ? '#EF4444' : '#4CAF50', display: 'flex', alignItems: 'center', gap: 8 }}>
           {syncResult.erro
             ? <><AlertCircle size={13} /> Erro: {syncResult.erro}</>
-            : <><CheckCircle2 size={13} /> Sincronização concluída — {syncResult.criados} criados, {syncResult.atualizados} atualizados, {syncResult.ignorados} ignorados
-              {syncResult.aviso && <span style={{ color: S.amber, marginLeft: 8 }}>({syncResult.aviso})</span>}
-            </>
+            : <>
+                <CheckCircle2 size={13} />
+                <span>
+                  Sincronização concluída — {syncResult.criados} criados, {syncResult.atualizados} atualizados, {syncResult.ignorados} ignorados
+                  {syncResult.aviso && <span style={{ color: S.amber, marginLeft: 6 }}>({syncResult.aviso})</span>}
+                </span>
+                {syncResult.intervalo && (
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 8 }}>
+                    · {syncResult.intervalo} · {syncResult.totalAgendamentos} agendamentos · {syncResult.totalPrevent} pacientes Prevent
+                  </span>
+                )}
+              </>
           }
           <button onClick={() => setSyncResult(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={13} /></button>
         </div>

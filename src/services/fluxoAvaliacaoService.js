@@ -5,10 +5,11 @@ import {
 import { db } from '@/lib/firebase'
 import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
 
-const DATA_CORTE = new Date('2026-05-29T00:00:00') // TEMPORÁRIO para testes — voltar para 2026-06-01
+const DATA_CORTE = new Date('2026-06-01T00:00:00')
 
-const DIAS_JANELA = 90        // últimos 3 meses
-const BATCH_DIAS  = 14        // dias em paralelo por lote (mesmo padrão getDevolutivas14Days)
+const DIAS_PASSADO = 90       // 3 meses atrás (consultas de testagem)
+const DIAS_FUTURO  = 90       // 3 meses à frente (devolutivas agendadas)
+const BATCH_DIAS   = 14       // dias em paralelo por lote (mesmo padrão getDevolutivas14Days)
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
@@ -83,10 +84,11 @@ async function buscarTodosAgendamentos() {
     return []
   }
 
-  // Monta array dos últimos DIAS_JANELA dias
-  const dias = Array.from({ length: DIAS_JANELA }, (_, i) => {
+  // Monta array: 3 meses atrás até 3 meses à frente
+  const totalDias = DIAS_PASSADO + DIAS_FUTURO + 1
+  const dias = Array.from({ length: totalDias }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - (DIAS_JANELA - 1 - i))
+    d.setDate(d.getDate() - DIAS_PASSADO + i)
     d.setHours(12, 0, 0, 0)
     return d
   })
@@ -114,15 +116,22 @@ async function buscarTodosAgendamentos() {
     }
   }
 
-  console.log(`[FluxoAvaliacao] ${totalChamadas} chamadas → ${todos.length} agendamentos totais (${professionals.length} profissionais, ${DIAS_JANELA} dias)`)
+  console.log(`[FluxoAvaliacao] ${totalChamadas} chamadas → ${todos.length} agendamentos totais (${professionals.length} profissionais, ${totalDias} dias)`)
   return todos
 }
 
 export async function sincronizarFluxoPrevent() {
+  // Calcula o intervalo para exibir no diagnóstico
+  const hoje = new Date()
+  const inicio = new Date(); inicio.setDate(hoje.getDate() - DIAS_PASSADO)
+  const fim    = new Date(); fim.setDate(hoje.getDate() + DIAS_FUTURO)
+  const fmtDiag = (d) => d.toLocaleDateString('pt-BR')
+  const intervalo = `${fmtDiag(inicio)} → ${fmtDiag(fim)}`
+
   const agendamentos = await buscarTodosAgendamentos()
 
   if (agendamentos.length === 0) {
-    return { criados: 0, atualizados: 0, ignorados: 0, aviso: 'Nenhum agendamento retornado pelo ProDoctor' }
+    return { criados: 0, atualizados: 0, ignorados: 0, intervalo, totalAgendamentos: 0, totalPrevent: 0, aviso: 'Nenhum agendamento retornado pelo ProDoctor' }
   }
 
   // Agrupa por paciente, filtrando apenas Prevent Sênior
@@ -148,7 +157,7 @@ export async function sincronizarFluxoPrevent() {
   const totalPrevent = Object.keys(porPaciente).length
   console.log(`[FluxoAvaliacao] ${totalPrevent} pacientes Prevent Sênior encontrados`)
 
-  const res = { criados: 0, atualizados: 0, ignorados: 0 }
+  const res = { criados: 0, atualizados: 0, ignorados: 0, intervalo, totalAgendamentos: agendamentos.length, totalPrevent }
 
   for (const [pacienteId, dados] of Object.entries(porPaciente)) {
     const consultas = dados.consultas.sort((a, b) => a.data - b.data)
