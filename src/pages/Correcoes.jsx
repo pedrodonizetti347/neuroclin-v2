@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   collection, getDocs, addDoc, updateDoc, doc,
   query, orderBy, serverTimestamp, where
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
+import { searchPatients, listProfessionals } from '@/services/prodoctorApi'
 import {
   ClipboardList, Plus, X, Check, RefreshCw,
   User, Calendar, Clock, Search, Loader2,
@@ -174,27 +175,86 @@ function CorrecaoCard({ item, onChangeStatus, isEstagiario, isBeliane }) {
   )
 }
 
-function ModalCadastro({ profissionais, estagiarios, onSave, onClose }) {
+function ModalCadastro({ estagiarios, onSave, onClose }) {
   const [form, setForm] = useState({
-    paciente: '', profissionalId: '', estagiarioId: '',
-    dataEntrega: new Date().toISOString().split('T')[0], dataDevolutiva: '',
+    pacienteNome: '',
+    pacienteCodigo: '',
+    profissionalId: '',
+    profissionalNome: '',
+    estagiarioId: '',
+    dataEntrega: new Date().toISOString().split('T')[0],
+    dataDevolutiva: '',
   })
+
+  const [buscaPaciente,       setBuscaPaciente]       = useState('')
+  const [resultadosPac,       setResultadosPac]        = useState([])
+  const [buscandoPac,         setBuscandoPac]          = useState(false)
+  const [pacienteSelecionado, setPacienteSelecionado]  = useState(false)
+
+  const [profissionais,     setProfissionais]    = useState([])
+  const [carregandoProfs,   setCarregandoProfs]  = useState(true)
+
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [error,  setError]  = useState('')
+  const buscaRef = useRef(null)
+
+  useEffect(() => {
+    listProfessionals()
+      .then(lista => {
+        setProfissionais(lista.map(p => ({
+          id:   String(p.codigo ?? p.id ?? ''),
+          nome: p.nome ?? p.nomeCivil ?? '',
+        })).filter(p => p.id && p.nome))
+      })
+      .catch(() => setProfissionais([]))
+      .finally(() => setCarregandoProfs(false))
+  }, [])
+
+  useEffect(() => {
+    if (pacienteSelecionado) return
+    if (buscaPaciente.length < 2) { setResultadosPac([]); return }
+    const timer = setTimeout(async () => {
+      setBuscandoPac(true)
+      try {
+        const res = await searchPatients(buscaPaciente)
+        setResultadosPac(res.slice(0, 8))
+      } catch {
+        setResultadosPac([])
+      } finally {
+        setBuscandoPac(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [buscaPaciente, pacienteSelecionado])
+
+  function selecionarPaciente(p) {
+    setBuscaPaciente(p.full_name)
+    setForm(f => ({ ...f, pacienteNome: p.full_name, pacienteCodigo: p.prodoctor_id }))
+    setResultadosPac([])
+    setPacienteSelecionado(true)
+  }
+
+  function limparPaciente() {
+    setBuscaPaciente('')
+    setForm(f => ({ ...f, pacienteNome: '', pacienteCodigo: '' }))
+    setPacienteSelecionado(false)
+    setResultadosPac([])
+    setTimeout(() => buscaRef.current?.focus(), 50)
+  }
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
   async function salvar() {
-    if (!form.paciente.trim()) return setError('Informe o nome do paciente.')
-    if (!form.profissionalId)  return setError('Selecione o profissional.')
-    if (!form.dataEntrega)     return setError('Informe a data de entrega.')
+    if (!form.pacienteNome)     return setError('Selecione o paciente.')
+    if (!form.profissionalNome) return setError('Selecione o profissional.')
+    if (!form.dataEntrega)      return setError('Informe a data de entrega.')
     setSaving(true); setError('')
-    const prof  = profissionais.find(p => p.id === form.profissionalId)
     const estag = estagiarios.find(e => e.id === form.estagiarioId)
     await onSave({
-      paciente:       form.paciente.trim(),
+      paciente:       form.pacienteNome,
+      pacienteCodigo: form.pacienteCodigo,
       profissionalId: form.profissionalId,
-      profissional:   prof?.nome || prof?.name || prof?.full_name || '—',
+      profissional:   form.profissionalNome,
       estagiarioId:   form.estagiarioId || null,
       estagiarioNome: estag?.nome || estag?.name || estag?.full_name || null,
       dataEntrega:    new Date(form.dataEntrega + 'T12:00:00'),
@@ -212,24 +272,99 @@ function ModalCadastro({ profissionais, estagiarios, onSave, onClose }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
       <div style={{ background: '#1A2744', borderRadius: 14, width: '100%', maxWidth: 520, border: '1px solid rgba(255,255,255,0.08)' }}>
+
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Plus size={15} color="#4CAF50" /> Novo prontuário para correção
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={18} /></button>
         </div>
+
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Busca de paciente */}
           <div>
-            <label style={labelStyle}>Nome do paciente</label>
-            <input value={form.paciente} onChange={e => set('paciente', e.target.value)} placeholder="Digite o nome completo..." style={inputStyle()} />
+            <label style={labelStyle}>Paciente (ProDoctor)</label>
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search size={13} style={{ position: 'absolute', left: 10, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }} />
+                <input
+                  ref={buscaRef}
+                  value={buscaPaciente}
+                  onChange={e => { setBuscaPaciente(e.target.value); setPacienteSelecionado(false) }}
+                  placeholder="Digite o nome do paciente..."
+                  disabled={pacienteSelecionado}
+                  style={inputStyle({ paddingLeft: 30, paddingRight: pacienteSelecionado ? 36 : 12, opacity: pacienteSelecionado ? 0.8 : 1 })}
+                />
+                {buscandoPac && (
+                  <Loader2 size={13} style={{ position: 'absolute', right: 10, color: '#4CAF50', animation: 'spin 1s linear infinite' }} />
+                )}
+                {pacienteSelecionado && (
+                  <button onClick={limparPaciente} title="Limpar" style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', display: 'flex', padding: 2 }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {resultadosPac.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                  background: '#1A2744', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8, marginTop: 4, maxHeight: 220, overflowY: 'auto',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                }}>
+                  {resultadosPac.map(p => (
+                    <button key={p.prodoctor_id} onClick={() => selecionarPaciente(p)} style={{
+                      width: '100%', textAlign: 'left', padding: '10px 14px',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      display: 'flex', flexDirection: 'column', gap: 2,
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{p.full_name}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        Cód: {p.prodoctor_id}
+                        {p.birth_date ? ` · Nasc: ${new Date(p.birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!buscandoPac && buscaPaciente.length >= 2 && resultadosPac.length === 0 && !pacienteSelecionado && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#1A2744', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, marginTop: 4, padding: '12px 14px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                  Nenhum paciente encontrado no ProDoctor
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Profissional do ProDoctor */}
           <div>
-            <label style={labelStyle}>Profissional que aplicou</label>
-            <select value={form.profissionalId} onChange={e => set('profissionalId', e.target.value)} style={inputStyle()}>
-              <option value="">Selecione...</option>
-              {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome || p.name || p.full_name}</option>)}
-            </select>
+            <label style={labelStyle}>Profissional que aplicou (ProDoctor)</label>
+            {carregandoProfs ? (
+              <div style={{ ...inputStyle(), display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.4)' }}>
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Carregando profissionais...
+              </div>
+            ) : (
+              <select
+                value={form.profissionalId}
+                onChange={e => {
+                  const prof = profissionais.find(p => p.id === e.target.value)
+                  set('profissionalId', e.target.value)
+                  set('profissionalNome', prof?.nome || '')
+                }}
+                style={inputStyle()}
+              >
+                <option value="">Selecione...</option>
+                {profissionais.map(p => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              </select>
+            )}
           </div>
+
+          {/* Estagiário (do Firebase) */}
           <div>
             <label style={labelStyle}>Estagiário responsável <span style={{ color: 'rgba(255,255,255,0.4)' }}>(opcional)</span></label>
             <select value={form.estagiarioId} onChange={e => set('estagiarioId', e.target.value)} style={inputStyle()}>
@@ -237,6 +372,8 @@ function ModalCadastro({ profissionais, estagiarios, onSave, onClose }) {
               {estagiarios.map(e => <option key={e.id} value={e.id}>{e.nome || e.name || e.full_name}</option>)}
             </select>
           </div>
+
+          {/* Datas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Data de entrega</label>
@@ -247,7 +384,13 @@ function ModalCadastro({ profissionais, estagiarios, onSave, onClose }) {
               <input type="date" value={form.dataDevolutiva} onChange={e => set('dataDevolutiva', e.target.value)} style={inputStyle()} />
             </div>
           </div>
-          {error && <div style={{ fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}><AlertCircle size={12} /> {error}</div>}
+
+          {error && (
+            <div style={{ fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertCircle size={12} /> {error}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
             <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer' }}>
               Cancelar
@@ -437,7 +580,7 @@ export default function Correcoes() {
       )}
 
       {modalAberto && (
-        <ModalCadastro profissionais={profissionais} estagiarios={estagiarios} onSave={salvarNova} onClose={() => setModalAberto(false)} />
+        <ModalCadastro estagiarios={estagiarios} onSave={salvarNova} onClose={() => setModalAberto(false)} />
       )}
 
       <style>{`
