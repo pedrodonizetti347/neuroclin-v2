@@ -2201,6 +2201,7 @@ export default function Reports() {
 
   const [corrModal,      setCorrModal]      = useState(false)
   const [corrObs,        setCorrObs]        = useState('')
+  const [corrConclusao,  setCorrConclusao]  = useState('')
   const [corrEnfim,      setCorrEnfim]      = useState('')
   const [corrMotivo,     setCorrMotivo]     = useState('')
   const [corrSaving,     setCorrSaving]     = useState(false)
@@ -2582,33 +2583,53 @@ export default function Reports() {
     }
   }
 
-  const extractSection = (html, sectionName) => {
+  // Extrai todo o conteúdo de texto entre o cabeçalho de uma seção e a próxima
+  const extractSectionFull = (html, sectionName, nextSection) => {
     const idx = html.indexOf('>' + sectionName + '<')
     if (idx < 0) return ''
-    const pStart = html.indexOf('<p ', idx)
-    if (pStart < 0) return ''
-    const pContentStart = html.indexOf('>', pStart) + 1
-    const pEnd = html.indexOf('</p>', pContentStart)
-    if (pEnd < 0) return ''
-    return html.substring(pContentStart, pEnd).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
+    const headerEnd = html.indexOf('</div>', idx) + 6
+    let endIdx = html.length
+    if (nextSection) {
+      const nextIdx = html.indexOf('>' + nextSection + '<', headerEnd)
+      if (nextIdx > 0) endIdx = html.lastIndexOf('<div', nextIdx)
+    }
+    return html.substring(headerEnd, endIdx)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<p[^>]*>/gi, '')
+      .replace(/<\/?div[^>]*>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
   }
 
-  const replaceSection = (html, sectionName, newText) => {
+  // Substitui todo o conteúdo de uma seção preservando o cabeçalho e o restante
+  const replaceSectionFull = (html, sectionName, nextSection, newText) => {
     const idx = html.indexOf('>' + sectionName + '<')
     if (idx < 0) return html
-    const pStart = html.indexOf('<p ', idx)
-    if (pStart < 0) return html
-    const pTagEnd = html.indexOf('>', pStart) + 1
-    const pEnd = html.indexOf('</p>', pTagEnd)
-    if (pEnd < 0) return html
-    const escaped = newText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
-    return html.substring(0, pTagEnd) + escaped + '</p>' + html.substring(pEnd + 4)
+    const headerEnd = html.indexOf('</div>', idx) + 6
+    let endIdx = html.length
+    if (nextSection) {
+      const nextIdx = html.indexOf('>' + nextSection + '<', headerEnd)
+      if (nextIdx > 0) endIdx = html.lastIndexOf('<div', nextIdx)
+    }
+    const paraStyle = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
+    const paragraphs = newText.split(/\n\n+/)
+      .map(p => p.trim()).filter(Boolean)
+      .map(p => `<p style="${paraStyle}">${p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</p>`)
+      .join('\n')
+    return html.substring(0, headerEnd) + '\n' + paragraphs + '\n\n' + html.substring(endIdx)
   }
+
+  // Compat — extração de seção simples (primeiro <p> apenas)
+  const extractSection = (html, sectionName) => extractSectionFull(html, sectionName, null).split('\n\n')[0] || ''
+  const replaceSection = (html, sectionName, newText) => replaceSectionFull(html, sectionName, null, newText)
 
   const openCorrModal = () => {
     const html = report || ''
-    setCorrObs(extractSection(html, 'OBSERVAÇÕES COMPORTAMENTAIS'))
-    setCorrEnfim(extractSection(html, 'ENFIM'))
+    setCorrObs(extractSectionFull(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO'))
+    setCorrConclusao(extractSectionFull(html, 'CONCLUSÃO', 'ENFIM'))
+    setCorrEnfim(extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS'))
     setCorrMotivo('')
     setCorrError('')
     setCorrModal(true)
@@ -2620,11 +2641,13 @@ export default function Reports() {
     setCorrSaving(true)
     try {
       const html = report || ''
-      const oldObs   = extractSection(html, 'OBSERVAÇÕES COMPORTAMENTAIS')
-      const oldEnfim = extractSection(html, 'ENFIM')
+      const oldObs       = extractSectionFull(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO')
+      const oldConclusao = extractSectionFull(html, 'CONCLUSÃO', 'ENFIM')
+      const oldEnfim     = extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS')
       let updated = html
-      if (corrObs   !== oldObs)   updated = replaceSection(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', corrObs)
-      if (corrEnfim !== oldEnfim) updated = replaceSection(updated, 'ENFIM', corrEnfim)
+      if (corrObs       !== oldObs)       updated = replaceSectionFull(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO', corrObs)
+      if (corrConclusao !== oldConclusao) updated = replaceSectionFull(updated, 'CONCLUSÃO', 'ENFIM', corrConclusao)
+      if (corrEnfim     !== oldEnfim)     updated = replaceSectionFull(updated, 'ENFIM', 'ENCAMINHAMENTOS', corrEnfim)
       await updateDoc(doc(db, 'reports', savedReportId), {
         reportHtml: updated,
         updatedAt: serverTimestamp(),
@@ -2633,8 +2656,9 @@ export default function Reports() {
       logAction(user, 'laudo_corrigido_entrega', {
         patientId, reportId: savedReportId,
         motivo: corrMotivo,
-        obs_anterior: oldObs, obs_novo: corrObs,
-        enfim_anterior: oldEnfim, enfim_novo: corrEnfim,
+        obs_anterior: oldObs,       obs_novo: corrObs,
+        conclusao_anterior: oldConclusao, conclusao_nova: corrConclusao,
+        enfim_anterior: oldEnfim,   enfim_novo: corrEnfim,
       })
       logAction(user, 'laudo_aprovado_entregador', {
         patientId, reportId: savedReportId,
@@ -3156,7 +3180,17 @@ export default function Reports() {
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>CONCLUSÃO / HIPÓTESE DIAGNÓSTICA (ENFIM)</label>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>CONCLUSÃO COMPLETA</label>
+                    <textarea
+                      value={corrConclusao}
+                      onChange={e => setCorrConclusao(e.target.value)}
+                      rows={12}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 12, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.6 }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>HIPÓTESE DIAGNÓSTICA (ENFIM)</label>
                     <textarea
                       value={corrEnfim}
                       onChange={e => setCorrEnfim(e.target.value)}
