@@ -2184,6 +2184,7 @@ export default function Reports() {
   const [reopenPassword, setReopenPassword] = useState('')
   const [reopenError,    setReopenError]    = useState('')
   const [reopenLoading,  setReopenLoading]  = useState(false)
+  const [reportLoading,  setReportLoading]  = useState(false)
   const autoSaveTimer = useRef(null)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
   const [quickAnamnese,  setQuickAnamnese]  = useState({
@@ -2261,42 +2262,50 @@ export default function Reports() {
   useEffect(() => {
     if (!patientId || !user) return
     session.loadSession()
+    // Resetar estado antes de carregar novo paciente
+    setReport(''); setReportStatus('rascunho'); setSaved(false)
+    setSavedReportId(null); setApprovalInfo(null); setReportLoading(true)
     // Carrega o laudo mais recente salvo para este paciente
     ;(async () => {
       try {
-        // Sem orderBy para evitar exigência de índice composto no Firestore
-        const q = query(
-          collection(db, 'reports'),
-          where('patientId', '==', patientId),
-          limit(10)
-        )
+        // Para entregador: busca apenas laudos aprovados
+        const base = collection(db, 'reports')
+        const q = isEntregador
+          ? query(base, where('patientId', '==', patientId), where('status', '==', 'aprovado'), limit(5))
+          : query(base, where('patientId', '==', patientId), limit(10))
         const snap = await getDocs(q)
         if (!snap.empty) {
           // Laudos aprovados têm prioridade sobre rascunhos mais recentes
-          const sorted = snap.docs.sort((a, b) => {
-            const aData = a.data()
-            const bData = b.data()
-            const aApproved = aData.status === 'aprovado' ? 1 : 0
-            const bApproved = bData.status === 'aprovado' ? 1 : 0
-            if (bApproved !== aApproved) return bApproved - aApproved
-            const aT = aData.createdAt?.seconds ?? 0
-            const bT = bData.createdAt?.seconds ?? 0
-            return bT - aT
-          })
-          const d = sorted[0]
-          const data = d.data()
-          setReport(data.reportHtml || '')
-          setSelectedTests(data.selectedTests || [])
-          setReportStatus(data.status || 'rascunho')
-          setSavedReportId(d.id)
-          setSaved(true)
-          if (data.aiBodyHtml)  setAiBodyState(stripMdFences(data.aiBodyHtml))
-          if (data.appliedBy)   setAppliedBy(data.appliedBy)
-          if (data.reportDate)  setReportDate(data.reportDate)
-          if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
+          const sorted = snap.docs
+            .filter(d => !d.data().deleted)
+            .sort((a, b) => {
+              const aData = a.data()
+              const bData = b.data()
+              const aApproved = aData.status === 'aprovado' ? 1 : 0
+              const bApproved = bData.status === 'aprovado' ? 1 : 0
+              if (bApproved !== aApproved) return bApproved - aApproved
+              const aT = aData.updatedAt?.seconds ?? aData.createdAt?.seconds ?? 0
+              const bT = bData.updatedAt?.seconds ?? bData.createdAt?.seconds ?? 0
+              return bT - aT
+            })
+          if (sorted.length > 0) {
+            const d = sorted[0]
+            const data = d.data()
+            setReport(data.reportHtml || '')
+            setSelectedTests(data.selectedTests || [])
+            setReportStatus(data.status || 'rascunho')
+            setSavedReportId(d.id)
+            setSaved(true)
+            if (data.aiBodyHtml)  setAiBodyState(stripMdFences(data.aiBodyHtml))
+            if (data.appliedBy)   setAppliedBy(data.appliedBy)
+            if (data.reportDate)  setReportDate(data.reportDate)
+            if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
+          }
         }
       } catch (e) {
         console.error('[loadLatestReport]', e)
+      } finally {
+        setReportLoading(false)
       }
     })()
   }, [patientId, user])
@@ -2978,7 +2987,12 @@ export default function Reports() {
             </div>
           )}
 
-          {isEntregador && patientId && reportStatus !== 'aprovado' && (
+          {isEntregador && patientId && reportLoading && (
+            <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 10, fontSize: 12, color: S.muted, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Buscando laudo aprovado...
+            </div>
+          )}
+          {isEntregador && patientId && !reportLoading && reportStatus !== 'aprovado' && (
             <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, fontSize: 12, color: '#F59E0B' }}>
               Nenhum laudo aprovado encontrado para este paciente.
             </div>
