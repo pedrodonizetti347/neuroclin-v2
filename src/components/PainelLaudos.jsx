@@ -65,7 +65,7 @@ const ETAPAS_CONCLUIDAS = new Set(['aguardando_aprovacao', 'pronto_devolutiva'])
 export default function PainelLaudos() {
   const { user } = useAuth();
   const navigate  = useNavigate();
-  const isProfessional = user?.role === 'professional';
+  const isProfessional = user?.role === 'professional' || user?.role === 'entregador';
 
   const [laudos, setLaudos] = useState([]);
   const [statusMap, setStatusMap] = useState({});

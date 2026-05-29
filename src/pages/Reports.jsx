@@ -2202,7 +2202,7 @@ export default function Reports() {
 
   const isSupervisor   = user?.role === 'admin' || user?.role === 'supervisor'
   const isEntregador   = user?.role === 'entregador'
-  const isProfessional = user?.role === 'professional'
+  const isProfessional = user?.role === 'professional' || user?.role === 'entregador'
 
   const [corrSaving, setCorrSaving] = useState(false)
 

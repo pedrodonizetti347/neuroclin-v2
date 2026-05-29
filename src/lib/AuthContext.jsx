@@ -24,7 +24,7 @@ const ROLE_PERMISSIONS = {
   supervisor:   ['generate_report', 'upload_anamnese', 'approve_report'],
   professional: ['generate_report', 'upload_anamnese'],
   estagiario:   [],
-  entregador:   [],
+  entregador:   ['generate_report', 'upload_anamnese'],
 }
 export function hasPermission(user, permission) {
   return ROLE_PERMISSIONS[user?.role]?.includes(permission) ?? false
