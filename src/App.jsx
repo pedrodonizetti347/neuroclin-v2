@@ -14,7 +14,8 @@ import Admin      from '@/pages/Admin'
 import Settings    from '@/pages/Settings'
 import Devolutivas from '@/pages/Devolutivas'
 import Manual      from '@/pages/Manual'
-import Correcoes   from '@/pages/Correcoes'
+import Correcoes          from '@/pages/Correcoes'
+import DiagnosticoPrevent from '@/pages/DiagnosticoPrevent'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } }
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/admin"         element={<Admin />} />
         <Route path="/admin-setup"   element={<AdminSetup />} />
         <Route path="/manual"        element={<Manual />} />
+        <Route path="/diagnostico"   element={<DiagnosticoPrevent />} />
         <Route path="*"              element={<Dashboard />} />
       </Routes>
     </Layout>
