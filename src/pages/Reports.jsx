@@ -2268,16 +2268,13 @@ export default function Reports() {
     // Carrega o laudo mais recente salvo para este paciente
     ;(async () => {
       try {
-        // Para entregador: busca apenas laudos aprovados
         const base = collection(db, 'reports')
-        const q = isEntregador
-          ? query(base, where('patientId', '==', patientId), where('status', '==', 'aprovado'), limit(5))
-          : query(base, where('patientId', '==', patientId), limit(10))
+        const q = query(base, where('patientId', '==', patientId), limit(20))
         const snap = await getDocs(q)
         if (!snap.empty) {
-          // Laudos aprovados têm prioridade sobre rascunhos mais recentes
+          // Para entregador: filtra apenas aprovados localmente (evita índice composto)
           const sorted = snap.docs
-            .filter(d => !d.data().deleted)
+            .filter(d => !d.data().deleted && (!isEntregador || d.data().status === 'aprovado'))
             .sort((a, b) => {
               const aData = a.data()
               const bData = b.data()
