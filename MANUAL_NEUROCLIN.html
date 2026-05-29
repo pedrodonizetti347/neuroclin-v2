@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manual do Usuário — NeuroClin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #1a1a2e; font-size: 14px; line-height: 1.6; }
+
+  .cover {
+    background: linear-gradient(135deg, #0D1117 0%, #1A2744 60%, #1A3D2B 100%);
+    color: #fff; padding: 80px 60px; text-align: center; page-break-after: always;
+  }
+  .cover .logo { font-size: 42px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
+  .cover .logo span { color: #4CAF50; }
+  .cover .sub { font-size: 16px; color: rgba(255,255,255,0.55); margin-bottom: 48px; }
+  .cover .title { font-size: 28px; font-weight: 700; margin-bottom: 12px; color: #fff; }
+  .cover .desc { font-size: 15px; color: rgba(255,255,255,0.6); max-width: 500px; margin: 0 auto 60px; }
+  .cover .badge {
+    display: inline-block; padding: 6px 20px; border-radius: 20px;
+    border: 1px solid rgba(76,175,80,0.4); color: #4CAF50; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .cover .footer-info { margin-top: 60px; font-size: 12px; color: rgba(255,255,255,0.3); }
+
+  .page { max-width: 860px; margin: 0 auto; padding: 40px 60px; }
+
+  h1 { font-size: 22px; font-weight: 800; color: #1A3D2B; border-left: 4px solid #2E7D32; padding-left: 14px; margin: 40px 0 20px; }
+  h2 { font-size: 16px; font-weight: 700; color: #1A2744; margin: 28px 0 12px; }
+  h3 { font-size: 14px; font-weight: 700; color: #2E7D32; margin: 20px 0 8px; }
+  p { margin-bottom: 10px; color: #333; }
+
+  .toc { background: #fff; border-radius: 12px; padding: 28px 32px; margin: 32px 0; border: 1px solid #e0e6ed; }
+  .toc-title { font-size: 13px; font-weight: 700; color: #1A3D2B; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+  .toc a { display: block; color: #1A2744; text-decoration: none; font-size: 13px; padding: 4px 0; border-bottom: 1px dotted #e0e6ed; }
+  .toc a:last-child { border-bottom: none; }
+  .toc a:hover { color: #2E7D32; }
+  .toc .section-num { color: #2E7D32; font-weight: 700; margin-right: 8px; }
+
+  .card { background: #fff; border-radius: 12px; padding: 24px 28px; margin: 16px 0; border: 1px solid #e0e6ed; }
+  .card-green { border-left: 4px solid #2E7D32; }
+  .card-blue  { border-left: 4px solid #1A2744; }
+  .card-warn  { border-left: 4px solid #F59E0B; background: #fffbf0; }
+  .card-info  { border-left: 4px solid #0369A1; background: #f0f7ff; }
+
+  .step { display: flex; gap: 14px; margin: 10px 0; align-items: flex-start; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: #2E7D32; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-text { flex: 1; color: #333; font-size: 13.5px; }
+  .step-text strong { color: #1A3D2B; }
+
+  .role-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .role-prof  { background: rgba(46,125,50,0.12); color: #2E7D32; }
+  .role-sup   { background: rgba(3,105,161,0.12); color: #0369A1; }
+  .role-adm   { background: rgba(124,58,237,0.12); color: #7C3AED; }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th { background: #1A3D2B; color: #fff; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+  td { padding: 9px 14px; border-bottom: 1px solid #eef0f4; color: #333; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  .test-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .test-item { background: #fff; border: 1px solid #e0e6ed; border-radius: 9px; padding: 14px 16px; }
+  .test-item .test-name { font-weight: 700; color: #1A3D2B; font-size: 13px; margin-bottom: 4px; }
+  .test-item .test-desc { font-size: 12px; color: #666; }
+
+  .url-box { background: #1A2744; color: #4CAF50; font-family: monospace; font-size: 14px; font-weight: 700; padding: 14px 20px; border-radius: 8px; margin: 12px 0; letter-spacing: 0.04em; }
+
+  .alert { background: #fff9e6; border: 1px solid #f0c040; border-radius: 9px; padding: 14px 18px; font-size: 13px; color: #7a5a00; margin: 12px 0; }
+  .alert strong { color: #5a3e00; }
+
+  .divider { border: none; border-top: 2px solid #eef0f4; margin: 40px 0; }
+
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { color: #333; margin-bottom: 5px; font-size: 13.5px; }
+
+  .tag { display: inline-block; background: #eef8ee; color: #2E7D32; border: 1px solid #c8e6c9; border-radius: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px; margin: 2px; }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 20px 40px; }
+    h1 { page-break-before: always; }
+    .cover { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="cover">
+  <div class="logo">Neuro<span>Clin</span></div>
+  <div class="sub">Sistema de Laudos Neuropsicológicos</div>
+  <div class="title">Manual do Usuário</div>
+  <div class="desc">Guia completo para profissionais e administradores do sistema</div>
+  <div class="badge">Versão 2.0 — 2026</div>
+  <div class="footer-info">
+    Neuroavaliação — Neuropsicologia na Prática<br>
+    Dr. Pedro Donizetti de Oliveira · CRP 06/82060
+  </div>
+</div>
+
+<!-- CONTEÚDO -->
+<div class="page">
+
+  <!-- SUMÁRIO -->
+  <div class="toc">
+    <div class="toc-title">Sumário</div>
+    <a href="#acesso"><span class="section-num">1.</span> Acesso ao sistema</a>
+    <a href="#dashboard"><span class="section-num">2.</span> Dashboard</a>
+    <a href="#pacientes"><span class="section-num">3.</span> Cadastro de pacientes</a>
+    <a href="#testes"><span class="section-num">4.</span> Aplicação de testes neuropsicológicos</a>
+    <a href="#laudos"><span class="section-num">5.</span> Geração de laudos</a>
+    <a href="#perfis"><span class="section-num">6.</span> Perfis de acesso (cargos)</a>
+    <a href="#admin"><span class="section-num">7.</span> Painel Administrador</a>
+    <a href="#dicas"><span class="section-num">8.</span> Dicas e boas práticas</a>
+  </div>
+
+  <!-- SEÇÃO 1 -->
+  <h1 id="acesso">1. Acesso ao sistema</h1>
+
+  <p>O NeuroClin é um sistema 100% online. Não é necessário instalar nenhum aplicativo — basta acessar pelo navegador (Chrome ou Edge recomendados).</p>
+
+  <div class="url-box">https://neuroclin-f55a5.web.app</div>
+
+  <h2>Como fazer login</h2>
+  <div class="card card-green">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Acesse a URL acima no navegador.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Digite o <strong>e-mail</strong> e a <strong>senha</strong> fornecidos pelo administrador.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Clique em <strong>ENTRAR</strong>.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Na primeira vez, recomenda-se <strong>trocar a senha</strong> clicando em "Esqueci minha senha" na tela de login.</div></div>
+  </div>
+
+  <div class="alert">
+    <strong>Importante:</strong> O acesso é restrito a profissionais autorizados. Não compartilhe sua senha com outras pessoas. Em caso de problemas com o login, entre em contato com o administrador do sistema.
+  </div>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 2 -->
+  <h1 id="dashboard">2. Dashboard</h1>
+
+  <p>Ao fazer login, você será direcionado ao <strong>Dashboard</strong> — a tela inicial do NeuroClin. Nela você encontra:</p>
+
+  <div class="card card-blue">
+    <ul>
+      <li><strong>Resumo de pacientes ativos</strong> — quantos pacientes você tem cadastrados</li>
+      <li><strong>Laudos recentes</strong> — os últimos laudos gerados</li>
+      <li><strong>Sessões de testes abertas</strong> — sessões com aplicação em andamento</li>
+      <li><strong>Acesso rápido</strong> às principais funcionalidades</li>
+    </ul>
+  </div>
+
+  <p>O menu lateral à esquerda dá acesso a todas as seções do sistema. Você pode recolhê-lo clicando no ícone de menu (☰) no topo.</p>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 3 -->
+  <h1 id="pacientes">3. Cadastro de pacientes</h1>
+
+  <p>Todos os dados clínicos ficam organizados por paciente. O primeiro passo antes de qualquer avaliação é <strong>cadastrar o paciente</strong>.</p>
+
+  <h2>Cadastrar novo paciente</h2>
+  <div class="card card-green">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Clique em <strong>Pacientes</strong> no menu lateral.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Clique no botão <strong>"Novo Paciente"</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Preencha os dados de identificação: nome completo, data de nascimento, sexo, escolaridade, telefone e e-mail.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Preencha a <strong>anamnese</strong>: queixas, histórico clínico, medicamentos, histórico familiar, entre outros.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">Clique em <strong>Salvar</strong>. O paciente ficará disponível para vinculação a testes e laudos.</div></div>
+  </div>
+
+  <h2>Editar ou buscar paciente</h2>
+  <p>Na listagem de pacientes, use o campo de busca para encontrar pelo nome. Clique no paciente para abrir o cadastro e editar qualquer informação.</p>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 4 -->
+  <h1 id="testes">4. Aplicação de testes neuropsicológicos</h1>
+
+  <p>O NeuroClin permite registrar os resultados dos principais instrumentos neuropsicológicos diretamente no sistema. Os dados são salvos automaticamente e usados na geração dos laudos.</p>
+
+  <h2>Como iniciar uma sessão de testes</h2>
+  <div class="card card-green">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Clique em <strong>Testes</strong> no menu lateral.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Selecione o <strong>paciente</strong> na lista suspensa.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Escolha o <strong>instrumento</strong> que deseja registrar (abas na parte superior da tela).</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Preencha os campos com os escores obtidos na aplicação presencial.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">O sistema calcula automaticamente <strong>z-scores, percentis e classificações</strong> em tempo real.</div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-text">Clique em <strong>Salvar</strong> ao final de cada instrumento.</div></div>
+  </div>
+
+  <h2>Instrumentos disponíveis</h2>
+  <div class="test-grid">
+    <div class="test-item">
+      <div class="test-name">NEUPSILIN</div>
+      <div class="test-desc">Instrumento de avaliação neuropsicológica breve — 8 domínios cognitivos</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">RAVLT</div>
+      <div class="test-desc">Rey Auditory Verbal Learning Test — memória episódica verbal</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">WASI</div>
+      <div class="test-desc">Wechsler Abbreviated Scale of Intelligence — QI estimado</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">WCST-N</div>
+      <div class="test-desc">Wisconsin Card Sorting Test (versão neurológica) — funções executivas</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">BAMS</div>
+      <div class="test-desc">Brief Assessment of Memory and Cognition — rastreio de memória</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">MoCA</div>
+      <div class="test-desc">Montreal Cognitive Assessment — rastreio cognitivo</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">FAB</div>
+      <div class="test-desc">Frontal Assessment Battery — funções frontais</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">GDS-15 / BDI-II / HAD</div>
+      <div class="test-desc">Escalas de rastreio de humor, depressão e ansiedade</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">IQCODE / BADL / Pfeffer</div>
+      <div class="test-desc">Escalas funcionais e de informante para demência</div>
+    </div>
+    <div class="test-item">
+      <div class="test-name">IDATE</div>
+      <div class="test-desc">Inventário de Ansiedade Traço-Estado</div>
+    </div>
+  </div>
+
+  <h2>Classificações automáticas</h2>
+  <p>Para cada escore inserido, o sistema exibe automaticamente uma das seguintes classificações:</p>
+  <div class="card card-blue">
+    <table>
+      <tr><th>Classificação</th><th>Critério (z-score)</th></tr>
+      <tr><td><span class="tag" style="background:#e8f5e9;color:#2E7D32">PRESERVADO</span></td><td>z ≥ −1,0</td></tr>
+      <tr><td><span class="tag" style="background:#fff8e1;color:#F59E0B">LIMÍTROFE</span></td><td>−1,5 ≤ z &lt; −1,0</td></tr>
+      <tr><td><span class="tag" style="background:#fce4ec;color:#C62828">COMPROMETIDO</span></td><td>z &lt; −1,5</td></tr>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 5 -->
+  <h1 id="laudos">5. Geração de laudos</h1>
+
+  <p>A funcionalidade central do NeuroClin é a <strong>geração automática de laudos neuropsicológicos</strong> com auxílio de inteligência artificial.</p>
+
+  <h2>Como gerar um laudo</h2>
+  <div class="card card-green">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Clique em <strong>Laudos</strong> no menu lateral.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Selecione o <strong>paciente</strong>. Os dados de anamnese e testes já cadastrados serão carregados automaticamente.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Selecione os <strong>testes</strong> que deseja incluir no laudo (marque apenas os que foram aplicados).</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Selecione o <strong>profissional aplicador</strong> responsável pela avaliação.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">Clique em <strong>Gerar Laudo</strong>. A IA processará os dados e redigirá o documento completo.</div></div>
+    <div class="step"><div class="step-num">6</div><div class="step-text">Revise o laudo gerado. Você pode <strong>editar</strong> qualquer seção antes de finalizar.</div></div>
+    <div class="step"><div class="step-num">7</div><div class="step-text">Clique em <strong>Salvar</strong> para arquivar o laudo com status <em>Rascunho</em>.</div></div>
+  </div>
+
+  <h2>Estrutura do laudo gerado</h2>
+  <p>O laudo segue a estrutura padrão do CFP (Res. 31/2022) com 8 seções interpretativas:</p>
+  <div class="card card-blue">
+    <ol style="padding-left:20px">
+      <li style="margin-bottom:6px"><strong>Análise das queixas e histórico clínico</strong></li>
+      <li style="margin-bottom:6px"><strong>Observações comportamentais</strong></li>
+      <li style="margin-bottom:6px"><strong>Análise neuropsicológica por domínios cognitivos</strong></li>
+      <li style="margin-bottom:6px"><strong>Avaliação do humor e aspectos emocionais</strong></li>
+      <li style="margin-bottom:6px"><strong>Funcionamento adaptativo e qualidade de vida</strong></li>
+      <li style="margin-bottom:6px"><strong>Síntese diagnóstica</strong></li>
+      <li style="margin-bottom:6px"><strong>Conclusão</strong></li>
+      <li style="margin-bottom:6px"><strong>Encaminhamentos e recomendações</strong></li>
+    </ol>
+  </div>
+
+  <h2>Status do laudo</h2>
+  <table>
+    <tr><th>Status</th><th>Significado</th></tr>
+    <tr><td><span class="tag" style="background:#f0f4ff;color:#1A2744">Rascunho</span></td><td>Laudo gerado, aguardando revisão do profissional</td></tr>
+    <tr><td><span class="tag" style="background:#fff8e1;color:#F59E0B">Aguardando aprovação</span></td><td>Enviado para revisão do supervisor/administrador</td></tr>
+    <tr><td><span class="tag" style="background:#e8f5e9;color:#2E7D32">Aprovado</span></td><td>Laudo revisado e liberado pelo supervisor</td></tr>
+  </table>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 6 -->
+  <h1 id="perfis">6. Perfis de acesso (cargos)</h1>
+
+  <p>O NeuroClin possui três níveis de acesso:</p>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Cargo</th>
+        <th>Funcionalidades</th>
+      </tr>
+      <tr>
+        <td><span class="role-badge role-prof">Profissional</span></td>
+        <td>Cadastra pacientes, aplica testes, gera laudos e visualiza apenas seus próprios dados</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge role-sup">Supervisor</span></td>
+        <td>Tudo do profissional + visualiza e aprova laudos de toda a equipe</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge role-adm">Administrador</span></td>
+        <td>Tudo do supervisor + gerencia usuários (criar, editar cargo, resetar senha)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="alert">
+    <strong>Atenção:</strong> Somente administradores têm acesso ao painel de gestão de usuários. Se precisar de permissão adicional, solicite ao administrador responsável.
+  </div>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 7 -->
+  <h1 id="admin">7. Painel Administrador</h1>
+
+  <p>O painel de administração está disponível no menu lateral, na seção <strong>GESTÃO → Administrador</strong>. Somente usuários com cargo <span class="role-badge role-adm">Administrador</span> ou <span class="role-badge role-sup">Supervisor</span> têm acesso.</p>
+
+  <h2>Criar novo profissional</h2>
+  <div class="card card-green">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Clique em <strong>Novo Profissional</strong> (botão verde, canto superior direito).</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Preencha <strong>nome completo, e-mail e senha inicial</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Selecione o <strong>cargo</strong>: Profissional, Supervisor ou Administrador.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Clique em <strong>Criar Acesso</strong>. O usuário já pode entrar com o e-mail e senha definidos.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">Informe ao profissional o e-mail e a senha inicial, e solicite que troque a senha no primeiro acesso.</div></div>
+  </div>
+
+  <h2>Editar cargo ou desativar acesso</h2>
+  <div class="card card-blue">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Na lista de usuários, localize o profissional.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Clique em <strong>Editar</strong>.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Altere o <strong>cargo</strong> ou desmarque <strong>"Acesso ativo"</strong> para bloquear o acesso.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Clique em <strong>Salvar</strong>.</div></div>
+  </div>
+
+  <h2>Registrar usuário por UID</h2>
+  <p>Use esta opção quando um usuário foi criado no sistema de autenticação mas não aparece na lista (por exemplo, após erro na criação inicial).</p>
+  <div class="card card-blue">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Clique em <strong>Registrar por UID</strong>.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">Informe o <strong>UID</strong> (disponível no Firebase Console → Authentication).</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Preencha nome, e-mail e cargo.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Clique em <strong>Registrar</strong>. O usuário aparecerá na lista imediatamente.</div></div>
+  </div>
+
+  <h2>Redefinir senha de um profissional</h2>
+  <div class="card card-blue">
+    <div class="step"><div class="step-num">1</div><div class="step-text">Na lista, clique no botão <strong>Senha</strong> ao lado do profissional.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">O sistema enviará um <strong>e-mail de redefinição</strong> para o endereço cadastrado.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">O profissional clica no link recebido por e-mail e define uma nova senha.</div></div>
+  </div>
+
+  <div class="alert">
+    <strong>Senhas nunca ficam visíveis</strong> — nem para administradores. Caso o profissional esqueça a senha, use sempre a opção de redefinição por e-mail.
+  </div>
+
+  <hr class="divider" />
+
+  <!-- SEÇÃO 8 -->
+  <h1 id="dicas">8. Dicas e boas práticas</h1>
+
+  <div class="card card-warn">
+    <h3 style="color:#92400e; margin-top:0">Segurança e sigilo</h3>
+    <ul>
+      <li>Nunca compartilhe sua senha. Cada profissional deve ter seu próprio acesso.</li>
+      <li>Ao terminar de usar o sistema em computador compartilhado, clique em <strong>Sair</strong> no rodapé do menu lateral.</li>
+      <li>Todos os dados são protegidos por autenticação e criptografia — somente você acessa os seus pacientes.</li>
+    </ul>
+  </div>
+
+  <div class="card card-info">
+    <h3 style="color:#0369A1; margin-top:0">Uso no dia a dia</h3>
+    <ul>
+      <li>Cadastre o paciente e preencha a anamnese <strong>antes</strong> de começar a aplicar os testes.</li>
+      <li>Salve os escores de cada instrumento logo após a aplicação — o sistema salva automaticamente a sessão.</li>
+      <li>Revise sempre o laudo gerado antes de finalizar: a IA produz um texto base sólido, mas o julgamento clínico do profissional é insubstituível.</li>
+      <li>Em caso de dúvidas técnicas ou problemas de acesso, entre em contato com o administrador responsável.</li>
+    </ul>
+  </div>
+
+  <div class="card card-green">
+    <h3 style="color:#1A3D2B; margin-top:0">Atualização do sistema</h3>
+    <ul>
+      <li>O NeuroClin é atualizado regularmente. Para garantir que está usando a versão mais recente, pressione <strong>Ctrl+Shift+R</strong> (ou Cmd+Shift+R no Mac) para recarregar a página.</li>
+      <li>Não é necessário instalar atualizações — tudo acontece automaticamente no servidor.</li>
+    </ul>
+  </div>
+
+  <hr class="divider" />
+
+  <div style="text-align:center; padding: 40px 0; color:#999; font-size:12px;">
+    <div style="font-size:18px; font-weight:800; color:#1A3D2B; margin-bottom:6px;">NeuroClin</div>
+    Sistema de Laudos Neuropsicológicos — Neuroavaliação<br>
+    Supervisão: Dr. Pedro Donizetti de Oliveira · CRP 06/82060<br><br>
+    Dúvidas ou suporte: entre em contato com o administrador do sistema
+  </div>
+
+</div>
+</body>
+</html>
