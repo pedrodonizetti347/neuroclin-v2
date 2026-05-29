@@ -34,7 +34,8 @@ const CARDS_FLUXO = [
   { key: 'em_correcao',  label: 'Em Correção',                   sub: 'Estagiário corrigindo',         color: '#3B82F6', icon: Clock,         etapa: 'em_correcao'  },
   { key: 'ag_aprovacao', label: 'Aguardando Aprovação',          sub: 'Supervisão pendente',           color: '#8B5CF6', icon: FileText,      etapa: 'aguardando_aprovacao' },
   { key: 'pronto_dev',   label: 'Prontos para Devolutiva',       sub: 'Laudos aprovados',              color: '#10B981', icon: CheckCircle2,  etapa: 'pronto_devolutiva'    },
-  { key: 'dev_proximos', label: 'Devolutivas próximos 7 dias',   sub: 'Retornos agendados ProDoctor',  color: '#0D9488', icon: CalendarClock, etapa: null },
+  { key: 'dev_proximos',    label: 'Devolutivas próximos 30 dias',       sub: 'Retornos agendados ProDoctor',          color: '#0D9488', icon: CalendarClock, etapa: null },
+  { key: 'quintas_proximas', label: '5ª Consultas — próximos 7 dias',  sub: 'Protocolos prestes a ser entregues',    color: '#D97706', icon: CalendarClock, etapa: null },
 ]
 
 const STATUS_CFG_DEV = {
@@ -238,6 +239,30 @@ export default function Dashboard() {
     loadAll()
   }, [user])
 
+  // Pacientes com 5ª consulta nos próximos 7 dias
+  const hojeMs = new Date(); hojeMs.setHours(0, 0, 0, 0)
+  const em7dias = new Date(hojeMs); em7dias.setDate(hojeMs.getDate() + 7)
+
+  function parseDataCorte(val) {
+    if (!val) return null
+    if (val?.toDate) return val.toDate()
+    if (val instanceof Date) return val
+    return null
+  }
+
+  function fmtDateShort(val) {
+    const d = parseDataCorte(val)
+    if (!d) return ''
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+  }
+
+  const quintasProximas = correcoes.filter(c => {
+    const dt = parseDataCorte(c.dataCorte)
+    if (!dt) return false
+    const d = new Date(dt); d.setHours(0, 0, 0, 0)
+    return d >= hojeMs && d <= em7dias
+  })
+
   const firstName = user?.full_name?.split(' ')[0] || 'Doutor(a)'
   const hour      = new Date().getHours()
   const greeting  = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
@@ -251,7 +276,8 @@ export default function Dashboard() {
     em_correcao:  correcoes.filter(c => c.etapaAtual === 'em_correcao').length,
     ag_aprovacao: correcoes.filter(c => c.etapaAtual === 'aguardando_aprovacao').length,
     pronto_dev:   correcoes.filter(c => c.etapaAtual === 'pronto_devolutiva').length,
-    dev_proximos: enrichedDevs.length,
+    dev_proximos:     enrichedDevs.length,
+    quintas_proximas: quintasProximas.length,
   }
 
   const nextDevs = [...enrichedDevs].sort((a, b) => a.date - b.date).slice(0, 8)
@@ -292,21 +318,28 @@ export default function Dashboard() {
               {CARDS_FLUXO.map((card) => {
                 const Icon = card.icon
                 const count = counts[card.key]
-                const isDevs = card.key === 'dev_proximos'
+                const isDevs    = card.key === 'dev_proximos'
+                const isQuintas = card.key === 'quintas_proximas'
 
                 if (isEstagiario && !canSeeFluxo && card.key !== 'em_correcao') return null
                 if (isProfissional && isDevs) return null
 
                 // Pacientes para listar dentro do card
                 let pacientes = []
-                if (!isDevs && card.etapa) {
+                if (!isDevs && !isQuintas && card.etapa) {
                   if (card.key === 'ag_anamnese') {
                     pacientes = correcoes.filter(c => c.etapaAtual && !c.anamnese_preenchida)
                   } else {
                     pacientes = correcoes.filter(c => c.etapaAtual === card.etapa)
                   }
                 } else if (isDevs) {
-                  pacientes = enrichedDevs.slice(0, 5).map(d => ({ paciente: d.paciente.nome, _dev: true }))
+                  pacientes = enrichedDevs.slice(0, 5).map(d => ({ paciente: d.paciente.nome }))
+                } else if (isQuintas) {
+                  pacientes = quintasProximas.map(c => ({
+                    paciente: c.paciente || '—',
+                    _date:    fmtDateShort(c.dataCorte),
+                    _prof:    c.profissionalNome || c.profissional || null,
+                  }))
                 }
 
                 const to = isDevs ? '/devolutivas' : '/correcoes'
@@ -347,9 +380,21 @@ export default function Dashboard() {
                       {pacientes.length > 0 && (
                         <div style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, paddingTop: 10 }}>
                           {pacientes.slice(0, 4).map((p, idx) => (
-                            <div key={idx} style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', padding: '3px 0', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: card.color, flexShrink: 0 }} />
-                              {p.paciente || p.full_name || p.nome}
+                            <div key={idx} style={{ padding: '3px 0' }}>
+                              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: card.color, flexShrink: 0 }} />
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {p.paciente || p.full_name || p.nome}
+                                </span>
+                                {p._date && (
+                                  <span style={{ color: card.color, fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{p._date}</span>
+                                )}
+                              </div>
+                              {p._prof && (
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', paddingLeft: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {p._prof}
+                                </div>
+                              )}
                             </div>
                           ))}
                           {pacientes.length > 4 && (
@@ -393,7 +438,7 @@ export default function Dashboard() {
             </div>
           ) : nextDevs.length === 0 ? (
             <div style={{ padding: '32px 18px', textAlign: 'center', color: S.muted, fontSize: 13 }}>
-              Nenhuma devolutiva agendada nos próximos 7 dias.
+              Nenhuma devolutiva agendada nos próximos 30 dias.
             </div>
           ) : (
             nextDevs.map((item, i) => <DevolutivaRow key={i} item={item} />)

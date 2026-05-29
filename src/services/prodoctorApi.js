@@ -292,7 +292,7 @@ export async function getDevolutivas14Days(forceRefresh = false) {
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const days = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
     return d
