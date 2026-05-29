@@ -134,24 +134,33 @@ export async function sincronizarFluxoPrevent() {
     return { criados: 0, atualizados: 0, ignorados: 0, intervalo, totalAgendamentos: 0, totalPrevent: 0, aviso: 'Nenhum agendamento retornado pelo ProDoctor' }
   }
 
-  // Agrupa por paciente, filtrando apenas Prevent Sênior
-  const porPaciente = {}
+  // PASSO 1: identifica pacientes Prevent Sênior pelas consultas de testagem
+  // (o agendamento de Retorno pode não ter "Prevent" no campo convênio)
+  const preventIds = new Set()
   for (const ag of agendamentos) {
     if (!ag.paciente) continue
     if (!isPreventSenior(ag)) continue
+    if (!isConsultaContavel(ag)) continue
+    const { id } = getPacienteInfo(ag)
+    if (id) preventIds.add(id)
+  }
 
+  // PASSO 2: para pacientes Prevent, processa TODOS os agendamentos
+  // (incluindo Retornos que podem não ter "prevent" no campo convênio)
+  const porPaciente = {}
+  for (const ag of agendamentos) {
+    if (!ag.paciente) continue
     const { id, nome } = getPacienteInfo(ag)
-    if (!id) continue
+    if (!id || !preventIds.has(id)) continue
 
     if (!porPaciente[id]) porPaciente[id] = { nome, consultas: [], retornos: [] }
 
-    // Usa a data do loop (_diaLoop) como fallback quando o campo 'data' está ausente
     const dtRaw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? null
     const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
     if (!dt) continue
 
-    if (isConsultaContavel(ag))  porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
-    else if (isRetornoFinal(ag)) porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
+    if (isRetornoFinal(ag))       porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
+    else if (isConsultaContavel(ag)) porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
   }
 
   const totalPrevent = Object.keys(porPaciente).length
@@ -162,50 +171,58 @@ export async function sincronizarFluxoPrevent() {
   for (const [pacienteId, dados] of Object.entries(porPaciente)) {
     const consultas = dados.consultas.sort((a, b) => a.data - b.data)
 
-    if (consultas.length < 5) { res.ignorados++; continue }
-
-    const quinta = consultas[4]
-    if (quinta.data < DATA_CORTE) { res.ignorados++; continue }
-
+    // Referência para buscar retorno após a última consulta
+    const ultimaConsulta = consultas[consultas.length - 1]
     const devFutura = dados.retornos
-      .filter(r => r.data > quinta.data)
+      .filter(r => ultimaConsulta ? r.data > ultimaConsulta.data : true)
       .sort((a, b) => a.data - b.data)[0]
 
+    // Verifica registro existente ANTES de aplicar data de corte
     const q = query(collection(db, 'correcoes'), where('pacienteCodigo', '==', pacienteId))
     const snap = await getDocs(q)
 
-    const base = {
-      pacienteCodigo:    pacienteId,
-      paciente:          dados.nome,
-      convenio:          'prevent_senior',
-      dataCorte:         quinta.data,
-      consultasContadas: consultas.map(c => c.data),
-      dataDevolutiva:    devFutura?.data ?? null,
-      atualizadoEm:      serverTimestamp(),
+    // Registro existente → atualiza sempre (sem filtro de data de corte)
+    // Garante que devolutivas futuras (ex: Maria Tegazzini 09/06) sejam gravadas
+    if (!snap.empty) {
+      const existente = snap.docs[0].data()
+      await updateDoc(doc(db, 'correcoes', snap.docs[0].id), {
+        paciente:          dados.nome,
+        consultasContadas: consultas.map(c => c.data),
+        dataDevolutiva:    devFutura?.data ?? existente.dataDevolutiva ?? null,
+        atualizadoEm:      serverTimestamp(),
+      })
+      res.atualizados++
+      continue
     }
 
-    if (snap.empty) {
-      await addDoc(collection(db, 'correcoes'), {
-        ...base,
-        etapaAtual:           'aguardando_correcao',
-        profissionalId:       null,
-        profissionalNome:     null,
-        profissionalUid:      null,
-        estagiarioId:         null,
-        estagiarioNome:       null,
-        anamnese_preenchida:  false,
-        entregueEmCorrecaoEm: null,
-        assumidoEm:           null,
-        finalizadoEm:         null,
-        aprovadoEm:           null,
-        criadoEm:             serverTimestamp(),
-        origem:               'prodoctor_auto',
-      })
-      res.criados++
-    } else {
-      await updateDoc(doc(db, 'correcoes', snap.docs[0].id), base)
-      res.atualizados++
-    }
+    // Novo registro → aplica filtros de data de corte
+    if (consultas.length < 5) { res.ignorados++; continue }
+    const quinta = consultas[4]
+    if (quinta.data < DATA_CORTE) { res.ignorados++; continue }
+
+    await addDoc(collection(db, 'correcoes'), {
+      pacienteCodigo:       pacienteId,
+      paciente:             dados.nome,
+      convenio:             'prevent_senior',
+      dataCorte:            quinta.data,
+      consultasContadas:    consultas.map(c => c.data),
+      dataDevolutiva:       devFutura?.data ?? null,
+      atualizadoEm:         serverTimestamp(),
+      etapaAtual:           'aguardando_correcao',
+      profissionalId:       null,
+      profissionalNome:     null,
+      profissionalUid:      null,
+      estagiarioId:         null,
+      estagiarioNome:       null,
+      anamnese_preenchida:  false,
+      entregueEmCorrecaoEm: null,
+      assumidoEm:           null,
+      finalizadoEm:         null,
+      aprovadoEm:           null,
+      criadoEm:             serverTimestamp(),
+      origem:               'prodoctor_auto',
+    })
+    res.criados++
   }
 
   return res
