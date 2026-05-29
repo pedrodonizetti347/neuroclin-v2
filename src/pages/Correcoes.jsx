@@ -93,6 +93,15 @@ function fmtDate(val) {
   return String(val)
 }
 
+function toInputDate(val) {
+  if (!val) return ''
+  let d
+  if (val?.toDate) d = val.toDate()
+  else if (val instanceof Date) d = val
+  else return ''
+  return d.toISOString().split('T')[0]
+}
+
 function inputStyle(extra = {}) {
   return {
     background: 'rgba(255,255,255,0.05)',
@@ -162,12 +171,13 @@ function AnamneseBadge({ preenchida }) {
   )
 }
 
-function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
+function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, onClickCard, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
   const status = item.status
   const temEtapa = !!etapa
   const [confirmando, setConfirmando] = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   function renderAcoes() {
     const btns = []
@@ -280,11 +290,18 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
   }
 
   return (
-    <div style={{
-      background: S.card, border: `1px solid ${cfg.border}`,
-      borderRadius: 10, padding: '14px 16px', marginBottom: 8,
-      display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
-    }}>
+    <div
+      onClick={onClickCard}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'rgba(30,50,80,0.95)' : S.card,
+        border: `1px solid ${hovered ? cfg.color : cfg.border}`,
+        borderRadius: 10, padding: '14px 16px', marginBottom: 8,
+        display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
+        cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
       <div style={{ minWidth: 120 }}><StatusBadge item={item} /></div>
 
       <div style={{ flex: 1, minWidth: 180 }}>
@@ -335,7 +352,165 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>{renderAcoes()}</div>
+      <div
+        style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {renderAcoes()}
+      </div>
+    </div>
+  )
+}
+
+function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAssumir, onClose, isEstagiario, isAdmin, isBeliane }) {
+  const cfg = getCfg(item)
+  const etapa = item.etapaAtual
+
+  const [profissionalUid,  setProfissionalUid]  = useState(item.profissionalUid  || '')
+  const [estagiarioId,     setEstagiarioId]     = useState(item.estagiarioId     || '')
+  const [dataDevolutiva,   setDataDevolutiva]   = useState(toInputDate(item.dataDevolutiva))
+  const [saving,           setSaving]           = useState(false)
+  const [assumindo,        setAssumindo]        = useState(false)
+
+  const podeAssumir = isEstagiario && (etapa === 'aguardando_correcao' || !item.estagiarioId)
+
+  function nomeDisplay(u) {
+    return u.full_name || u.nome || u.name || u.email || u.id
+  }
+
+  async function salvar() {
+    setSaving(true)
+    try {
+      const prof  = profissionaisFirestore.find(p => p.id === profissionalUid)
+      const estag = estagiarios.find(e => e.id === estagiarioId)
+      await onSave(item.id, {
+        profissionalUid:  profissionalUid  || null,
+        profissionalNome: prof  ? nomeDisplay(prof)  : (item.profissionalNome || null),
+        estagiarioId:     estagiarioId     || null,
+        estagiarioNome:   estag ? nomeDisplay(estag) : null,
+        dataDevolutiva:   dataDevolutiva ? new Date(dataDevolutiva + 'T12:00:00') : null,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function assumir() {
+    setAssumindo(true)
+    try { await onAssumir(item.id) }
+    finally { setAssumindo(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2100, display: 'flex' }} onClick={onClose}>
+      {/* backdrop */}
+      <div style={{ flex: 1, background: 'rgba(4,44,83,0.55)', backdropFilter: 'blur(3px)' }} />
+
+      {/* painel lateral */}
+      <div
+        style={{ width: 390, background: '#1A2744', borderLeft: '1px solid rgba(255,255,255,0.08)', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#1A2744', zIndex: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Detalhes do prontuário</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 4 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18, flex: 1 }}>
+
+          {/* Info do paciente */}
+          <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '14px 16px', border: `1px solid ${cfg.border}` }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{item.paciente || '—'}</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: item.dataCorte ? 8 : 0 }}>
+              <StatusBadge item={item} />
+              {item.convenio && <ConvenioBadge convenio={item.convenio} />}
+              {item.etapaAtual && <AnamneseBadge preenchida={item.anamnese_preenchida} />}
+            </div>
+            {item.dataCorte && (
+              <div style={{ fontSize: 11, color: S.muted }}>Data de corte: {fmtDate(item.dataCorte)}</div>
+            )}
+          </div>
+
+          {/* ATRIBUIR PROFISSIONAL */}
+          {(isBeliane || isAdmin) && (
+            <div>
+              <label style={labelStyle}>Atribuir profissional</label>
+              <select value={profissionalUid} onChange={e => setProfissionalUid(e.target.value)} style={inputStyle()}>
+                <option value="">Não atribuído</option>
+                {profissionaisFirestore.map(p => (
+                  <option key={p.id} value={p.id}>{nomeDisplay(p)}</option>
+                ))}
+              </select>
+              {item.profissionalNome && !profissionalUid && (
+                <div style={{ fontSize: 11, color: S.muted, marginTop: 5 }}>
+                  Profissional ProDoctor: {item.profissionalNome}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ATRIBUIR ESTAGIÁRIO */}
+          {(isBeliane || isAdmin) && (
+            <div>
+              <label style={labelStyle}>Atribuir estagiário</label>
+              <select value={estagiarioId} onChange={e => setEstagiarioId(e.target.value)} style={inputStyle()}>
+                <option value="">Não atribuído</option>
+                {estagiarios.map(e => <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* DATA DA DEVOLUTIVA */}
+          <div>
+            <label style={labelStyle}>Data da devolutiva</label>
+            {(isBeliane || isAdmin) ? (
+              <input type="date" value={dataDevolutiva} onChange={e => setDataDevolutiva(e.target.value)} style={inputStyle()} />
+            ) : (
+              <div style={{ fontSize: 13, padding: '8px 0', color: item.dataDevolutiva ? '#8B5CF6' : S.muted, fontStyle: item.dataDevolutiva ? 'normal' : 'italic' }}>
+                {item.dataDevolutiva ? fmtDate(item.dataDevolutiva) : 'A agendar'}
+              </div>
+            )}
+          </div>
+
+          {/* Leitura para não-admin */}
+          {!isBeliane && !isAdmin && (
+            <>
+              <div>
+                <label style={labelStyle}>Profissional responsável</label>
+                <div style={{ fontSize: 13, color: '#fff', padding: '8px 0' }}>{item.profissionalNome || item.profissional || '—'}</div>
+              </div>
+              <div>
+                <label style={labelStyle}>Estagiário</label>
+                <div style={{ fontSize: 13, color: item.estagiarioNome ? '#fff' : S.muted, padding: '8px 0' }}>{item.estagiarioNome || 'Não atribuído'}</div>
+              </div>
+            </>
+          )}
+
+          {/* ASSUMIR CORREÇÃO — estagiário */}
+          {podeAssumir && (
+            <button onClick={assumir} disabled={assumindo} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 9, border: 'none', background: assumindo ? 'rgba(59,130,246,0.4)' : '#3B82F6', color: '#fff', fontSize: 13, fontWeight: 700, cursor: assumindo ? 'not-allowed' : 'pointer', marginTop: 4 }}>
+              {assumindo
+                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Assumindo...</>
+                : <><UserCheck size={14} /> Assumir correção</>}
+            </button>
+          )}
+
+          {/* SALVAR — admin/secretaria */}
+          {(isBeliane || isAdmin) && (
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 'auto', paddingTop: 8 }}>
+              <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={salvar} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? 'rgba(46,125,50,0.5)' : '#2E7D32', color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {saving
+                  ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
+                  : <><Check size={13} /> Salvar atribuições</>}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -554,15 +729,17 @@ export default function Correcoes() {
   const isEstagiario = user?.role === 'estagiario'
   const isProfissional = user?.role === 'profissional' || user?.role === 'professional'
 
-  const [itens,        setItens]        = useState([])
-  const [estagiarios,  setEstagiarios]  = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [syncing,      setSyncing]      = useState(false)
-  const [syncResult,   setSyncResult]   = useState(null)
-  const [modalAberto,  setModalAberto]  = useState(false)
-  const [filtroEtapa,  setFiltroEtapa]  = useState('todos')
-  const [filtroBusca,  setFiltroBusca]  = useState('')
-  const [filtroEstag,  setFiltroEstag]  = useState('todos')
+  const [itens,                setItens]                = useState([])
+  const [estagiarios,          setEstagiarios]          = useState([])
+  const [profissionaisFirestore, setProfissionaisFirestore] = useState([])
+  const [loading,              setLoading]              = useState(true)
+  const [syncing,              setSyncing]              = useState(false)
+  const [syncResult,           setSyncResult]           = useState(null)
+  const [modalAberto,          setModalAberto]          = useState(false)
+  const [itemSelecionado,      setItemSelecionado]      = useState(null)
+  const [filtroEtapa,          setFiltroEtapa]          = useState('todos')
+  const [filtroBusca,          setFiltroBusca]          = useState('')
+  const [filtroEstag,          setFiltroEstag]          = useState('todos')
 
   async function carregar() {
     setLoading(true)
@@ -574,6 +751,7 @@ export default function Correcoes() {
       const profSnap = await getDocs(collection(db, 'users'))
       const todos = profSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       setEstagiarios(todos.filter(u => u.role === 'estagiario'))
+      setProfissionaisFirestore(todos.filter(u => u.role === 'profissional' || u.role === 'professional'))
     } catch (e) {
       console.error('[Correcoes]', e)
     } finally {
@@ -616,7 +794,7 @@ export default function Correcoes() {
     setItens(prev => prev.filter(i => i.id !== id))
   }
 
-  // Auto-atribuição de profissional
+  // Auto-atribuição de profissional (botão "Assumir caso" no card)
   async function assumirCaso(id) {
     const updates = {
       profissionalUid:  user.uid,
@@ -624,6 +802,26 @@ export default function Correcoes() {
     }
     await updateDoc(doc(db, 'correcoes', id), updates)
     setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+  }
+
+  // Estagiário assume correção pelo modal
+  async function assumirCorrecao(id) {
+    const updates = {
+      estagiarioId:   user.uid,
+      estagiarioNome: user.full_name || user.email || 'Estagiário',
+      etapaAtual:     'em_correcao',
+      assumidoEm:     new Date(),
+    }
+    await updateDoc(doc(db, 'correcoes', id), updates)
+    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    setItemSelecionado(null)
+  }
+
+  // Salvar atribuições pelo modal de detalhe
+  async function salvarAtribuicoes(id, dados) {
+    await updateDoc(doc(db, 'correcoes', id), dados)
+    setItens(prev => prev.map(i => i.id === id ? { ...i, ...dados } : i))
+    setItemSelecionado(null)
   }
 
   // Sincronização ProDoctor
@@ -846,6 +1044,7 @@ export default function Correcoes() {
                     onMudarEtapa={mudarEtapa}
                     onAssumir={assumirCaso}
                     onDelete={deletarCorrecao}
+                    onClickCard={() => setItemSelecionado(item)}
                     isEstagiario={isEstagiario}
                     isBeliane={isBeliane}
                     isAdmin={isAdmin}
@@ -861,6 +1060,20 @@ export default function Correcoes() {
 
       {modalAberto && (
         <ModalCadastro estagiarios={estagiarios} onSave={salvarNova} onClose={() => setModalAberto(false)} />
+      )}
+
+      {itemSelecionado && (
+        <ModalDetalhe
+          item={itemSelecionado}
+          profissionaisFirestore={profissionaisFirestore}
+          estagiarios={estagiarios}
+          onSave={salvarAtribuicoes}
+          onAssumir={assumirCorrecao}
+          onClose={() => setItemSelecionado(null)}
+          isEstagiario={isEstagiario}
+          isAdmin={isAdmin}
+          isBeliane={isBeliane}
+        />
       )}
 
       <style>{`
