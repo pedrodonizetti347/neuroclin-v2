@@ -2200,6 +2200,7 @@ export default function Reports() {
   const isEntregador  = user?.role === 'entregador'
 
   const [corrModal,      setCorrModal]      = useState(false)
+  const [corrAnamnese,   setCorrAnamnese]   = useState('')
   const [corrObs,        setCorrObs]        = useState('')
   const [corrConclusao,  setCorrConclusao]  = useState('')
   const [corrEnfim,      setCorrEnfim]      = useState('')
@@ -2627,6 +2628,7 @@ export default function Reports() {
 
   const openCorrModal = () => {
     const html = report || ''
+    setCorrAnamnese(extractSectionFull(html, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS'))
     setCorrObs(extractSectionFull(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO'))
     setCorrConclusao(extractSectionFull(html, 'CONCLUSÃO', 'ENFIM'))
     setCorrEnfim(extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS'))
@@ -2641,10 +2643,12 @@ export default function Reports() {
     setCorrSaving(true)
     try {
       const html = report || ''
+      const oldAnamnese  = extractSectionFull(html, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS')
       const oldObs       = extractSectionFull(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO')
       const oldConclusao = extractSectionFull(html, 'CONCLUSÃO', 'ENFIM')
       const oldEnfim     = extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS')
       let updated = html
+      if (corrAnamnese  !== oldAnamnese)  updated = replaceSectionFull(updated, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS', corrAnamnese)
       if (corrObs       !== oldObs)       updated = replaceSectionFull(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO', corrObs)
       if (corrConclusao !== oldConclusao) updated = replaceSectionFull(updated, 'CONCLUSÃO', 'ENFIM', corrConclusao)
       if (corrEnfim     !== oldEnfim)     updated = replaceSectionFull(updated, 'ENFIM', 'ENCAMINHAMENTOS', corrEnfim)
@@ -2656,9 +2660,10 @@ export default function Reports() {
       logAction(user, 'laudo_corrigido_entrega', {
         patientId, reportId: savedReportId,
         motivo: corrMotivo,
-        obs_anterior: oldObs,       obs_novo: corrObs,
+        anamnese_anterior: oldAnamnese, anamnese_nova: corrAnamnese,
+        obs_anterior: oldObs,           obs_novo: corrObs,
         conclusao_anterior: oldConclusao, conclusao_nova: corrConclusao,
-        enfim_anterior: oldEnfim,   enfim_novo: corrEnfim,
+        enfim_anterior: oldEnfim,       enfim_novo: corrEnfim,
       })
       logAction(user, 'laudo_aprovado_entregador', {
         patientId, reportId: savedReportId,
@@ -3166,7 +3171,17 @@ export default function Reports() {
                 </div>
                 <div style={{ padding: 20 }}>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 16, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 7 }}>
-                    Apenas os campos <strong style={{ color: '#FBBF24' }}>Observações Comportamentais</strong> e <strong style={{ color: '#FBBF24' }}>Conclusão / Hipótese</strong> podem ser editados. O laudo permanece aprovado.
+                    Apenas <strong style={{ color: '#FBBF24' }}>Anamnese</strong>, <strong style={{ color: '#FBBF24' }}>Observações Comportamentais</strong>, <strong style={{ color: '#FBBF24' }}>Conclusão</strong> e <strong style={{ color: '#FBBF24' }}>Hipótese</strong> podem ser editados. O laudo permanece aprovado.
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>ANAMNESE</label>
+                    <textarea
+                      value={corrAnamnese}
+                      onChange={e => setCorrAnamnese(e.target.value)}
+                      rows={8}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 12, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.6 }}
+                    />
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
