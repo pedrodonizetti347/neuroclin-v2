@@ -2147,7 +2147,7 @@ function ReportBody({ html, editMode, reportRef, onEdit }) {
       suppressContentEditableWarning
       onInput={onEdit}
       style={{
-        background: '#fff', borderRadius: 6, padding: '32px 28px',
+        background: '#fff', color: '#111', borderRadius: 6, padding: '32px 28px',
         boxShadow: '0 2px 16px rgba(0,0,0,0.25)',
         outline: editMode ? '2px solid rgba(96,165,250,0.5)' : 'none',
         cursor: editMode ? 'text' : 'default',
