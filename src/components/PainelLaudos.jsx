@@ -1,4 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/AuthContext";
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyFjC5joHY6rVZ3mG1OvREuiO3zlh75q8LhhhQ5s2boDOb6CNC1IqFgsGq9L4ttQApU/exec";
 
@@ -51,13 +55,64 @@ function labelDia(dataStr) {
   return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
 }
 
+// Normaliza nome para comparação: remove acentos, maiúsculas, espaços duplos
+const normName = (n) =>
+  (n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim().replace(/\s+/g, ' ');
+
+// Etapas que indicam "concluído pelo estagiário"
+const ETAPAS_CONCLUIDAS = new Set(['aguardando_aprovacao', 'pronto_devolutiva']);
+
 export default function PainelLaudos() {
+  const { user } = useAuth();
+  const navigate  = useNavigate();
+  const isProfessional = user?.role === 'professional';
+
   const [laudos, setLaudos] = useState([]);
   const [statusMap, setStatusMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [proximosAberto, setProximosAberto] = useState(false);
   const [salvando, setSalvando] = useState({});
+  // Mapa nome normalizado → { patientId, testesOk }
+  const [testStatusMap, setTestStatusMap] = useState({});
+
+  // Carrega patients + correcoes para verificar status dos testes (só para professional)
+  useEffect(() => {
+    if (!isProfessional) return;
+    (async () => {
+      try {
+        const [pSnap, cSnap] = await Promise.all([
+          getDocs(collection(db, 'patients')),
+          getDocs(collection(db, 'correcoes')),
+        ]);
+        const patients  = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const correcoes = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Monta mapa: patientId → [correcoes]
+        const corrByPatient = {};
+        correcoes.forEach(c => {
+          const pid = c.patientId || c.pacienteId;
+          if (!pid) return;
+          if (!corrByPatient[pid]) corrByPatient[pid] = [];
+          corrByPatient[pid].push(c);
+        });
+
+        // Monta mapa: nomeNormalizado → testesOk
+        const map = {};
+        patients.forEach(p => {
+          const key = normName(p.full_name);
+          const corrs = corrByPatient[p.id] || [];
+          const testesOk = corrs.length === 0
+            ? true // sem correções cadastradas — não bloqueia
+            : corrs.every(c => ETAPAS_CONCLUIDAS.has(c.etapaAtual));
+          map[key] = { patientId: p.id, testesOk };
+        });
+        setTestStatusMap(map);
+      } catch (e) {
+        console.warn('[PainelLaudos] testStatusMap:', e.message);
+      }
+    })();
+  }, [isProfessional]);
 
   const statusKey = (paciente, data) => `${paciente}||${data}`;
   const getStatus = (paciente, data) => statusMap[statusKey(paciente, data)] || "aguardando_anamnese";
@@ -215,46 +270,74 @@ export default function PainelLaudos() {
                 borderRadius: 10,
                 padding: "12px 14px",
                 marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
                 transition: "all 0.2s",
               }}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {l.paciente}
+              {/* Linha principal: info + badge + botão de avanço */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {l.paciente}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                    {l.hora}{l.profissional ? ` · ${l.profissional}` : ""}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                  {l.hora}{l.profissional ? ` · ${l.profissional}` : ""}
-                </div>
+
+                <span style={{
+                  fontSize: 11, fontWeight: 600, borderRadius: 20, padding: "3px 10px",
+                  background: "#fff", color: cfg.cor, border: `1px solid ${cfg.borda}`,
+                  whiteSpace: "nowrap",
+                }}>
+                  {cfg.emoji} {cfg.label}
+                </span>
+
+                {cfg.btnLabel && !isProfessional && (
+                  <button
+                    onClick={() => avancarStatus(l.paciente, l.data)}
+                    disabled={isSalvando}
+                    style={{
+                      background: isSalvando ? "#e5e7eb" : "#1d4ed8",
+                      color: isSalvando ? "#9ca3af" : "#fff",
+                      border: "none", borderRadius: 7,
+                      padding: "6px 12px", fontSize: 12, fontWeight: 500,
+                      cursor: isSalvando ? "default" : "pointer",
+                      whiteSpace: "nowrap", transition: "background 0.15s",
+                    }}
+                  >
+                    {isSalvando ? "..." : cfg.btnLabel}
+                  </button>
+                )}
               </div>
 
-              <span style={{
-                fontSize: 11, fontWeight: 600, borderRadius: 20, padding: "3px 10px",
-                background: "#fff", color: cfg.cor, border: `1px solid ${cfg.borda}`,
-                whiteSpace: "nowrap",
-              }}>
-                {cfg.emoji} {cfg.label}
-              </span>
-
-              {cfg.btnLabel && (
-                <button
-                  onClick={() => avancarStatus(l.paciente, l.data)}
-                  disabled={isSalvando}
-                  style={{
-                    background: isSalvando ? "#e5e7eb" : "#1d4ed8",
-                    color: isSalvando ? "#9ca3af" : "#fff",
-                    border: "none", borderRadius: 7,
-                    padding: "6px 12px", fontSize: 12, fontWeight: 500,
-                    cursor: isSalvando ? "default" : "pointer",
-                    whiteSpace: "nowrap", transition: "background 0.15s",
-                  }}
-                >
-                  {isSalvando ? "..." : cfg.btnLabel}
-                </button>
-              )}
+              {/* Linha secundária: botão Gerar Laudo (só para professional) */}
+              {isProfessional && (() => {
+                const info = testStatusMap[normName(l.paciente)];
+                const testesOk = info ? info.testesOk : true;
+                return (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${cfg.borda}` }}>
+                    <button
+                      onClick={() => testesOk && navigate("/laudos", { state: { painelData: { paciente: l.paciente, data: l.data } } })}
+                      disabled={!testesOk}
+                      title={!testesOk ? "Aguardando conclusão de todos os testes pelo estagiário" : ""}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "7px 14px", borderRadius: 7, border: "none",
+                        background: testesOk ? "#2E7D32" : "#9ca3af",
+                        color: "#fff", fontSize: 12, fontWeight: 700,
+                        cursor: testesOk ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      📋 Gerar Laudo
+                    </button>
+                    {!testesOk && (
+                      <div style={{ fontSize: 11, color: "#f97316", marginTop: 5 }}>
+                        ⏳ Aguardando conclusão de todos os testes pelo estagiário
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
@@ -2158,8 +2159,11 @@ function ReportBody({ html, editMode, reportRef, onEdit }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
+const GAS_URL_PAINEL = 'https://script.google.com/macros/s/AKfycbyFjC5joHY6rVZ3mG1OvREuiO3zlh75q8LhhhQ5s2boDOb6CNC1IqFgsGq9L4ttQApU/exec'
+
 export default function Reports() {
   const { user } = useAuth()
+  const location = useLocation()
   const [patients,       setPatients]       = useState([])
   const [patientId,      setPatientId]      = useState('')
   const [selectedTests,  setSelectedTests]  = useState([])
@@ -2196,8 +2200,9 @@ export default function Reports() {
   const [savingQuick, setSavingQuick] = useState(false)
   const reportRef = useRef(null)
 
-  const isSupervisor  = user?.role === 'admin' || user?.role === 'supervisor'
-  const isEntregador  = user?.role === 'entregador'
+  const isSupervisor   = user?.role === 'admin' || user?.role === 'supervisor'
+  const isEntregador   = user?.role === 'entregador'
+  const isProfessional = user?.role === 'professional'
 
   const [corrSaving, setCorrSaving] = useState(false)
 
@@ -2220,7 +2225,7 @@ export default function Reports() {
 
   // ── Detecção de anamnese ao trocar de paciente ───────────────────────────────
   useEffect(() => {
-    if (!patientId || !isSupervisor) { setAnamneseStatus('idle'); return }
+    if (!patientId || (!isSupervisor && !isProfessional)) { setAnamneseStatus('idle'); return }
     setAnamneseStatus('loading')
     getDoc(doc(db, 'anamneses', patientId))
       .then(snap => {
@@ -2572,6 +2577,17 @@ export default function Reports() {
         updatedAt: serverTimestamp(),
       })
       setReportStatus('aguardando_aprovacao')
+      // Se veio do PainelLaudos, atualiza status lá para 'aguardando_supervisao'
+      const painelData = location.state?.painelData
+      if (painelData?.paciente && painelData?.data) {
+        const payload = encodeURIComponent(JSON.stringify({
+          paciente: painelData.paciente,
+          data:     painelData.data,
+          status:   'aguardando_supervisao',
+          updatedBy: user?.email || 'neuroclin',
+        }))
+        fetch(`${GAS_URL_PAINEL}?action=savelaudostatus&data=${payload}`).catch(() => {})
+      }
     } catch (e) {
       console.error(e)
     }
@@ -2867,7 +2883,7 @@ export default function Reports() {
           {patientId && !isEntregador && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
 
           {/* ── Painel de anamnese ─────────────────────────────────────────── */}
-          {patientId && isSupervisor && anamneseStatus !== 'idle' && (
+          {patientId && (isSupervisor || isProfessional) && anamneseStatus !== 'idle' && (
             <div style={{
               background: S.card, borderRadius: 10, padding: '12px 14px',
               border: `1px solid ${anamneseStatus === 'found' ? 'rgba(46,125,50,0.4)' : anamneseStatus === 'empty' ? 'rgba(245,158,11,0.4)' : S.border}`,
@@ -3043,8 +3059,14 @@ export default function Reports() {
                   <Lock size={11} /> SOMENTE LEITURA
                 </span>
               )}
-              {/* Solicitar aprovação — profissional, laudo salvo e em rascunho */}
-              {savedReportId && !isSupervisor && reportStatus === 'rascunho' && (
+              {/* Enviar para aprovação — professional */}
+              {savedReportId && isProfessional && reportStatus === 'rascunho' && (
+                <button onClick={requestApproval} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: 'none', background: '#2E7D32', cursor: 'pointer', color: '#fff' }}>
+                  <Send size={12} /> ENVIAR PARA APROVAÇÃO
+                </button>
+              )}
+              {/* Solicitar aprovação — demais não-supervisores (exceto professional e entregador) */}
+              {savedReportId && !isSupervisor && !isProfessional && !isEntregador && reportStatus === 'rascunho' && (
                 <button onClick={requestApproval} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', cursor: 'pointer', color: '#F59E0B' }}>
                   <Send size={12} /> SOLICITAR APROVAÇÃO
                 </button>
@@ -3073,8 +3095,8 @@ export default function Reports() {
                   <LockOpen size={13} /> REABRIR LAUDO
                 </button>
               )}
-              {/* Imprimir — disponível para qualquer usuário autenticado */}
-              {report && (
+              {/* Imprimir — oculto para professional */}
+              {report && !isProfessional && (
                 <button onClick={() => print()} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   <Download size={13} /> IMPRIMIR / PDF
                 </button>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db, auth } from '@/lib/firebase'
-import { ChevronDown, ChevronUp, CheckCircle2, Loader2 } from 'lucide-react'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, auth, storage } from '@/lib/firebase'
+import { ChevronDown, ChevronUp, CheckCircle2, Loader2, Upload, FileText, X } from 'lucide-react'
 import { marcarAnamnesePreenchida } from '@/services/fluxoAvaliacaoService'
 
 const S = {
@@ -64,14 +65,61 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const timer = useRef(null)
+  const uploadRef = useRef(null)
+  const [attachments, setAttachments] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   useEffect(() => {
     if (!patientId) return
     setLoading(true)
     getDoc(doc(db, 'anamneses', patientId))
-      .then(snap => { if (snap.exists()) setForm({ patient_type: 'idoso', ...snap.data() }) })
+      .then(snap => {
+        if (snap.exists()) {
+          const data = snap.data()
+          setForm({ patient_type: 'idoso', ...data })
+          setAttachments(data.attachments || [])
+        }
+      })
       .finally(() => setLoading(false))
   }, [patientId])
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length || !patientId) return
+    setUploadError('')
+    setUploading(true)
+    try {
+      const newAttachments = []
+      for (const file of files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `anamneses-docs/${patientId}/${Date.now()}_${safeName}`
+        const storageRef = ref(storage, path)
+        await uploadBytes(storageRef, file, { contentType: file.type })
+        const url = await getDownloadURL(storageRef)
+        newAttachments.push({ url, name: file.name, storagePath: path, uploadedAt: new Date().toISOString() })
+      }
+      const updated = [...attachments, ...newAttachments]
+      setAttachments(updated)
+      await setDoc(doc(db, 'anamneses', patientId), { attachments: updated, updatedAt: serverTimestamp() }, { merge: true })
+    } catch (err) {
+      setUploadError('Erro ao enviar arquivo. Tente novamente.')
+      console.error('[AnamneseForm upload]', err)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleRemoveAttachment = async (idx) => {
+    const item = attachments[idx]
+    const updated = attachments.filter((_, i) => i !== idx)
+    setAttachments(updated)
+    await setDoc(doc(db, 'anamneses', patientId), { attachments: updated, updatedAt: serverTimestamp() }, { merge: true })
+    if (item.storagePath) {
+      deleteObject(ref(storage, item.storagePath)).catch(() => {})
+    }
+  }
 
   const save = useCallback(async (data) => {
     if (!patientId) return
@@ -340,6 +388,59 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
         <div style={FULL}><Fld label="Estado emocional" name="observacoes_emocional" value={form.observacoes_emocional} onChange={ch} type="textarea" rows={2} /></div>
         <div style={FULL}><Fld label="Observações gerais" name="observacoes_gerais" value={form.observacoes_gerais} onChange={ch} type="textarea" rows={3} /></div>
       </Sec>
+
+      {/* 14. Anexos da anamnese */}
+      <div style={{ border: `1px solid ${S.border}`, borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
+        <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
+          14. ANEXOS DA ANAMNESE
+          <span style={{ fontSize: 10, color: S.muted, fontWeight: 400 }}>PDF ou imagem · máx. 10 MB por arquivo</span>
+        </div>
+        <div style={{ padding: 16 }}>
+          {attachments.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              {attachments.map((att, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 7, marginBottom: 6, border: `1px solid ${S.border}` }}>
+                  <FileText size={14} color={S.greenL} style={{ flexShrink: 0 }} />
+                  <a href={att.url} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: 12, color: S.greenL, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {att.name}
+                  </a>
+                  <button onClick={() => handleRemoveAttachment(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', padding: 2, display: 'flex' }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => uploadRef.current?.click()}
+            disabled={uploading || !patientId}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '8px 14px', borderRadius: 7,
+              border: `1px solid rgba(46,125,50,0.5)`,
+              background: 'rgba(46,125,50,0.08)',
+              color: patientId ? S.greenL : S.muted,
+              fontSize: 12, fontWeight: 600,
+              cursor: (uploading || !patientId) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {uploading
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+              : <><Upload size={13} /> Anexar PDF ou imagem</>}
+          </button>
+          {!patientId && <p style={{ fontSize: 10, color: S.muted, marginTop: 5 }}>Selecione um paciente primeiro</p>}
+          {uploadError && <p style={{ fontSize: 11, color: '#EF4444', marginTop: 6 }}>{uploadError}</p>}
+          <input
+            ref={uploadRef}
+            type="file"
+            accept="application/pdf,image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleUpload}
+            disabled={uploading}
+          />
+        </div>
+      </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>

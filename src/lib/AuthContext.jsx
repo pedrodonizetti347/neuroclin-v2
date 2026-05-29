@@ -19,6 +19,17 @@ export function getRoleLabel(role) {
   return ROLE_LABELS[role] || role || 'Profissional'
 }
 
+const ROLE_PERMISSIONS = {
+  admin:        ['generate_report', 'upload_anamnese', 'approve_report', 'manage_users'],
+  supervisor:   ['generate_report', 'upload_anamnese', 'approve_report'],
+  professional: ['generate_report', 'upload_anamnese'],
+  estagiario:   [],
+  entregador:   [],
+}
+export function hasPermission(user, permission) {
+  return ROLE_PERMISSIONS[user?.role]?.includes(permission) ?? false
+}
+
 const inputStyle = {
   width: '100%', padding: '11px 14px', borderRadius: 8, fontSize: 13,
   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
@@ -193,7 +204,7 @@ export function AuthProvider({ children }) {
             } catch (updateErr) {
               console.warn('[AuthContext] last_login não atualizado:', updateErr?.code)
             }
-            const resolvedUser = { id: fu.uid, ...data, role, roleLabel: getRoleLabel(role) }
+            const resolvedUser = { id: fu.uid, ...data, role, roleLabel: getRoleLabel(role), permissions: ROLE_PERMISSIONS[role] || [] }
             setUser(resolvedUser)
             if (sessionStorage.getItem('neuroclin_login_pending')) {
               sessionStorage.removeItem('neuroclin_login_pending')
@@ -211,12 +222,12 @@ export function AuthProvider({ children }) {
               last_login: serverTimestamp(),
             }
             await setDoc(ref, profile)
-            setUser({ id: fu.uid, ...profile, roleLabel: getRoleLabel(profile.role) })
+            setUser({ id: fu.uid, ...profile, roleLabel: getRoleLabel(profile.role), permissions: ROLE_PERMISSIONS[profile.role] || [] })
           }
         } catch (err) {
           console.error('[AuthContext] erro ao carregar perfil:', err)
           const fallbackRole = ADMIN_UIDS.includes(fu.uid) ? 'admin' : 'professional'
-          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: fallbackRole, roleLabel: getRoleLabel(fallbackRole) })
+          setUser({ id: fu.uid, email: fu.email, full_name: fu.displayName || 'Profissional', role: fallbackRole, roleLabel: getRoleLabel(fallbackRole), permissions: ROLE_PERMISSIONS[fallbackRole] || [] })
         }
       } else {
         setUser(null)
