@@ -6,7 +6,11 @@ import { BarChart2, Users, FileText, CheckCircle, Clock, Download, AlertTriangle
 
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const MIN_DOCS = { NEUPSILIN: 4, DEX: 2 }
+const MIN_DOCS = {
+  'NEUPSILIN': 10, 'DEX': 4, 'MEMIMP': 2,
+  'BAMS': 2, 'TOKEN': 2, 'B-ADL': 2, 'Pfeffer': 2,
+  'WCST': 2, 'WASI': 6, 'WASI-III': 10,
+}
 
 const S = {
   bg:     '#0F1B2D',
@@ -182,9 +186,11 @@ export default function Analytics() {
     }
 
     // Complementa com testDocumentation para chaves ainda não cobertas
+    // Recalcula complete com MIN_DOCS atual (ignora valor salvo — pode estar desatualizado)
     for (const [testKey, data] of Object.entries(s.testDocumentation || {})) {
       if (!docMap[testKey] && (data?.count || 0) > 0) {
-        docMap[testKey] = data
+        const min = MIN_DOCS[testKey] ?? 1
+        docMap[testKey] = { ...data, min, complete: (data.count || 0) >= min }
       }
     }
 
