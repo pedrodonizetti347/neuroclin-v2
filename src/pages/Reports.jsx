@@ -2605,6 +2605,7 @@ export default function Reports() {
   }
 
   // Substitui todo o conteúdo de uma seção preservando o cabeçalho e o restante
+  // Usado para seções simples (OBSERVAÇÕES, CONCLUSÃO, ENFIM) que são texto puro
   const replaceSectionFull = (html, sectionName, nextSection, newText) => {
     const idx = html.indexOf('>' + sectionName + '<')
     if (idx < 0) return html
@@ -2620,6 +2621,31 @@ export default function Reports() {
       .map(p => `<p style="${paraStyle}">${p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</p>`)
       .join('\n')
     return html.substring(0, headerEnd) + '\n' + paragraphs + '\n\n' + html.substring(endIdx)
+  }
+
+  // Para seções com estrutura HTML complexa (ANAMNESE): faz substituições cirúrgicas
+  // no texto interno preservando todas as tags, estilos e formatação original
+  const patchSectionText = (html, sectionName, nextSection, oldText, newText) => {
+    if (oldText === newText) return html
+    const idx = html.indexOf('>' + sectionName + '<')
+    if (idx < 0) return html
+    const headerEnd = html.indexOf('</div>', idx) + 6
+    let endIdx = html.length
+    if (nextSection) {
+      const nextIdx = html.indexOf('>' + nextSection + '<', headerEnd)
+      if (nextIdx > 0) endIdx = html.lastIndexOf('<div', nextIdx)
+    }
+    let sectionHtml = html.substring(headerEnd, endIdx)
+    const oldLines = oldText.split('\n').map(l => l.trim()).filter(l => l.length > 8)
+    const newLines = newText.split('\n').map(l => l.trim()).filter(l => l.length > 5)
+    const len = Math.min(oldLines.length, newLines.length)
+    for (let i = 0; i < len; i++) {
+      if (oldLines[i] !== newLines[i]) {
+        const safe = oldLines[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        sectionHtml = sectionHtml.replace(new RegExp(safe, 'g'), newLines[i])
+      }
+    }
+    return html.substring(0, headerEnd) + sectionHtml + html.substring(endIdx)
   }
 
   // Compat — extração de seção simples (primeiro <p> apenas)
@@ -2648,7 +2674,7 @@ export default function Reports() {
       const oldConclusao = extractSectionFull(html, 'CONCLUSÃO', 'ENFIM')
       const oldEnfim     = extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS')
       let updated = html
-      if (corrAnamnese  !== oldAnamnese)  updated = replaceSectionFull(updated, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS', corrAnamnese)
+      if (corrAnamnese  !== oldAnamnese)  updated = patchSectionText(updated, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS', oldAnamnese, corrAnamnese)
       if (corrObs       !== oldObs)       updated = replaceSectionFull(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO', corrObs)
       if (corrConclusao !== oldConclusao) updated = replaceSectionFull(updated, 'CONCLUSÃO', 'ENFIM', corrConclusao)
       if (corrEnfim     !== oldEnfim)     updated = replaceSectionFull(updated, 'ENFIM', 'ENCAMINHAMENTOS', corrEnfim)
