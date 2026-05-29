@@ -174,7 +174,7 @@ export default function Layout({ children }) {
 
   // ── Verificação de nova versão ─────────────────────────────────────────────
   const [newVersion,  setNewVersion]  = useState(false)
-  const [countdown,   setCountdown]   = useState(45)
+  const [countdown,   setCountdown]   = useState(30)
   const countdownRef = useRef(null)
 
   useEffect(() => {
