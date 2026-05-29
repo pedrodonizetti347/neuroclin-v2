@@ -2199,14 +2199,7 @@ export default function Reports() {
   const isSupervisor  = user?.role === 'admin' || user?.role === 'supervisor'
   const isEntregador  = user?.role === 'entregador'
 
-  const [corrModal,   setCorrModal]   = useState(false)
-  const [corrMotivo,  setCorrMotivo]  = useState('')
-  const [corrSaving,  setCorrSaving]  = useState(false)
-  const [corrError,   setCorrError]   = useState('')
-  const corrAnamneseRef   = useRef(null)
-  const corrObsRef        = useRef(null)
-  const corrConclusaoRef  = useRef(null)
-  const corrEnfimRef      = useRef(null)
+  const [corrSaving, setCorrSaving] = useState(false)
 
   const session = useTestSession(patientId)
 
@@ -2584,88 +2577,18 @@ export default function Reports() {
     }
   }
 
-  // Extrai o HTML bruto do conteúdo de uma seção (sem o cabeçalho)
-  const extractSectionHtml = (html, sectionName, nextSection) => {
-    const idx = html.indexOf('>' + sectionName + '<')
-    if (idx < 0) return ''
-    const headerEnd = html.indexOf('</div>', idx) + 6
-    let endIdx = html.length
-    if (nextSection) {
-      const nextIdx = html.indexOf('>' + nextSection + '<', headerEnd)
-      if (nextIdx > 0) endIdx = html.lastIndexOf('<div', nextIdx)
-    }
-    return html.substring(headerEnd, endIdx).trim()
-  }
-
-  // Substitui o HTML bruto de uma seção preservando cabeçalho e restante
-  const replaceSectionHtml = (html, sectionName, nextSection, newHtml) => {
-    const idx = html.indexOf('>' + sectionName + '<')
-    if (idx < 0) return html
-    const headerEnd = html.indexOf('</div>', idx) + 6
-    let endIdx = html.length
-    if (nextSection) {
-      const nextIdx = html.indexOf('>' + nextSection + '<', headerEnd)
-      if (nextIdx > 0) endIdx = html.lastIndexOf('<div', nextIdx)
-    }
-    return html.substring(0, headerEnd) + '\n' + newHtml + '\n' + html.substring(endIdx)
-  }
-
-  // Compat para outras partes do código que ainda usam extractSection/replaceSection
-  const extractSection = (html, sN) => {
-    const raw = extractSectionHtml(html, sN, null)
-    return raw.replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n').replace(/<[^>]+>/g,'').trim()
-  }
-  const replaceSection = (html, sN, txt) => {
-    const pS = 'font-size:11pt;margin:8px 0;text-align:justify;line-height:1.8;'
-    return replaceSectionHtml(html, sN, null, `<p style="${pS}">${txt.replace(/\n/g,'<br>')}</p>`)
-  }
-
-  const openCorrModal = () => {
-    setCorrMotivo('')
-    setCorrError('')
-    setCorrModal(true)
-    // Popula os contentEditable após renderizar o modal
-    setTimeout(() => {
-      const html = report || ''
-      if (corrAnamneseRef.current)  corrAnamneseRef.current.innerHTML  = extractSectionHtml(html, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS')
-      if (corrObsRef.current)       corrObsRef.current.innerHTML       = extractSectionHtml(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO')
-      if (corrConclusaoRef.current) corrConclusaoRef.current.innerHTML = extractSectionHtml(html, 'CONCLUSÃO', 'ENFIM')
-      if (corrEnfimRef.current)     corrEnfimRef.current.innerHTML     = extractSectionHtml(html, 'ENFIM', 'ENCAMINHAMENTOS')
-    }, 50)
-  }
-
-  const saveCorrectionEntrega = async () => {
-    if (!corrMotivo.trim()) { setCorrError('Informe o motivo da correção.'); return }
+  const confirmCorrectionEntrega = async () => {
     if (!savedReportId) return
     setCorrSaving(true)
     try {
-      const html = report || ''
-      const oldAnamneseHtml  = extractSectionHtml(html, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS')
-      const oldObsHtml       = extractSectionHtml(html, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO')
-      const oldConclusaoHtml = extractSectionHtml(html, 'CONCLUSÃO', 'ENFIM')
-      const oldEnfimHtml     = extractSectionHtml(html, 'ENFIM', 'ENCAMINHAMENTOS')
-      const newAnamneseHtml  = corrAnamneseRef.current?.innerHTML  || oldAnamneseHtml
-      const newObsHtml       = corrObsRef.current?.innerHTML       || oldObsHtml
-      const newConclusaoHtml = corrConclusaoRef.current?.innerHTML || oldConclusaoHtml
-      const newEnfimHtml     = corrEnfimRef.current?.innerHTML     || oldEnfimHtml
-      let updated = html
-      if (newAnamneseHtml  !== oldAnamneseHtml)  updated = replaceSectionHtml(updated, 'ANAMNESE',                   'EXAMES IMAGIOLÓGICOS', newAnamneseHtml)
-      if (newObsHtml       !== oldObsHtml)       updated = replaceSectionHtml(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO',           newObsHtml)
-      if (newConclusaoHtml !== oldConclusaoHtml) updated = replaceSectionHtml(updated, 'CONCLUSÃO',                  'ENFIM',               newConclusaoHtml)
-      if (newEnfimHtml     !== oldEnfimHtml)     updated = replaceSectionHtml(updated, 'ENFIM',                      'ENCAMINHAMENTOS',     newEnfimHtml)
-      await updateDoc(doc(db, 'reports', savedReportId), {
-        reportHtml: updated,
-        updatedAt: serverTimestamp(),
-      })
-      setReport(updated)
-      logAction(user, 'laudo_corrigido_entrega', { patientId, reportId: savedReportId, motivo: corrMotivo })
-      logAction(user, 'laudo_aprovado_entregador', {
-        patientId, reportId: savedReportId,
-        motivo: corrMotivo,
-      })
-      setCorrModal(false)
+      const content = getReportContent() || report
+      await updateDoc(doc(db, 'reports', savedReportId), { reportHtml: content, updatedAt: serverTimestamp() })
+      setReport(content)
+      setEditMode(false)
+      logAction(user, 'laudo_corrigido_entrega',  { patientId, reportId: savedReportId })
+      logAction(user, 'laudo_aprovado_entregador', { patientId, reportId: savedReportId })
     } catch (e) {
-      setCorrError('Erro ao salvar: ' + e.message)
+      alert('Erro ao salvar: ' + e.message)
     } finally {
       setCorrSaving(false)
     }
@@ -3132,10 +3055,16 @@ export default function Reports() {
                   {approvalLoading ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</> : <><ShieldCheck size={13} /> APROVAR LAUDO</>}
                 </button>
               )}
-              {/* Corrigir laudo entregue — apenas entregador, laudo aprovado */}
-              {report && savedReportId && isEntregador && reportStatus === 'aprovado' && (
-                <button onClick={openCorrModal} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(251,191,36,0.5)', background: 'rgba(251,191,36,0.1)', cursor: 'pointer', color: '#FBBF24' }}>
+              {/* Entregador — botão CORRIGIR (abre modo edição) */}
+              {report && savedReportId && isEntregador && reportStatus === 'aprovado' && !editMode && (
+                <button onClick={() => handleToggleEditMode()} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(251,191,36,0.5)', background: 'rgba(251,191,36,0.1)', cursor: 'pointer', color: '#FBBF24' }}>
                   <Pencil size={12} /> CORRIGIR LAUDO
+                </button>
+              )}
+              {/* Entregador — confirmação após editar */}
+              {isEntregador && editMode && (
+                <button onClick={confirmCorrectionEntrega} disabled={corrSaving} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: 'none', background: corrSaving ? 'rgba(46,125,50,0.4)' : '#2E7D32', cursor: 'pointer', color: '#fff' }}>
+                  {corrSaving ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><CheckCircle2 size={12} /> CONFIRMAR CORREÇÃO</>}
                 </button>
               )}
               {/* Reabrir laudo aprovado — apenas admin/supervisor, exige senha */}
@@ -3152,71 +3081,6 @@ export default function Reports() {
               )}
             </div>
           </div>
-
-          {/* Modal — correção pós-entrega (entregador) */}
-          {corrModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(4,44,83,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <div style={{ background: '#1A2744', borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(251,191,36,0.3)' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#1A2744', zIndex: 1 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#FBBF24', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Pencil size={14} /> Correção pós-entrega
-                  </span>
-                  <button onClick={() => setCorrModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}><X size={18} /></button>
-                </div>
-                <div style={{ padding: 20 }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 16, padding: '8px 12px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 7 }}>
-                    Apenas <strong style={{ color: '#FBBF24' }}>Anamnese</strong>, <strong style={{ color: '#FBBF24' }}>Observações Comportamentais</strong>, <strong style={{ color: '#FBBF24' }}>Conclusão</strong> e <strong style={{ color: '#FBBF24' }}>Hipótese</strong> podem ser editados. O laudo permanece aprovado.
-                  </div>
-
-                  {[
-                    { label: 'ANAMNESE',                        ref: corrAnamneseRef,  maxH: 220 },
-                    { label: 'OBSERVAÇÕES COMPORTAMENTAIS',     ref: corrObsRef,       maxH: 120 },
-                    { label: 'CONCLUSÃO COMPLETA',              ref: corrConclusaoRef, maxH: 300 },
-                    { label: 'HIPÓTESE DIAGNÓSTICA (ENFIM)',    ref: corrEnfimRef,     maxH: 160 },
-                  ].map(({ label, ref, maxH }) => (
-                    <div key={label} style={{ marginBottom: 16 }}>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>{label}</label>
-                      <div
-                        ref={ref}
-                        contentEditable
-                        suppressContentEditableWarning
-                        style={{
-                          minHeight: 48, maxHeight: maxH, overflowY: 'auto',
-                          padding: '9px 12px', borderRadius: 8,
-                          border: '1.5px solid rgba(255,255,255,0.18)',
-                          background: '#fff', color: '#111',
-                          fontSize: 11, outline: 'none', lineHeight: 1.6,
-                          fontFamily: 'Arial, sans-serif',
-                          cursor: 'text',
-                        }}
-                      />
-                    </div>
-                  ))}
-
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6, letterSpacing: '0.05em' }}>MOTIVO DA CORREÇÃO <span style={{ color: '#EF4444' }}>*</span></label>
-                    <input
-                      type="text"
-                      value={corrMotivo}
-                      onChange={e => { setCorrMotivo(e.target.value); setCorrError('') }}
-                      placeholder="Ex: Ajuste solicitado pelo paciente no momento da entrega..."
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1.5px solid ${corrError ? '#EF4444' : 'rgba(255,255,255,0.12)'}`, background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
-                    />
-                    {corrError && <div style={{ fontSize: 11, color: '#EF4444', marginTop: 5 }}>{corrError}</div>}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button onClick={() => setCorrModal(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={saveCorrectionEntrega} disabled={corrSaving || !corrMotivo.trim()} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: corrSaving ? 'rgba(251,191,36,0.4)' : '#FBBF24', color: '#1A2744', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: !corrMotivo.trim() ? 0.5 : 1 }}>
-                      {corrSaving ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><CheckCircle2 size={12} /> Confirmar correção</>}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Modal — reabrir laudo aprovado com senha */}
           {reopenModal && (
