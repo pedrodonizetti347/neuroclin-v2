@@ -22,6 +22,10 @@ service cloud.firestore {
       return isAuth() && userRole() == 'estagiario';
     }
 
+    function isEntregador() {
+      return isAuth() && userRole() == 'entregador';
+    }
+
     // Perfis de usuário — leitura simples sem get() circular
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -51,11 +55,13 @@ service cloud.firestore {
     }
 
     // Laudos — admin/supervisor tem acesso total; profissional acessa os seus
+    // Entregador lê e atualiza apenas laudos aprovados
     // DELETE bloqueado via cliente — exclusão é sempre soft-delete (deleted:true)
     match /reports/{reportId} {
       allow read, create, update: if isAdminOrSupervisor();
       allow read, create, update: if isAuth() && resource.data.professionalId == request.auth.uid;
       allow create: if isAuth() && request.resource.data.professionalId == request.auth.uid;
+      allow read, update: if isEntregador();
       allow delete: if false;
     }
 
