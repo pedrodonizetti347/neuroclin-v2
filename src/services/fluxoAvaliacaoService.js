@@ -1,35 +1,16 @@
-import { auth } from '@/lib/firebase'
 import {
   collection, query, where, getDocs,
   addDoc, updateDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-
-const FUNCTIONS_URL =
-  import.meta.env.VITE_FUNCTIONS_URL ||
-  'https://us-central1-neuroclin-f55a5.cloudfunctions.net'
+import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
 
 const DATA_CORTE = new Date('2026-05-29T00:00:00') // TEMPORÁRIO para testes — voltar para 2026-06-01
 
-async function pdRequest(path, method = 'GET', body = null) {
-  const token = await auth.currentUser?.getIdToken()
-  const res = await fetch(`${FUNCTIONS_URL}/prodoctorProxy`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ path, method, body }),
-  })
-  if (!res.ok) throw new Error(`ProDoctor ${res.status}: ${await res.text().catch(() => '')}`)
-  return res.json()
-}
+const DIAS_JANELA = 90        // últimos 3 meses
+const BATCH_DIAS  = 14        // dias em paralelo por lote (mesmo padrão getDevolutivas14Days)
 
-function formatDateBR(date) {
-  const d = String(date.getDate()).padStart(2, '0')
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  return `${d}/${m}/${date.getFullYear()}`
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 function parseDate(str) {
   if (!str || typeof str !== 'string') return null
@@ -70,6 +51,8 @@ function isRetornoFinal(ag) {
 }
 
 function getConsultaDate(ag) {
+  // getAgendaDay retorna agendamentos de um dia específico, mas a data
+  // vem do campo 'data' do próprio agendamento ou precisa ser inferida
   const raw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? ag.dataHora ?? null
   return raw ? parseDate(String(raw)) : null
 }
@@ -81,74 +64,95 @@ function getPacienteInfo(ag) {
   }
 }
 
-function extractAgendamentos(data) {
-  for (const c of [
-    data?.payload?.agendamentos,
-    data?.payload?.diaAgendaConsulta?.agendamentos,
-    data?.agendamentos,
-    data?.payload,
-    data,
-  ]) {
-    if (Array.isArray(c) && c.length > 0) return c
+/**
+ * Busca agendamentos dos últimos DIAS_JANELA dias para todos os profissionais.
+ * Usa exatamente o mesmo padrão de getAgendaDay que já funciona no projeto:
+ *   POST /api/v1/Agenda/Listar com { Usuario, Data, LocalProDoctor }
+ * Processa em lotes de BATCH_DIAS dias em paralelo por profissional,
+ * com sleep(1s) entre profissionais para evitar rate limit.
+ */
+async function buscarTodosAgendamentos() {
+  const profData = await listProfessionals()
+  const professionals = profData.map(p => ({
+    id:   String(p.codigo ?? p.id ?? ''),
+    nome: p.nome ?? p.nomeCivil ?? '',
+  })).filter(p => p.id)
+
+  if (professionals.length === 0) {
+    console.warn('[FluxoAvaliacao] nenhum profissional encontrado')
+    return []
   }
-  return []
-}
 
-export async function buscarAgendamentosPrevent(dataInicio, dataFim) {
-  const ini = formatDateBR(dataInicio)
-  const fim = formatDateBR(dataFim)
+  // Monta array dos últimos DIAS_JANELA dias
+  const dias = Array.from({ length: DIAS_JANELA }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (DIAS_JANELA - 1 - i))
+    d.setHours(12, 0, 0, 0)
+    return d
+  })
 
-  const payloads = [
-    { dataInicial: ini, dataFinal: fim },
-    { dataInicio: ini, dataFim: fim },
-    { DataInicial: ini, DataFinal: fim },
-    { dataInicial: ini, dataFinal: fim, somenteAtivos: true },
-    { dataInicial: ini, dataFinal: fim, status: [1, 2, 3] },
-  ]
+  const todos = []
+  let totalChamadas = 0
 
-  for (const payload of payloads) {
-    try {
-      const data = await pdRequest('/api/v1/Agenda/BuscarPorStatusTipo', 'POST', payload)
-      const ags = extractAgendamentos(data)
-      if (ags.length > 0) {
-        console.log(`[FluxoAvaliacao] ${ags.length} agendamentos encontrados`)
-        return ags
-      }
-    } catch (e) {
-      console.warn('[FluxoAvaliacao] payload falhou:', e.message)
+  for (let pi = 0; pi < professionals.length; pi++) {
+    const prof = professionals[pi]
+    if (pi > 0) await sleep(1000)
+
+    // Lotes de BATCH_DIAS dias em paralelo
+    for (let batch = 0; batch < dias.length; batch += BATCH_DIAS) {
+      const lote = dias.slice(batch, batch + BATCH_DIAS)
+      const results = await Promise.all(
+        lote.map(async (dia) => {
+          totalChamadas++
+          const ags = await getAgendaDay(prof.id, dia)
+          // getAgendaDay retorna os agendamentos mas sem a data no objeto,
+          // então injetamos a data do loop para facilitar o parseamento
+          return ags.map(ag => ({ ...ag, _diaLoop: dia }))
+        })
+      )
+      todos.push(...results.flat())
     }
   }
-  return []
+
+  console.log(`[FluxoAvaliacao] ${totalChamadas} chamadas → ${todos.length} agendamentos totais (${professionals.length} profissionais, ${DIAS_JANELA} dias)`)
+  return todos
 }
 
 export async function sincronizarFluxoPrevent() {
-  const hoje = new Date()
-  hoje.setHours(23, 59, 59, 0)
-  const tresM = new Date()
-  tresM.setMonth(tresM.getMonth() - 3)
-  tresM.setHours(0, 0, 0, 0)
+  const agendamentos = await buscarTodosAgendamentos()
 
-  const agendamentos = await buscarAgendamentosPrevent(tresM, hoje)
   if (agendamentos.length === 0) {
     return { criados: 0, atualizados: 0, ignorados: 0, aviso: 'Nenhum agendamento retornado pelo ProDoctor' }
   }
 
+  // Agrupa por paciente, filtrando apenas Prevent Sênior
   const porPaciente = {}
   for (const ag of agendamentos) {
+    if (!ag.paciente) continue
     if (!isPreventSenior(ag)) continue
+
     const { id, nome } = getPacienteInfo(ag)
     if (!id) continue
+
     if (!porPaciente[id]) porPaciente[id] = { nome, consultas: [], retornos: [] }
-    const dt = getConsultaDate(ag)
+
+    // Usa a data do loop (_diaLoop) como fallback quando o campo 'data' está ausente
+    const dtRaw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? null
+    const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
     if (!dt) continue
-    if (isConsultaContavel(ag))    porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
-    else if (isRetornoFinal(ag))   porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
+
+    if (isConsultaContavel(ag))  porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
+    else if (isRetornoFinal(ag)) porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
   }
+
+  const totalPrevent = Object.keys(porPaciente).length
+  console.log(`[FluxoAvaliacao] ${totalPrevent} pacientes Prevent Sênior encontrados`)
 
   const res = { criados: 0, atualizados: 0, ignorados: 0 }
 
   for (const [pacienteId, dados] of Object.entries(porPaciente)) {
     const consultas = dados.consultas.sort((a, b) => a.data - b.data)
+
     if (consultas.length < 5) { res.ignorados++; continue }
 
     const quinta = consultas[4]
