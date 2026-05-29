@@ -26,6 +26,14 @@ service cloud.firestore {
       return isAuth() && userRole() == 'entregador';
     }
 
+    function isAdmin() {
+      return isAdminOrSupervisor();
+    }
+
+    function isBeliane() {
+      return isAuth() && (isAdminOrSupervisor() || userRole() == 'secretaria');
+    }
+
     // Perfis de usuário — leitura simples sem get() circular
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -90,6 +98,31 @@ service cloud.firestore {
       allow read: if isAdminOrSupervisor();
       allow create: if isAuth();
       allow update, delete: if false;
+    }
+
+    // Controle de correções de estagiários
+    match /correcoes/{correcaoId} {
+      allow read: if isAuth() && (
+        isBeliane() ||
+        (isEstagiario() && resource.data.estagiarioId == request.auth.uid)
+      );
+      allow create: if isBeliane() &&
+        request.resource.data.keys().hasAll(['paciente', 'profissional', 'dataEntrega', 'status']) &&
+        request.resource.data.status == 'aguardando';
+      allow update: if isAuth() && (
+        isBeliane() ||
+        (
+          isEstagiario() &&
+          resource.data.estagiarioId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'dataInicioCorrecao', 'dataFinalizacao']) &&
+          (
+            (resource.data.status == 'aguardando' && request.resource.data.status == 'corrigindo') ||
+            (resource.data.status == 'corrigindo' && request.resource.data.status == 'finalizado')
+          )
+        )
+      );
+      allow delete: if isAdmin();
     }
   }
 }
