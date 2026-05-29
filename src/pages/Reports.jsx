@@ -2877,7 +2877,9 @@ export default function Reports() {
 
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>LAUDOS</h1>
-        <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Geração de laudos clínicos neuropsicológicos</p>
+        <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>
+          {isEntregador ? 'Laudos aprovados para entrega' : 'Geração de laudos clínicos neuropsicológicos'}
+        </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.7fr', gap: 16 }}>
@@ -2885,12 +2887,14 @@ export default function Reports() {
         {/* Painel esquerdo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          <div style={{ background: S.cardG, borderRadius: 10, border: '1px solid rgba(46,125,50,0.3)', padding: '12px 14px' }}>
-            <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 6 }}>SUPERVISÃO</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{SUPERVISOR.name}</div>
-            <div style={{ fontSize: 11, color: S.greenL, marginTop: 2 }}>{SUPERVISOR.crp}</div>
-            <div style={{ fontSize: 10, color: S.muted, marginTop: 1 }}>{SUPERVISOR.clinic}</div>
-          </div>
+          {!isEntregador && (
+            <div style={{ background: S.cardG, borderRadius: 10, border: '1px solid rgba(46,125,50,0.3)', padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 6 }}>SUPERVISÃO</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{SUPERVISOR.name}</div>
+              <div style={{ fontSize: 11, color: S.greenL, marginTop: 2 }}>{SUPERVISOR.crp}</div>
+              <div style={{ fontSize: 10, color: S.muted, marginTop: 1 }}>{SUPERVISOR.clinic}</div>
+            </div>
+          )}
 
           <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>1. PACIENTE</div>
@@ -2908,7 +2912,7 @@ export default function Reports() {
             )}
           </div>
 
-          {patientId && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
+          {patientId && !isEntregador && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
 
           {/* ── Painel de anamnese ─────────────────────────────────────────── */}
           {patientId && isSupervisor && anamneseStatus !== 'idle' && (
@@ -2974,7 +2978,13 @@ export default function Reports() {
             </div>
           )}
 
-          <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+          {isEntregador && patientId && reportStatus !== 'aprovado' && (
+            <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, fontSize: 12, color: '#F59E0B' }}>
+              Nenhum laudo aprovado encontrado para este paciente.
+            </div>
+          )}
+
+          {!isEntregador && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
               3. TESTES APLICADOS ({selectedTests.length})
             </div>
@@ -3000,15 +3010,15 @@ export default function Reports() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
 
-          {error && (
+          {!isEntregador && error && (
             <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
               <AlertCircle size={14} /> {error}
             </div>
           )}
 
-          <button onClick={generate} disabled={loading} style={{
+          {!isEntregador && <button onClick={generate} disabled={loading} style={{
             padding: '13px', borderRadius: 10, border: 'none',
             background: loading ? 'rgba(46,125,50,0.4)' : S.green,
             color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
@@ -3018,7 +3028,7 @@ export default function Reports() {
             {loading
               ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> {STEPS[step]}</>
               : <><FileText size={16} /> GERAR LAUDO</>}
-          </button>
+          </button>}
         </div>
 
         {/* Painel direito — laudo */}
