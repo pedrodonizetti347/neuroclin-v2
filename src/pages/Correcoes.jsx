@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  collection, getDocs, addDoc, updateDoc, doc,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -11,7 +11,7 @@ import {
   ClipboardList, Plus, X, Check, RefreshCw,
   Clock, Search, Loader2, AlertCircle,
   CheckCircle2, FileText, UserCheck, RotateCcw,
-  User, Calendar, Shield, Zap,
+  User, Calendar, Shield, Zap, Trash2,
 } from 'lucide-react'
 
 const S = {
@@ -162,11 +162,12 @@ function AnamneseBadge({ preenchida }) {
   )
 }
 
-function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
+function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
   const status = item.status
   const temEtapa = !!etapa
+  const [confirmando, setConfirmando] = useState(false)
 
   function renderAcoes() {
     const btns = []
@@ -214,6 +215,33 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, isEstagia
         )
       }
     } else {
+      // Admin — exclusão (somente fluxo legado)
+      if (isAdmin && !temEtapa) {
+        if (confirmando) {
+          btns.push(
+            <div key="confirm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>Excluir?</span>
+              <button onClick={() => { onDelete(item.id); setConfirmando(false) }}
+                style={btnStyle('#EF4444', 'rgba(239,68,68,0.15)')}>
+                <Check size={11} /> Sim
+              </button>
+              <button onClick={() => setConfirmando(false)}
+                style={btnStyle('rgba(255,255,255,0.35)', 'rgba(255,255,255,0.06)')}>
+                <X size={11} /> Não
+              </button>
+            </div>
+          )
+        } else {
+          btns.push(
+            <button key="delete" onClick={() => setConfirmando(true)}
+              title="Excluir registro"
+              style={btnStyle('rgba(239,68,68,0.6)', 'rgba(239,68,68,0.06)')}>
+              <Trash2 size={11} />
+            </button>
+          )
+        }
+      }
+
       // Fluxo legado
       if (isEstagiario && status === 'aguardando' && item.estagiarioId === userId) {
         btns.push(
@@ -580,6 +608,12 @@ export default function Correcoes() {
     setItens(prev => prev.map(i => i.id === id ? { ...i, etapaAtual: novaEtapa, ...extra } : i))
   }
 
+  // Exclusão (apenas fluxo legado, apenas admin)
+  async function deletarCorrecao(id) {
+    await deleteDoc(doc(db, 'correcoes', id))
+    setItens(prev => prev.filter(i => i.id !== id))
+  }
+
   // Auto-atribuição de profissional
   async function assumirCaso(id) {
     const updates = {
@@ -800,6 +834,7 @@ export default function Correcoes() {
                     onChangeStatus={mudarStatus}
                     onMudarEtapa={mudarEtapa}
                     onAssumir={assumirCaso}
+                    onDelete={deletarCorrecao}
                     isEstagiario={isEstagiario}
                     isBeliane={isBeliane}
                     isAdmin={isAdmin}

@@ -9,7 +9,7 @@ const FUNCTIONS_URL =
   import.meta.env.VITE_FUNCTIONS_URL ||
   'https://us-central1-neuroclin-f55a5.cloudfunctions.net'
 
-const DATA_CORTE = new Date('2026-06-01T00:00:00')
+const DATA_CORTE = new Date('2026-05-29T00:00:00') // TEMPORÁRIO para testes — voltar para 2026-06-01
 
 async function pdRequest(path, method = 'GET', body = null) {
   const token = await auth.currentUser?.getIdToken()
