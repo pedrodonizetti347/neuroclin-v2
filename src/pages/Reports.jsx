@@ -2674,10 +2674,10 @@ export default function Reports() {
       const oldConclusao = extractSectionFull(html, 'CONCLUSÃO', 'ENFIM')
       const oldEnfim     = extractSectionFull(html, 'ENFIM', 'ENCAMINHAMENTOS')
       let updated = html
-      if (corrAnamnese  !== oldAnamnese)  updated = patchSectionText(updated, 'ANAMNESE', 'EXAMES IMAGIOLÓGICOS', oldAnamnese, corrAnamnese)
-      if (corrObs       !== oldObs)       updated = replaceSectionFull(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO', corrObs)
-      if (corrConclusao !== oldConclusao) updated = replaceSectionFull(updated, 'CONCLUSÃO', 'ENFIM', corrConclusao)
-      if (corrEnfim     !== oldEnfim)     updated = replaceSectionFull(updated, 'ENFIM', 'ENCAMINHAMENTOS', corrEnfim)
+      if (corrAnamnese  !== oldAnamnese)  updated = patchSectionText(updated, 'ANAMNESE',                   'EXAMES IMAGIOLÓGICOS', oldAnamnese,  corrAnamnese)
+      if (corrObs       !== oldObs)       updated = patchSectionText(updated, 'OBSERVAÇÕES COMPORTAMENTAIS', 'CONCLUSÃO',           oldObs,       corrObs)
+      if (corrConclusao !== oldConclusao) updated = patchSectionText(updated, 'CONCLUSÃO',                  'ENFIM',               oldConclusao, corrConclusao)
+      if (corrEnfim     !== oldEnfim)     updated = patchSectionText(updated, 'ENFIM',                      'ENCAMINHAMENTOS',     oldEnfim,     corrEnfim)
       await updateDoc(doc(db, 'reports', savedReportId), {
         reportHtml: updated,
         updatedAt: serverTimestamp(),
