@@ -15,7 +15,7 @@ const MIN_DOCS = {
   'Pfeffer':    2,
   'WCST':       2,
   'WASI':       6,
-  'WASI-III':   6,
+  'WASI-III':  10,
 }
 
 function compressImage(file) {

@@ -4704,7 +4704,7 @@ function isTestFilled(testData) {
 const SCAN_MAX = {
   'NEUPSILIN': 10, 'DEX': 4, 'MEMIMP': 2,
   'BAMS': 2, 'TOKEN': 2, 'B-ADL': 2, 'Pfeffer': 2,
-  'WCST': 2, 'WASI': 6, 'WASI-III': 6,
+  'WCST': 2, 'WASI': 6, 'WASI-III': 10,
 }
 
 const TEST_CONFIG = [
