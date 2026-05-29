@@ -9,7 +9,7 @@ import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3, CalendarClock,
   LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff,
-  BookMarked,
+  BookMarked, ClipboardList,
 } from 'lucide-react'
 
 const NAV = [
@@ -20,6 +20,7 @@ const NAV = [
   { label: 'Testes',                icon: FlaskConical,    path: '/testes' },
   { label: 'Prontuário',            icon: BookOpen,        path: '/prontuario' },
   { label: 'Devolutivas',           icon: CalendarClock,   path: '/devolutivas' },
+  { label: 'Correções',             icon: ClipboardList,   path: '/correcoes' },
   { label: 'Relatórios',            icon: BarChart3,       path: '/relatorios' },
 ]
 
