@@ -819,13 +819,17 @@ export default function Correcoes() {
       let docs = []
 
       if (isEstagiario && !isAdmin && !isBeliane) {
-        // Estagiário: duas queries separadas para satisfazer as regras do Firestore
+        // Estagiário: seus atribuídos + não atribuídos
         const [s1, s2] = await Promise.all([
           getDocs(query(base, where('estagiarioId', '==', user.id))).catch(() => ({ docs: [] })),
           getDocs(query(base, where('estagiarioId', '==', null))).catch(() => ({ docs: [] })),
         ])
         const seen = new Set()
         docs = [...s1.docs, ...s2.docs].filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true })
+      } else if (isProfissional && !isAdmin && !isBeliane) {
+        // Profissional: apenas seus prontuários vinculados (concluídos ou não)
+        const s1 = await getDocs(query(base, where('profissionalUid', '==', user.id))).catch(() => ({ docs: [] }))
+        docs = s1.docs
       } else {
         const snap = await getDocs(query(base, orderBy('criadoEm', 'desc')))
         docs = snap.docs
