@@ -815,14 +815,30 @@ export default function Correcoes() {
   async function carregar() {
     setLoading(true)
     try {
-      const q    = query(collection(db, 'correcoes'), orderBy('criadoEm', 'desc'))
-      const snap = await getDocs(q)
-      setItens(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const base = collection(db, 'correcoes')
+      let docs = []
 
-      const profSnap = await getDocs(collection(db, 'users'))
-      const todos = profSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setEstagiarios(todos.filter(u => u.role === 'estagiario' || u.role === 'entregador'))
-      setProfissionaisFirestore(todos.filter(u => u.role === 'profissional' || u.role === 'professional'))
+      if (isEstagiario && !isAdmin && !isBeliane) {
+        // Estagiário: duas queries separadas para satisfazer as regras do Firestore
+        const [s1, s2] = await Promise.all([
+          getDocs(query(base, where('estagiarioId', '==', user.id))).catch(() => ({ docs: [] })),
+          getDocs(query(base, where('estagiarioId', '==', null))).catch(() => ({ docs: [] })),
+        ])
+        const seen = new Set()
+        docs = [...s1.docs, ...s2.docs].filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true })
+      } else {
+        const snap = await getDocs(query(base, orderBy('criadoEm', 'desc')))
+        docs = snap.docs
+      }
+      setItens(docs.map(d => ({ id: d.id, ...d.data() })))
+
+      // Usuários: só admin/beliane consegue listar todos
+      if (isAdmin || isBeliane) {
+        const profSnap = await getDocs(collection(db, 'users'))
+        const todos = profSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        setEstagiarios(todos.filter(u => u.role === 'estagiario' || u.role === 'entregador'))
+        setProfissionaisFirestore(todos.filter(u => u.role === 'profissional' || u.role === 'professional'))
+      }
     } catch (e) {
       console.error('[Correcoes]', e)
     } finally {
