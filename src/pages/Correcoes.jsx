@@ -177,13 +177,14 @@ function AnamneseBadge({ preenchida }) {
   )
 }
 
-function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, onClickCard, isEstagiario, isBeliane, isAdmin, isProfissional, isEntregador, onGerarLaudo, userId }) {
+function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumirEstag, onDelete, onClickCard, isEstagiario, isBeliane, isAdmin, isProfissional, isEntregador, onGerarLaudo, onAtribuirEstagiario, estagiarios, userId }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
   const status = item.status
   const temEtapa = !!etapa
   const [confirmando, setConfirmando] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [estagiarioSel, setEstagiarioSel] = useState('')
 
   function renderAcoes() {
     const btns = []
@@ -203,6 +204,15 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
           <button key="finalizar" onClick={() => onMudarEtapa(item.id, 'aguardando_aprovacao')}
             style={btnStyle('#8B5CF6', 'rgba(139,92,246,0.15)')}>
             <Check size={11} /> Finalizar correção
+          </button>
+        )
+      }
+      // Estagiário/entregador — assumir card sem dono
+      if ((isEstagiario || isEntregador) && etapa === 'aguardando_correcao' && !item.estagiarioId) {
+        btns.push(
+          <button key="assumir-estag" onClick={() => onAssumirEstag(item.id)}
+            style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}>
+            <UserCheck size={11} /> Assumir correção
           </button>
         )
       }
@@ -230,6 +240,36 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
             style={{ ...btnStyle('#4CAF50', 'rgba(76,175,80,0.25)'), fontWeight: 800, boxShadow: '0 0 0 1px rgba(76,175,80,0.4)' }}>
             <FileText size={11} /> Gerar Laudo
           </button>
+        )
+      }
+      // Admin — atribuição rápida de estagiário direto no card
+      if (isAdmin && temEtapa && etapa === 'aguardando_correcao' && !item.estagiarioId && estagiarios?.length > 0) {
+        btns.push(
+          <div key="atribuir-estag" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <select
+              value={estagiarioSel}
+              onChange={e => setEstagiarioSel(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)',
+                color: estagiarioSel ? '#fff' : 'rgba(255,255,255,0.4)',
+                borderRadius: 6, padding: '4px 8px', fontSize: 11,
+                cursor: 'pointer', outline: 'none', maxWidth: 165,
+              }}
+            >
+              <option value="">Atribuir estagiário...</option>
+              {estagiarios.map(e => (
+                <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>
+              ))}
+            </select>
+            {estagiarioSel && (
+              <button
+                onClick={() => { onAtribuirEstagiario(item.id, estagiarioSel); setEstagiarioSel('') }}
+                style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}
+              >
+                <Check size={11} /> OK
+              </button>
+            )}
+          </div>
         )
       }
       // Admin/supervisor — aprovação
@@ -394,6 +434,10 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
   )
 }
 
+function nomeDisplay(u) {
+  return u.full_name || u.nome || u.name || u.email || u.id
+}
+
 function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAssumir, onClose, isEstagiario, isAdmin, isBeliane }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
@@ -405,10 +449,6 @@ function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAss
   const [assumindo,        setAssumindo]        = useState(false)
 
   const podeAssumir = isEstagiario && (etapa === 'aguardando_correcao' || !item.estagiarioId)
-
-  function nomeDisplay(u) {
-    return u.full_name || u.nome || u.name || u.email || u.id
-  }
 
   async function salvar() {
     setSaving(true)
@@ -788,7 +828,7 @@ export default function Correcoes() {
 
       const profSnap = await getDocs(collection(db, 'users'))
       const todos = profSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setEstagiarios(todos.filter(u => u.role === 'estagiario'))
+      setEstagiarios(todos.filter(u => u.role === 'estagiario' || u.role === 'entregador'))
       setProfissionaisFirestore(todos.filter(u => u.role === 'profissional' || u.role === 'professional'))
     } catch (e) {
       console.error('[Correcoes]', e)
@@ -825,6 +865,28 @@ export default function Correcoes() {
     if (novaEtapa === 'aguardando_correcao')   extra.entregueEmCorrecaoEm = new Date()
     await updateDoc(doc(db, 'correcoes', id), { etapaAtual: novaEtapa, ...extra })
     setItens(prev => prev.map(i => i.id === id ? { ...i, etapaAtual: novaEtapa, ...extra } : i))
+  }
+
+  // Estagiário/entregador se auto-atribui pelo card (sem mudar etapa)
+  async function assumirCorrecaoCard(id) {
+    const updates = {
+      estagiarioId:   user.uid,
+      estagiarioNome: user.full_name || user.nome || user.email || 'Estagiário',
+      assumidoEm:     new Date(),
+    }
+    await updateDoc(doc(db, 'correcoes', id), updates)
+    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+  }
+
+  // Atribuição rápida de estagiário pelo admin (dropdown no card)
+  async function atribuirEstagiario(id, estagiarioId) {
+    const estag = estagiarios.find(e => e.id === estagiarioId)
+    const updates = {
+      estagiarioId,
+      estagiarioNome: estag ? nomeDisplay(estag) : null,
+    }
+    await updateDoc(doc(db, 'correcoes', id), updates)
+    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
   }
 
   // Exclusão (apenas fluxo legado, apenas admin)
@@ -881,8 +943,9 @@ export default function Correcoes() {
   // Filtro de visibilidade por role
   const itensFiltrados = itens.filter(i => {
     // Visibilidade por role
-    if (isEstagiario && !isBeliane && !isAdmin) {
-      if (i.estagiarioId !== user?.uid) return false
+    if ((isEstagiario || isEntregador) && !isBeliane && !isAdmin) {
+      // vê seus cards atribuídos + cards sem dono (para poder se auto-atribuir)
+      if (i.estagiarioId !== user?.uid && i.estagiarioId != null) return false
     }
     if (isProfissional && !isBeliane && !isAdmin) {
       if (i.profissionalUid !== user?.uid && i.profissionalUid != null) return false
@@ -1082,6 +1145,7 @@ export default function Correcoes() {
                     onChangeStatus={mudarStatus}
                     onMudarEtapa={mudarEtapa}
                     onAssumir={assumirCaso}
+                    onAssumirEstag={assumirCorrecaoCard}
                     onDelete={deletarCorrecao}
                     onClickCard={() => setItemSelecionado(item)}
                     isEstagiario={isEstagiario}
@@ -1090,6 +1154,8 @@ export default function Correcoes() {
                     isProfissional={isProfissional}
                     isEntregador={isEntregador}
                     onGerarLaudo={() => handleGerarLaudo(item)}
+                    onAtribuirEstagiario={atribuirEstagiario}
+                    estagiarios={estagiarios}
                     userId={user?.uid}
                   />
                 ))}
