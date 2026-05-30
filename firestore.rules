@@ -87,6 +87,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Profissionais importados do ProDoctor
+    match /professionals/{profId} {
+      allow read: if isAuth();
+      allow write: if isAdminOrSupervisor();
+    }
+
     // Configurações da clínica
     match /clinic_settings/{doc} {
       allow read, write: if isAdminOrSupervisor();
@@ -107,7 +113,10 @@ service cloud.firestore {
       //   profissional → os seus + os sem atribuição (para self-assign)
       allow read: if isAuth() && (
         isBeliane() ||
-        (isEstagiario() && resource.data.estagiarioId == request.auth.uid) ||
+        (isEstagiario() && (
+          resource.data.estagiarioId == request.auth.uid ||
+          resource.data.estagiarioId == null
+        )) ||
         (isProfissional() && (
           resource.data.profissionalUid == request.auth.uid ||
           resource.data.profissionalUid == null

@@ -603,6 +603,31 @@ export default function DiagnosticoPrevent() {
             ))}
           </div>
 
+          {/* Tipos de procedimento ProDoctor */}
+          {tiposProcedimento.length > 0 && (
+            <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '12px 16px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: S.muted, letterSpacing: '0.06em', marginBottom: 8 }}>
+                TIPOS DE PROCEDIMENTO — PRODOCTOR
+                {!temDevolutiva && <span style={{ color: S.amber, marginLeft: 8 }}>⚠ nenhum identificado como devolutiva/retorno — coluna devolutiva ficará vazia</span>}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {tiposProcedimento.map(([tipo, qtd]) => {
+                  const isMatch = tipo.includes('retorn') || tipo.includes('devolut')
+                  return (
+                    <span key={tipo} style={{
+                      fontSize: 11, padding: '3px 10px', borderRadius: 6,
+                      background: isMatch ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: isMatch ? S.green : S.muted,
+                      border: `1px solid ${isMatch ? 'rgba(76,175,80,0.3)' : S.border}`,
+                    }}>
+                      {tipo} <span style={{ opacity: 0.6 }}>({qtd})</span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Busca */}
           <div style={{ marginBottom: 10 }}>
             <input
