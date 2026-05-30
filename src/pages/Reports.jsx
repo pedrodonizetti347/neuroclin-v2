@@ -2430,6 +2430,9 @@ export default function Reports() {
           testsData: td,
         }).catch(() => {})
         logAction(user, 'laudo_gerado', { patientId, reportId, testes: selectedTests })
+      } else {
+        // Save falhou — avisa o usuário para não fechar a página
+        setError('⚠️ Laudo gerado mas NÃO SALVO no servidor. Não feche esta página. Tente clicar em "Salvar rascunho" ou recarregue e gere novamente.')
       }
 
     } catch (e) {
