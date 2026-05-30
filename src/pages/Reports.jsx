@@ -2334,6 +2334,22 @@ export default function Reports() {
             if (data.reportDate)  setReportDate(data.reportDate)
             if (data.supervisor_approval) setApprovalInfo(data.supervisor_approval)
           }
+        } else {
+          // Sem laudos no Firestore — verifica backup local (chaves do autosave e do saveReport)
+          try {
+            const raw = localStorage.getItem(`neuroclin_report_draft_${patientId}`)
+              || localStorage.getItem(`neuroclin_draft_${patientId}`)
+            if (raw) {
+              let html = raw
+              let tests = null
+              try { const j = JSON.parse(raw); html = j.reportHtml || raw; tests = j.selectedTests || null } catch (_) {}
+              if (html && html.length > 100) {
+                setReport(html)
+                if (tests) setSelectedTests(tests)
+                setError('⚠️ Rascunho local recuperado (não estava salvo no servidor). Revise e clique em "Enviar para Aprovação".')
+              }
+            }
+          } catch (_) {}
         }
       } catch (e) {
         console.error('[loadLatestReport]', e)

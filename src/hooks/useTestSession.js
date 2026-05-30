@@ -265,23 +265,40 @@ export function useTestSession(patientId) {
   // ─── Salva o laudo finalizado ─────────────────────────────────────────────
   const saveReport = useCallback(async (reportHtml, selectedTests) => {
     if (!patientId || !user) return null
+
+    // Backup imediato em localStorage — nunca perde conteúdo mesmo se Firestore falhar
+    const lsKey = `neuroclin_draft_${patientId}`
     try {
-      const ref = doc(db, 'reports', `${patientId}_${Date.now()}`)
-      await setDoc(ref, {
-        patientId,
-        professionalId:   user.id,
-        professionalName: user.full_name,
-        selectedTests,
-        reportHtml,
-        status:    'rascunho',
-        source:    'prevent',
-        createdAt: serverTimestamp(),
-      })
-      return ref.id
-    } catch (e) {
-      console.error('[useTestSession] Erro ao salvar laudo:', e)
-      return null
+      localStorage.setItem(lsKey, JSON.stringify({
+        reportHtml, selectedTests, savedAt: new Date().toISOString(),
+        professionalId: user.id, professionalName: user.full_name,
+      }))
+    } catch (_) {}
+
+    // Salva no Firestore com 3 tentativas
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const ref = doc(db, 'reports', `${patientId}_${Date.now()}`)
+        await setDoc(ref, {
+          patientId,
+          professionalId:   user.id,
+          professionalName: user.full_name,
+          selectedTests,
+          reportHtml,
+          status:    'rascunho',
+          source:    'prevent',
+          createdAt: serverTimestamp(),
+        })
+        // Sucesso — limpa o backup local
+        try { localStorage.removeItem(lsKey) } catch (_) {}
+        return ref.id
+      } catch (e) {
+        console.error(`[saveReport] tentativa ${attempt}/3:`, e)
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt))
+      }
     }
+    console.error('[saveReport] falhou após 3 tentativas — backup em localStorage')
+    return null
   }, [patientId, user])
 
   return {
