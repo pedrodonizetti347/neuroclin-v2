@@ -307,6 +307,31 @@ function Badge({ texto, cor }) {
   )
 }
 
+function exportarCSV(relatorio) {
+  const header = ['Paciente', 'Profissional', 'Testagens realizadas', 'Testagens futuras', 'Próxima testagem', 'Devolutiva', 'Status']
+  const fmtD = d => d ? d.toLocaleDateString('pt-BR') : '—'
+  const fmtR = r => r?.data ? (fmtD(r.data) + (r.hora ? ' ' + r.hora : '')) : '—'
+  const rows = relatorio.map(r => [
+    r.nome,
+    r.profissional || '—',
+    r.passadas,
+    r.futuras,
+    fmtD(r.proximaFutura),
+    fmtR(r.proximoRetorno),
+    r.motivo.replace(/[✅⏳❌⚠️]/g, '').trim(),
+  ])
+  const csv = [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+    .join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `prevent_senior_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function DiagnosticoPrevent() {
   const [rodando,   setRodando]   = useState(false)
   const [progresso, setProgresso] = useState('')
@@ -358,6 +383,19 @@ export default function DiagnosticoPrevent() {
         >
           {rodando ? '⏳ Executando...' : '▶ Executar diagnóstico'}
         </button>
+
+        {relatorio && (
+          <button
+            onClick={() => exportarCSV(relatorio)}
+            style={{
+              padding: '10px 18px', borderRadius: 9, border: '1px solid rgba(76,175,80,0.4)',
+              background: 'rgba(76,175,80,0.1)', color: '#4CAF50',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            ⬇ Exportar CSV
+          </button>
+        )}
 
         {progresso && (
           <span style={{ fontSize: 12, color: S.muted }}>{progresso}</span>
@@ -481,9 +519,6 @@ export default function DiagnosticoPrevent() {
             })}
           </div>
 
-          <p style={{ fontSize: 11, color: S.muted, marginTop: 12 }}>
-            💡 Abra o console (F12) para o relatório tabulado completo, pronto para copiar.
-          </p>
         </>
       )}
 
