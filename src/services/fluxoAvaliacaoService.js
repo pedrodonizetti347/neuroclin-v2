@@ -5,7 +5,7 @@ import {
 import { db } from '@/lib/firebase'
 import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
 
-const DATA_CORTE = new Date('2026-06-01T00:00:00')
+const DATA_CORTE = new Date('2026-02-28T00:00:00')
 
 const DIAS_PASSADO = 90       // 3 meses atrás (consultas de testagem)
 const DIAS_FUTURO  = 90       // 3 meses à frente (devolutivas agendadas)

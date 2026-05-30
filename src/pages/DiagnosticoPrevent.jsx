@@ -11,7 +11,7 @@ import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
 const DIAS_PASSADO  = 90
 const DIAS_FUTURO   = 90
 const BATCH_DIAS    = 14
-const DATA_CORTE    = new Date('2026-06-01T00:00:00')
+const DATA_CORTE    = new Date('2026-02-28T00:00:00')
 const CICLO_INICIO  = new Date('2026-02-28T00:00:00')
 
 // ── Helpers (cópia fiel dos helpers internos do serviço) ────────────────────
