@@ -48,7 +48,10 @@ function isConsultaContavel(ag) {
 
 function isRetornoFinal(ag) {
   const t = getTipoNome(ag)
-  return t.includes('retorno') || t.includes('devolutiva')
+  if (t.includes('retorno') || t.includes('devolutiva')) return true
+  // fallback: busca no JSON completo (cobre campos de tipo não mapeados)
+  const raw = JSON.stringify(ag).toLowerCase()
+  return raw.includes('devolutiva') || raw.includes('"retorno"') || raw.includes("'retorno'")
 }
 
 function fmtDate(d) {
@@ -96,6 +99,55 @@ async function executarDiagnostico(onProgress) {
   }
   onProgress(`${todos.length} agendamentos totais. Processando...`)
 
+  // ── DIAGNÓSTICO A: tipos de procedimento distintos ─────────────────────
+  console.clear()
+  console.log('%c=== DIAGNÓSTICO ProDoctor — TIPOS DE PROCEDIMENTO ===', 'font-size:13px;font-weight:bold;color:#F59E0B')
+  const tiposDistintos = new Map()
+  for (const ag of todos) {
+    const t = getTipoNome(ag)
+    const label = t || '(vazio)'
+    tiposDistintos.set(label, (tiposDistintos.get(label) ?? 0) + 1)
+  }
+  console.log('Valores encontrados nos campos tipoConsulta.nome / tipo.nome / tipoAtendimento.nome / descricaoTipo / descricao:')
+  ;[...tiposDistintos.entries()].sort((a, b) => b[1] - a[1]).forEach(([t, n]) => console.log(`  "${t}"  →  ${n} agendamento(s)`))
+
+  // ── DIAGNÓSTICO B: JSON completo de 1 agendamento de paciente Prevent ──
+  const agPrevent = todos.filter(ag => ag.paciente && isPreventSenior(ag))
+  console.log(`\n%c=== AGENDAMENTOS PREVENT ENCONTRADOS: ${agPrevent.length} ===`, 'font-weight:bold;color:#3B82F6')
+  if (agPrevent.length > 0) {
+    const ag0 = agPrevent[0]
+    const nomePac = ag0.paciente?.nome ?? ag0.paciente?.nomeCivil ?? '(sem nome)'
+    console.log(`\nJSON completo do 1º agendamento Prevent (paciente: ${nomePac}):`)
+    console.log(JSON.stringify(ag0, null, 2))
+    console.log('\nCampos de tipo extraídos:')
+    console.log('  tipoConsulta  :', ag0.tipoConsulta)
+    console.log('  tipo          :', ag0.tipo)
+    console.log('  tipoAtendimento:', ag0.tipoAtendimento)
+    console.log('  descricaoTipo :', ag0.descricaoTipo)
+    console.log('  descricao     :', ag0.descricao)
+  }
+
+  // ── DIAGNÓSTICO C: candidatos a retorno/devolutiva ─────────────────────
+  console.log('\n%c=== CANDIDATOS A RETORNO/DEVOLUTIVA ===', 'font-weight:bold;color:#8B5CF6')
+  const candidatos = todos.filter(ag => {
+    const raw = JSON.stringify(ag).toLowerCase()
+    return raw.includes('retorn') || raw.includes('devolut')
+  })
+  if (candidatos.length === 0) {
+    console.log('%c⚠️ Nenhum agendamento contém "retorn" ou "devolut" em nenhum campo!', 'color:#EF4444;font-size:12px;font-weight:bold')
+    console.log('→ Os agendamentos de retorno/devolutiva podem não estar sendo retornados pela API ProDoctor.')
+    console.log('→ Verifique se o endpoint /api/v1/Agenda/Listar inclui esses tipos de consulta.')
+  } else {
+    console.log(`${candidatos.length} agendamento(s) com "retorn" ou "devolut" encontrado(s):`)
+    candidatos.slice(0, 3).forEach((ag, i) => {
+      const nomePac = ag.paciente?.nome ?? ag.paciente?.nomeCivil ?? '(sem nome)'
+      console.log(`\n--- Candidato ${i + 1} — paciente: ${nomePac} ---`)
+      console.log(JSON.stringify(ag, null, 2))
+    })
+  }
+  console.log('\n%c=== FIM DOS DIAGNÓSTICOS — PROCESSANDO FLUXO ===', 'color:#4CAF50;font-weight:bold')
+  // ── FIM DOS DIAGNÓSTICOS ───────────────────────────────────────────────
+
   // 3 — Identificar IDs de pacientes Prevent
   const preventIds = new Set()
   for (const ag of todos) {
@@ -123,7 +175,7 @@ async function executarDiagnostico(onProgress) {
     const dtRaw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? null
     const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
     if (!dt) continue
-    if (isRetornoFinal(ag))        porPaciente[id].retornos.push(dt)
+    if (isRetornoFinal(ag))          porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
     else if (isConsultaContavel(ag)) porPaciente[id].testagens.push(dt)
   }
 
@@ -138,8 +190,11 @@ async function executarDiagnostico(onProgress) {
     const futuras   = doCiclo.filter(d => d > hojeMax)
     // Próxima futura
     const proximaFutura = futuras[0] ?? null
-    // Próximo retorno futuro
-    const proximoRetorno = dados.retornos.filter(d => d > hojeMax).sort((a, b) => a - b)[0] ?? null
+    // Devolutiva: prefere futura; se não houver, mostra a mais recente passada
+    const retornosFuturos  = dados.retornos.filter(r => r.data > hojeMax).sort((a, b) => a.data - b.data)
+    const retornosPassados = dados.retornos.filter(r => r.data <= hojeMax).sort((a, b) => b.data - a.data)
+    const proximoRetorno   = retornosFuturos[0] ?? retornosPassados[0] ?? null
+    const retornoFuturo    = !!retornosFuturos[0]
 
     // Motivo de estar (ou não) no fluxo
     let motivo
@@ -160,6 +215,7 @@ async function executarDiagnostico(onProgress) {
       futuras:        futuras.length,
       proximaFutura,
       proximoRetorno,
+      retornoFuturo,
       todasDoCiclo:   doCiclo,
       motivo,
     })
@@ -180,30 +236,35 @@ async function executarDiagnostico(onProgress) {
     'NOME'.padEnd(42),
     'TESTAGENS'.padEnd(12),
     'FUTURAS'.padEnd(10),
-    'PRÓXIMA'.padEnd(14),
-    'RETORNO'.padEnd(14),
+    'PRÓX.TESTAGEM'.padEnd(16),
+    'DEVOLUTIVA'.padEnd(20),
     'STATUS',
   )
-  console.log('─'.repeat(110))
+  console.log('─'.repeat(120))
+
+  function fmtDev(r) {
+    if (!r?.data) return '—'
+    return (fmtDate(r.data) + (r.hora ? ' ' + r.hora : '')).trim()
+  }
 
   for (const r of relatorio) {
     console.log(
       r.nome.substring(0, 41).padEnd(42),
       String(r.passadas).padEnd(12),
       String(r.futuras).padEnd(10),
-      (fmtDate(r.proximaFutura)).padEnd(14),
-      (fmtDate(r.proximoRetorno)).padEnd(14),
+      fmtDate(r.proximaFutura).padEnd(16),
+      fmtDev(r.proximoRetorno).padEnd(20),
       r.motivo,
     )
   }
 
-  console.log('─'.repeat(110))
+  console.log('─'.repeat(120))
   const noFluxo = relatorio.filter(r => r.motivo.startsWith('✅'))
   if (noFluxo.length === 0) {
     console.log('%c⚠️ Nenhum paciente atende todos os critérios do fluxo!', 'color:#F59E0B;font-weight:bold')
   } else {
     console.log(`%c✅ ${noFluxo.length} paciente(s) deveria(m) estar no fluxo:`, 'color:#4CAF50;font-weight:bold')
-    noFluxo.forEach(r => console.log(`   → ${r.nome} | ${r.passadas} testagens | 5ª: ${fmtDate(r.todasDoCiclo[4])} | retorno: ${fmtDate(r.proximoRetorno)}`))
+    noFluxo.forEach(r => console.log(`   → ${r.nome} | ${r.passadas} testagens | 5ª: ${fmtDate(r.todasDoCiclo[4])} | devolutiva: ${fmtDev(r.proximoRetorno)}`))
   }
 
   console.log('\n%c📊 Distribuição por número de testagens concluídas:', 'font-weight:bold')
@@ -244,6 +305,7 @@ export default function DiagnosticoPrevent() {
   const [progresso, setProgresso] = useState('')
   const [relatorio, setRelatorio] = useState(null)
   const [erro,      setErro]      = useState('')
+  const [busca,     setBusca]     = useState('')
 
   async function rodar() {
     setRodando(true)
@@ -319,11 +381,28 @@ export default function DiagnosticoPrevent() {
             ))}
           </div>
 
+          {/* Busca */}
+          <div style={{ marginBottom: 10 }}>
+            <input
+              type="text"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="🔍  Filtrar por nome do paciente..."
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff', borderRadius: 8,
+                padding: '9px 14px', fontSize: 13, outline: 'none',
+              }}
+            />
+          </div>
+
           {/* Tabela */}
           <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 90px 80px 110px 110px 1fr',
+              gridTemplateColumns: '2fr 90px 80px 110px 130px 1fr',
               padding: '10px 16px',
               borderBottom: `1px solid ${S.border}`,
               fontSize: 10, fontWeight: 700, color: S.muted,
@@ -334,11 +413,13 @@ export default function DiagnosticoPrevent() {
               <span style={{ textAlign: 'center' }}>Realizadas</span>
               <span style={{ textAlign: 'center' }}>Futuras</span>
               <span>Próxima testagem</span>
-              <span>Próx. retorno</span>
+              <span>Devolutiva</span>
               <span>Status</span>
             </div>
 
-            {relatorio.map((r, idx) => {
+            {relatorio
+              .filter(r => !busca || r.nome.toLowerCase().includes(busca.toLowerCase()))
+              .map((r, idx) => {
               const bgRow = idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'
               let cor = S.muted
               if (r.motivo.startsWith('✅')) cor = S.green
@@ -348,7 +429,7 @@ export default function DiagnosticoPrevent() {
               return (
                 <div key={idx} style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 90px 80px 110px 110px 1fr',
+                  gridTemplateColumns: '2fr 90px 80px 110px 130px 1fr',
                   padding: '9px 16px', gap: 8,
                   background: bgRow,
                   borderBottom: `1px solid ${S.border}`,
@@ -366,8 +447,22 @@ export default function DiagnosticoPrevent() {
                   <span style={{ fontSize: 11, color: r.proximaFutura ? '#fff' : S.muted }}>
                     {fmtDate(r.proximaFutura)}
                   </span>
-                  <span style={{ fontSize: 11, color: r.proximoRetorno ? '#8B5CF6' : S.muted }}>
-                    {fmtDate(r.proximoRetorno)}
+                  <span style={{ fontSize: 11, lineHeight: 1.4 }}>
+                    {r.proximoRetorno ? (
+                      <>
+                        <span style={{ fontWeight: 700, color: r.retornoFuturo ? '#8B5CF6' : S.muted }}>
+                          {fmtDate(r.proximoRetorno.data)}
+                        </span>
+                        {r.proximoRetorno.hora && (
+                          <span style={{ display: 'block', fontSize: 10, color: r.retornoFuturo ? 'rgba(139,92,246,0.7)' : S.muted }}>
+                            {r.proximoRetorno.hora}
+                          </span>
+                        )}
+                        <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: r.retornoFuturo ? '#8B5CF6' : S.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {r.retornoFuturo ? 'agendado' : 'realizado'}
+                        </span>
+                      </>
+                    ) : <span style={{ color: S.muted }}>—</span>}
                   </span>
                   <Badge texto={r.motivo} cor={cor} />
                 </div>
