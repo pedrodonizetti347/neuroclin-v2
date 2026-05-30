@@ -130,17 +130,20 @@ service cloud.firestore {
       allow update: if isAuth() && (
         isBeliane() ||
 
-        // Estagiário: transições de etapa (novo fluxo) e status (legado)
+        // Estagiário: transições de etapa + self-assign em prontuários sem dono
         (
           isEstagiario() &&
-          resource.data.estagiarioId == request.auth.uid &&
+          (resource.data.estagiarioId == request.auth.uid || resource.data.estagiarioId == null) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'etapaAtual', 'assumidoEm', 'finalizadoEm',
+            'estagiarioId', 'estagiarioNome',
             'status', 'dataInicioCorrecao', 'dataFinalizacao'
           ]) &&
           (
             (resource.data.etapaAtual == 'aguardando_correcao'   && request.resource.data.etapaAtual == 'em_correcao') ||
+            (resource.data.etapaAtual == 'aguardando_correcao'   && request.resource.data.etapaAtual == 'correcao_concluida') ||
             (resource.data.etapaAtual == 'em_correcao'           && request.resource.data.etapaAtual == 'aguardando_aprovacao') ||
+            (resource.data.etapaAtual == 'em_correcao'           && request.resource.data.etapaAtual == 'correcao_concluida') ||
             (resource.data.status     == 'aguardando'            && request.resource.data.status     == 'corrigindo') ||
             (resource.data.status     == 'corrigindo'            && request.resource.data.status     == 'finalizado')
           )
