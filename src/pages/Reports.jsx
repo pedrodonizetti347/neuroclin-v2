@@ -2624,28 +2624,34 @@ export default function Reports() {
     setTimeout(() => w.print(), 600)
   }
 
+  const [salvandoRascunho, setSalvandoRascunho] = useState(false)
+  const [rascunhoSalvo,    setRascunhoSalvo]    = useState(false)
+
   const salvarRascunho = async () => {
+    if (!patientId) { alert('Selecione um paciente antes de salvar.'); return }
     const content = getReportContent() || report
-    if (!content || content.length < 100) return
+    if (!content || content.length < 100) { alert('Sem conteúdo para salvar.'); return }
+    setSalvandoRascunho(true)
+    setRascunhoSalvo(false)
     try {
-      if (savedReportId) {
-        await setDoc(doc(db, 'reports', savedReportId), { reportHtml: content, updatedAt: serverTimestamp() }, { merge: true })
-      } else {
-        const ref = doc(db, 'reports', `${patientId}_${Date.now()}`)
-        await setDoc(ref, {
-          patientId, professionalId: user.id, professionalName: user.full_name,
-          selectedTests, reportHtml: content, status: 'rascunho',
-          source: 'prevent', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-        })
-        setSavedReportId(ref.id)
-        setSaved(true)
-        setReportStatus('rascunho')
-      }
+      const refId = savedReportId || `${patientId}_${Date.now()}`
+      await setDoc(doc(db, 'reports', refId), {
+        patientId, professionalId: user.id, professionalName: user.full_name,
+        selectedTests, reportHtml: content, status: 'rascunho',
+        source: 'prevent', updatedAt: serverTimestamp(),
+        ...(savedReportId ? {} : { createdAt: serverTimestamp() }),
+      }, { merge: true })
+      if (!savedReportId) { setSavedReportId(refId); setSaved(true) }
       try { localStorage.removeItem(`neuroclin_draft_${patientId}`); localStorage.removeItem(`neuroclin_report_draft_${patientId}`) } catch (_) {}
       setError('')
-      setAutoSaveStatus('saved')
-      setTimeout(() => setAutoSaveStatus('idle'), 2500)
-    } catch (e) { setError('Erro ao salvar: ' + e.message) }
+      setRascunhoSalvo(true)
+      setTimeout(() => setRascunhoSalvo(false), 3000)
+    } catch (e) {
+      alert('Erro ao salvar: ' + e.message)
+      setError('Erro ao salvar rascunho: ' + e.message)
+    } finally {
+      setSalvandoRascunho(false)
+    }
   }
 
   const requestApproval = async () => {
@@ -3079,8 +3085,10 @@ export default function Reports() {
               )}
               {/* Salvar rascunho — professional (sempre visível quando há conteúdo) */}
               {report && isProfessional && reportStatus === 'rascunho' && (
-                <button onClick={salvarRascunho} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
-                  <CheckCircle2 size={12} /> SALVAR
+                <button onClick={salvarRascunho} disabled={salvandoRascunho} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${rascunhoSalvo ? 'rgba(46,175,80,0.6)' : S.border}`, background: rascunhoSalvo ? 'rgba(46,175,80,0.15)' : 'transparent', cursor: salvandoRascunho ? 'not-allowed' : 'pointer', color: S.greenL }}>
+                  {salvandoRascunho ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> SALVANDO...</>
+                   : rascunhoSalvo   ? <><CheckCircle2 size={12} /> SALVO ✓</>
+                   : <><CheckCircle2 size={12} /> SALVAR</>}
                 </button>
               )}
               {/* Enviar para aprovação — professional */}
