@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
   query, orderBy, serverTimestamp,
@@ -64,15 +65,20 @@ const ETAPA = {
     bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.3)',
     icon: Clock, ordem: 2,
   },
+  correcao_concluida: {
+    label: 'Correção Concluída', color: '#4CAF50',
+    bg: 'rgba(76,175,80,0.15)', border: 'rgba(76,175,80,0.3)',
+    icon: CheckCircle2, ordem: 3,
+  },
   aguardando_aprovacao: {
     label: 'Ag. Aprovação', color: '#8B5CF6',
     bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)',
-    icon: Shield, ordem: 3,
+    icon: Shield, ordem: 4,
   },
   pronto_devolutiva: {
-    label: 'Pronto p/ Dev.', color: '#4CAF50',
-    bg: 'rgba(76,175,80,0.15)', border: 'rgba(76,175,80,0.3)',
-    icon: CheckCircle2, ordem: 4,
+    label: 'Pronto p/ Dev.', color: '#2DD4BF',
+    bg: 'rgba(45,212,191,0.15)', border: 'rgba(45,212,191,0.3)',
+    icon: CheckCircle2, ordem: 5,
   },
 }
 
@@ -171,7 +177,7 @@ function AnamneseBadge({ preenchida }) {
   )
 }
 
-function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, onClickCard, isEstagiario, isBeliane, isAdmin, isProfissional, userId }) {
+function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete, onClickCard, isEstagiario, isBeliane, isAdmin, isProfissional, isEntregador, onGerarLaudo, userId }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
   const status = item.status
@@ -197,6 +203,32 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onDelete,
           <button key="finalizar" onClick={() => onMudarEtapa(item.id, 'aguardando_aprovacao')}
             style={btnStyle('#8B5CF6', 'rgba(139,92,246,0.15)')}>
             <Check size={11} /> Finalizar correção
+          </button>
+        )
+      }
+      // Estagiário OU entregador — marcar correção como concluída
+      if (isEntregador && etapa === 'aguardando_correcao') {
+        btns.push(
+          <button key="concluir-entregador" onClick={() => onMudarEtapa(item.id, 'correcao_concluida')}
+            style={btnStyle('#4CAF50', 'rgba(76,175,80,0.2)')}>
+            <CheckCircle2 size={11} /> Correção Concluída
+          </button>
+        )
+      }
+      if (isEstagiario && etapa === 'aguardando_correcao' && item.estagiarioId === userId) {
+        btns.push(
+          <button key="concluir-estag" onClick={() => onMudarEtapa(item.id, 'correcao_concluida')}
+            style={btnStyle('#4CAF50', 'rgba(76,175,80,0.2)')}>
+            <CheckCircle2 size={11} /> Correção Concluída
+          </button>
+        )
+      }
+      // Profissional — notificação quando correção está concluída
+      if (isProfissional && etapa === 'correcao_concluida') {
+        btns.push(
+          <button key="gerar-laudo" onClick={e => { e.stopPropagation(); onGerarLaudo() }}
+            style={{ ...btnStyle('#4CAF50', 'rgba(76,175,80,0.25)'), fontWeight: 800, boxShadow: '0 0 0 1px rgba(76,175,80,0.4)' }}>
+            <FileText size={11} /> Gerar Laudo
           </button>
         )
       }
@@ -724,10 +756,16 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
 
 export default function Correcoes() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin      = user?.role === 'admin' || user?.role === 'supervisor'
   const isBeliane    = isAdmin || user?.role === 'secretaria'
   const isEstagiario = user?.role === 'estagiario'
+  const isEntregador = user?.role === 'entregador'
   const isProfissional = user?.role === 'profissional' || user?.role === 'professional'
+
+  function handleGerarLaudo(item) {
+    navigate('/laudos', { state: { pacienteNome: item.paciente } })
+  }
 
   const [itens,                setItens]                = useState([])
   const [estagiarios,          setEstagiarios]          = useState([])
@@ -781,6 +819,7 @@ export default function Correcoes() {
   async function mudarEtapa(id, novaEtapa) {
     const extra = {}
     if (novaEtapa === 'em_correcao')          extra.assumidoEm           = new Date()
+    if (novaEtapa === 'correcao_concluida')   extra.finalizadoEm         = new Date()
     if (novaEtapa === 'aguardando_aprovacao')  extra.finalizadoEm         = new Date()
     if (novaEtapa === 'pronto_devolutiva')     extra.aprovadoEm           = new Date()
     if (novaEtapa === 'aguardando_correcao')   extra.entregueEmCorrecaoEm = new Date()
@@ -1049,6 +1088,8 @@ export default function Correcoes() {
                     isBeliane={isBeliane}
                     isAdmin={isAdmin}
                     isProfissional={isProfissional}
+                    isEntregador={isEntregador}
+                    onGerarLaudo={() => handleGerarLaudo(item)}
                     userId={user?.uid}
                   />
                 ))}
