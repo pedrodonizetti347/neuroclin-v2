@@ -448,11 +448,16 @@ export default function Patients() {
               }}>{initials(p.full_name)}</div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a2e' }}>{p.full_name}</span>
                   {p.prodoctor_id && (
                     <span style={{ fontSize: 10, color: '#185FA5', background: '#E6F1FB', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>
                       ProDoctor
+                    </span>
+                  )}
+                  {p.profissionalNome && (
+                    <span style={{ fontSize: 10, color: '#2E7D32', background: '#E8F5E9', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>
+                      {p.profissionalNome}
                     </span>
                   )}
                 </div>

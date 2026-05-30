@@ -109,7 +109,7 @@ async function buscarTodosAgendamentos() {
           const ags = await getAgendaDay(prof.id, dia)
           // getAgendaDay retorna os agendamentos mas sem a data no objeto,
           // então injetamos a data do loop para facilitar o parseamento
-          return ags.map(ag => ({ ...ag, _diaLoop: dia }))
+          return ags.map(ag => ({ ...ag, _diaLoop: dia, _profId: prof.id }))
         })
       )
       todos.push(...results.flat())
@@ -120,6 +120,25 @@ async function buscarTodosAgendamentos() {
   return todos
 }
 
+async function buildProfessionalsMap() {
+  const [profSnap, usersSnap] = await Promise.all([
+    getDocs(collection(db, 'professionals')),
+    getDocs(collection(db, 'users')),
+  ])
+  const emailToUser = {}
+  usersSnap.docs.forEach(d => {
+    const email = (d.data().email || '').toLowerCase()
+    if (email) emailToUser[email] = { uid: d.id, name: d.data().full_name || '' }
+  })
+  const map = new Map()
+  profSnap.docs.forEach(d => {
+    const email = (d.data().email || '').toLowerCase()
+    const found = emailToUser[email]
+    if (found) map.set(d.id, { uid: found.uid, name: d.data().name || found.name })
+  })
+  return map
+}
+
 export async function sincronizarFluxoPrevent() {
   // Calcula o intervalo para exibir no diagnóstico
   const hoje = new Date()
@@ -128,7 +147,17 @@ export async function sincronizarFluxoPrevent() {
   const fmtDiag = (d) => d.toLocaleDateString('pt-BR')
   const intervalo = `${fmtDiag(inicio)} → ${fmtDiag(fim)}`
 
-  const agendamentos = await buscarTodosAgendamentos()
+  const [agendamentos, profMap, patientsSnap] = await Promise.all([
+    buscarTodosAgendamentos(),
+    buildProfessionalsMap(),
+    getDocs(collection(db, 'patients')),
+  ])
+
+  const prodoctorToPatientId = {}
+  patientsSnap.docs.forEach(d => {
+    const pid = d.data().prodoctor_id
+    if (pid) prodoctorToPatientId[pid] = d.id
+  })
 
   if (agendamentos.length === 0) {
     return { criados: 0, atualizados: 0, ignorados: 0, intervalo, totalAgendamentos: 0, totalPrevent: 0, aviso: 'Nenhum agendamento retornado pelo ProDoctor' }
@@ -153,7 +182,10 @@ export async function sincronizarFluxoPrevent() {
     const { id, nome } = getPacienteInfo(ag)
     if (!id || !preventIds.has(id)) continue
 
-    if (!porPaciente[id]) porPaciente[id] = { nome, consultas: [], retornos: [] }
+    if (!porPaciente[id]) porPaciente[id] = { nome, consultas: [], retornos: [], profId: null }
+    if (ag._profId && isConsultaContavel(ag) && !porPaciente[id].profId) {
+      porPaciente[id].profId = ag._profId
+    }
 
     const dtRaw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? null
     const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
@@ -185,12 +217,18 @@ export async function sincronizarFluxoPrevent() {
     // Garante que devolutivas futuras (ex: Maria Tegazzini 09/06) sejam gravadas
     if (!snap.empty) {
       const existente = snap.docs[0].data()
+      const profInfo = dados.profId ? profMap.get(dados.profId) : null
       await updateDoc(doc(db, 'correcoes', snap.docs[0].id), {
         paciente:          dados.nome,
         consultasContadas: consultas.map(c => c.data),
         dataDevolutiva:    devFutura?.data ?? existente.dataDevolutiva ?? null,
         atualizadoEm:      serverTimestamp(),
+        ...(profInfo ? { profissionalId: dados.profId, profissionalNome: profInfo.name, profissionalUid: profInfo.uid } : {}),
       })
+      const fsPatientId = prodoctorToPatientId[pacienteId]
+      if (fsPatientId && profInfo) {
+        updateDoc(doc(db, 'patients', fsPatientId), { profissionalUid: profInfo.uid, profissionalNome: profInfo.name }).catch(() => {})
+      }
       res.atualizados++
       continue
     }
@@ -200,6 +238,7 @@ export async function sincronizarFluxoPrevent() {
     const quinta = consultas[4]
     if (quinta.data < DATA_CORTE) { res.ignorados++; continue }
 
+    const profInfo = dados.profId ? profMap.get(dados.profId) : null
     await addDoc(collection(db, 'correcoes'), {
       pacienteCodigo:       pacienteId,
       paciente:             dados.nome,
@@ -209,9 +248,9 @@ export async function sincronizarFluxoPrevent() {
       dataDevolutiva:       devFutura?.data ?? null,
       atualizadoEm:         serverTimestamp(),
       etapaAtual:           'aguardando_correcao',
-      profissionalId:       null,
-      profissionalNome:     null,
-      profissionalUid:      null,
+      profissionalId:       profInfo ? dados.profId    : null,
+      profissionalNome:     profInfo ? profInfo.name   : null,
+      profissionalUid:      profInfo ? profInfo.uid    : null,
       estagiarioId:         null,
       estagiarioNome:       null,
       anamnese_preenchida:  false,
@@ -222,6 +261,10 @@ export async function sincronizarFluxoPrevent() {
       criadoEm:             serverTimestamp(),
       origem:               'prodoctor_auto',
     })
+    const fsPatientId = prodoctorToPatientId[pacienteId]
+    if (fsPatientId && profInfo) {
+      updateDoc(doc(db, 'patients', fsPatientId), { profissionalUid: profInfo.uid, profissionalNome: profInfo.name }).catch(() => {})
+    }
     res.criados++
   }
 

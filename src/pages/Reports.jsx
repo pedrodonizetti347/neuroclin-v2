@@ -2210,14 +2210,19 @@ export default function Reports() {
   useEffect(() => {
     if (!user) return
     const canViewAll = user.role === 'admin' || user.role === 'supervisor' || user.role === 'entregador'
+    const isProfRole = user.role === 'professional'
     const base = collection(db, 'patients')
     const q = canViewAll
       ? query(base, orderBy('createdAt', 'desc'))
-      : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
+      : isProfRole
+        ? query(base, where('profissionalUid', '==', user.id))
+        : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
     getDocs(q)
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {
-        const qFallback = canViewAll ? base : query(base, where('createdBy', '==', user.id))
+        const qFallback = canViewAll ? base : isProfRole
+          ? query(base, where('profissionalUid', '==', user.id))
+          : query(base, where('createdBy', '==', user.id))
         getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       })
   }, [user])
