@@ -4,8 +4,7 @@ import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, ser
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
-import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, FileDown, Pencil, LockOpen, Lock } from 'lucide-react'
-import { exportToDocx } from '@/utils/generateDocx'
+import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, Pencil, LockOpen, Lock } from 'lucide-react'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import PatientSearchInput from '@/components/PatientSearchInput'
 import { logAction } from '@/lib/auditLog'
@@ -2181,7 +2180,7 @@ export default function Reports() {
   const [showEditConfirm,setShowEditConfirm]= useState(false)
   const [aiBodyState,    setAiBodyState]    = useState('')
   const [reportDate,     setReportDate]     = useState('')
-  const [docxExporting,  setDocxExporting]  = useState(false)
+
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle') // 'idle'|'saving'|'saved'
   const [validationErrors, setValidationErrors] = useState([])
   const [reopenModal,    setReopenModal]    = useState(false)
@@ -2222,6 +2221,17 @@ export default function Reports() {
         getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       })
   }, [user])
+
+  // ── Auto-seleciona paciente quando vem do PainelLaudos ──────────────────────
+  useEffect(() => {
+    const pid = location.state?.patientId
+    if (!pid) return
+    setPatientId(pid)
+    getDoc(doc(db, 'patients', pid)).then(snap => {
+      if (!snap.exists()) return
+      setPatients(prev => prev.some(p => p.id === pid) ? prev : [{ id: snap.id, ...snap.data() }, ...prev])
+    }).catch(() => {})
+  }, [location.state?.patientId])
 
   // ── Detecção de anamnese ao trocar de paciente ───────────────────────────────
   useEffect(() => {
@@ -2638,86 +2648,6 @@ export default function Reports() {
       setReopenError('Erro ao reabrir: ' + e.message)
     } finally {
       setReopenLoading(false)
-    }
-  }
-
-  const handleExportDocx = async () => {
-    if (!report && !savedReportId) return
-    setDocxExporting(true)
-    try {
-      const patient = patients.find(p => p.id === patientId)
-      // NUNCA usar session.session?.tests — pode conter dados de outro paciente
-      let ad = {}
-      let td = {}
-      let aiBody = aiBodyState
-      let reportHtmlForDocx = report || ''
-
-      // ── Fonte A: sessão legada do usuário (menor prioridade) ─────────────
-      if (patientId && user?.id) {
-        try {
-          const snap = await getDoc(doc(db, 'sessions', `${patientId}_${user.id}`))
-          if (snap.exists()) td = mergeTests(td, snap.data().tests || {})
-        } catch (_) {}
-      }
-
-      // ── Fonte B: sessão principal (prioridade máxima — sobrescreve legado)─
-      if (patientId) {
-        try {
-          const mainSnap = await getDoc(doc(db, 'sessions', patientId))
-          if (mainSnap.exists()) {
-            const mainData = mainSnap.data()
-            td = mergeTests(td, mainData.tests || {})
-            if (mainData.anamnesis && Object.keys(mainData.anamnesis).length > 0) {
-              ad = { ...ad, ...mainData.anamnesis }
-            }
-          }
-        } catch (_) {}
-      }
-      // Coleção anamneses/{patientId} — prioridade máxima se existir
-      if (patientId) {
-        try {
-          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
-          if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
-        } catch (_) {}
-      }
-
-      // ── Fonte D: aiBodyHtml e reportHtml do documento do laudo salvo ─────
-      if (savedReportId) {
-        try {
-          const repSnap = await getDoc(doc(db, 'reports', savedReportId))
-          if (repSnap.exists()) {
-            const repData = repSnap.data()
-            if (!aiBody && repData.aiBodyHtml) aiBody = stripMdFences(repData.aiBodyHtml)
-            if (!reportHtmlForDocx && repData.reportHtml) reportHtmlForDocx = repData.reportHtml
-            // Mescla testsData do relatório como base (menor prioridade)
-            if (repData.testsData) td = mergeTests(repData.testsData, td)
-          }
-        } catch (_) {}
-      }
-
-      // Regenera conclusão sempre com dados frescos (nunca usa texto salvo pelo AI)
-      const freshAiBody = buildAiBodyFromData(patient, ad, td)
-      if (freshAiBody) aiBody = freshAiBody
-
-      console.log('[DOCX Export] td instruments:', Object.keys(td))
-      console.log('[DOCX Export] reportHtml length:', reportHtmlForDocx?.length || 0)
-      await exportToDocx({
-        patient,
-        selectedTests,
-        ad,
-        td,
-        aiBodyHtml: aiBody,
-        reportHtml: reportHtmlForDocx,
-        approvalInfo,
-        appliedBy,
-        user,
-        dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
-      })
-    } catch (e) {
-      console.error('[exportDocx]', e)
-      alert('Erro ao gerar .docx: ' + e.message)
-    } finally {
-      setDocxExporting(false)
     }
   }
 

@@ -5,7 +5,6 @@ import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { db, auth } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
-import { exportToDocx } from '@/utils/generateDocx'
 import AnamneseForm from '@/components/AnamneseForm'
 import TestStatusPanel from '@/components/tests/TestStatusPanel'
 import PatientSearchInput from '@/components/PatientSearchInput'
@@ -13,7 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, FileText, FlaskConical, Save,
   ChevronDown, ChevronUp, Loader2, CheckCircle2, Plus,
-  Trash2, X, Eye, EyeOff, AlertTriangle, Printer, FileDown, Lock,
+  Trash2, X, Eye, EyeOff, AlertTriangle, Printer, Lock,
 } from 'lucide-react'
 
 const S = {
@@ -78,7 +77,6 @@ function TestCard({ testKey, data }) {
 
 function ReportCard({ report, canDelete, onDeleteRequest, patient, user }) {
   const [open, setOpen] = useState(false)
-  const [wordLoading, setWordLoading] = useState(false)
   const isApproved = report.status === 'aprovado'
 
   const handlePrint = (e) => {
@@ -91,30 +89,6 @@ function ReportCard({ report, canDelete, onDeleteRequest, patient, user }) {
     setTimeout(() => { w.print() }, 600)
   }
 
-  const handleWord = async (e) => {
-    e.stopPropagation()
-    if (wordLoading) return
-    setWordLoading(true)
-    try {
-      const dataFormatada = report.createdAt?.toDate
-        ? report.createdAt.toDate().toLocaleDateString('pt-BR')
-        : new Date().toLocaleDateString('pt-BR')
-      await exportToDocx({
-        patient: patient || {},
-        selectedTests: report.selectedTests || [],
-        ad: {},
-        td: {},
-        aiBodyHtml: report.aiBodyHtml || '',
-        reportHtml: report.reportHtml || '',
-        approvalInfo: report.approvalInfo || null,
-        appliedBy: report.appliedBy || '',
-        user,
-        dataFormatada,
-      })
-    } finally {
-      setWordLoading(false)
-    }
-  }
 
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: `1px solid rgba(46,125,50,0.2)`, marginBottom: 6, overflow: 'hidden' }}>
@@ -142,16 +116,6 @@ function ReportCard({ report, canDelete, onDeleteRequest, patient, user }) {
               style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
             >
               <Printer size={13} color={S.blue} />
-            </button>
-            <button
-              onClick={handleWord}
-              disabled={wordLoading}
-              title="Exportar Word"
-              style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(76,175,80,0.3)', background: 'rgba(76,175,80,0.08)', cursor: wordLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-            >
-              {wordLoading
-                ? <Loader2 size={13} color={S.greenL} style={{ animation: 'spin 1s linear infinite' }} />
-                : <FileDown size={13} color={S.greenL} />}
             </button>
           </>
         )}

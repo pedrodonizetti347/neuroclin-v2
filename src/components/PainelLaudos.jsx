@@ -317,7 +317,11 @@ export default function PainelLaudos() {
                 return (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${cfg.borda}` }}>
                     <button
-                      onClick={() => testesOk && navigate("/laudos", { state: { painelData: { paciente: l.paciente, data: l.data } } })}
+                      onClick={() => {
+                        if (!testesOk) return;
+                        const info = testStatusMap[normName(l.paciente)];
+                        navigate("/laudos", { state: { painelData: { paciente: l.paciente, data: l.data }, patientId: info?.patientId } });
+                      }}
                       disabled={!testesOk}
                       title={!testesOk ? "Aguardando conclusão de todos os testes pelo estagiário" : ""}
                       style={{
