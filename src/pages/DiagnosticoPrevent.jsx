@@ -167,10 +167,14 @@ async function executarDiagnostico(onProgress) {
     if (!porPaciente[id]) {
       porPaciente[id] = {
         id,
-        nome: ag.paciente?.nome ?? ag.paciente?.nomeCivil ?? '(sem nome)',
-        testagens: [],
-        retornos:  [],
+        nome:        ag.paciente?.nome ?? ag.paciente?.nomeCivil ?? '(sem nome)',
+        profissional: null,
+        testagens:   [],
+        retornos:    [],
       }
+    }
+    if (ag._profNome && isConsultaContavel(ag) && !porPaciente[id].profissional) {
+      porPaciente[id].profissional = ag._profNome
     }
     const dtRaw = ag.data ?? ag.dataConsulta ?? ag.dataAgendamento ?? null
     const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
@@ -211,6 +215,7 @@ async function executarDiagnostico(onProgress) {
 
     relatorio.push({
       nome:           dados.nome,
+      profissional:   dados.profissional ?? '—',
       passadas:       passadas.length,
       futuras:        futuras.length,
       proximaFutura,
@@ -233,14 +238,15 @@ async function executarDiagnostico(onProgress) {
   console.log(`Em análise: ${relatorio.filter(r => r.motivo.startsWith('✅')).length} deveria(m) estar no fluxo`)
   console.log('─'.repeat(110))
   console.log(
-    'NOME'.padEnd(42),
-    'TESTAGENS'.padEnd(12),
-    'FUTURAS'.padEnd(10),
+    'NOME'.padEnd(38),
+    'PROFISSIONAL'.padEnd(28),
+    'TEST.'.padEnd(8),
+    'FUT.'.padEnd(6),
     'PRÓX.TESTAGEM'.padEnd(16),
     'DEVOLUTIVA'.padEnd(20),
     'STATUS',
   )
-  console.log('─'.repeat(120))
+  console.log('─'.repeat(130))
 
   function fmtDev(r) {
     if (!r?.data) return '—'
@@ -249,9 +255,10 @@ async function executarDiagnostico(onProgress) {
 
   for (const r of relatorio) {
     console.log(
-      r.nome.substring(0, 41).padEnd(42),
-      String(r.passadas).padEnd(12),
-      String(r.futuras).padEnd(10),
+      r.nome.substring(0, 37).padEnd(38),
+      (r.profissional || '—').substring(0, 27).padEnd(28),
+      String(r.passadas).padEnd(8),
+      String(r.futuras).padEnd(6),
       fmtDate(r.proximaFutura).padEnd(16),
       fmtDev(r.proximoRetorno).padEnd(20),
       r.motivo,
@@ -402,7 +409,7 @@ export default function DiagnosticoPrevent() {
           <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, overflow: 'hidden' }}>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 90px 80px 110px 130px 1fr',
+              gridTemplateColumns: '1.6fr 1.2fr 90px 80px 110px 130px 1fr',
               padding: '10px 16px',
               borderBottom: `1px solid ${S.border}`,
               fontSize: 10, fontWeight: 700, color: S.muted,
@@ -410,6 +417,7 @@ export default function DiagnosticoPrevent() {
               gap: 8,
             }}>
               <span>Paciente</span>
+              <span>Profissional</span>
               <span style={{ textAlign: 'center' }}>Realizadas</span>
               <span style={{ textAlign: 'center' }}>Futuras</span>
               <span>Próxima testagem</span>
@@ -429,7 +437,7 @@ export default function DiagnosticoPrevent() {
               return (
                 <div key={idx} style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 90px 80px 110px 130px 1fr',
+                  gridTemplateColumns: '1.6fr 1.2fr 90px 80px 110px 130px 1fr',
                   padding: '9px 16px', gap: 8,
                   background: bgRow,
                   borderBottom: `1px solid ${S.border}`,
@@ -437,6 +445,9 @@ export default function DiagnosticoPrevent() {
                 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.nome}
+                  </span>
+                  <span style={{ fontSize: 11, color: S.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.profissional}
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 800, color: cor, textAlign: 'center' }}>
                     {r.passadas}
