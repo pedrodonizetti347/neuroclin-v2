@@ -153,10 +153,15 @@ export async function sincronizarFluxoPrevent() {
     getDocs(collection(db, 'patients')),
   ])
 
+  const normName = n => (n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim().replace(/\s+/g, ' ')
+
   const prodoctorToPatientId = {}
+  const nameToPatientId      = {}
   patientsSnap.docs.forEach(d => {
-    const pid = d.data().prodoctor_id
-    if (pid) prodoctorToPatientId[pid] = d.id
+    const data = d.data()
+    if (data.prodoctor_id) prodoctorToPatientId[data.prodoctor_id] = d.id
+    const nn = normName(data.full_name)
+    if (nn) nameToPatientId[nn] = d.id
   })
 
   if (agendamentos.length === 0) {
@@ -225,7 +230,7 @@ export async function sincronizarFluxoPrevent() {
         atualizadoEm:      serverTimestamp(),
         ...(profInfo ? { profissionalId: dados.profId, profissionalNome: profInfo.name, profissionalUid: profInfo.uid } : {}),
       })
-      const fsPatientId = prodoctorToPatientId[pacienteId]
+      const fsPatientId = prodoctorToPatientId[pacienteId] || nameToPatientId[normName(dados.nome)]
       if (fsPatientId && profInfo) {
         updateDoc(doc(db, 'patients', fsPatientId), { profissionalUid: profInfo.uid, profissionalNome: profInfo.name }).catch(() => {})
       }
@@ -261,7 +266,7 @@ export async function sincronizarFluxoPrevent() {
       criadoEm:             serverTimestamp(),
       origem:               'prodoctor_auto',
     })
-    const fsPatientId = prodoctorToPatientId[pacienteId]
+    const fsPatientId = prodoctorToPatientId[pacienteId] || nameToPatientId[normName(dados.nome)]
     if (fsPatientId && profInfo) {
       updateDoc(doc(db, 'patients', fsPatientId), { profissionalUid: profInfo.uid, profissionalNome: profInfo.name }).catch(() => {})
     }

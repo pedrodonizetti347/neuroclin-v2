@@ -2212,17 +2212,31 @@ export default function Reports() {
     const canViewAll = user.role === 'admin' || user.role === 'supervisor' || user.role === 'entregador'
     const isProfRole = user.role === 'professional'
     const base = collection(db, 'patients')
+
+    if (isProfRole) {
+      // Busca pacientes via correcoes (fonte de verdade para vínculo profissional)
+      getDocs(query(collection(db, 'correcoes'), where('profissionalUid', '==', user.id)))
+        .then(async corrSnap => {
+          const codes = [...new Set(corrSnap.docs.map(d => d.data().pacienteCodigo).filter(Boolean))]
+          if (codes.length === 0) { setPatients([]); return }
+          const all = []
+          for (let i = 0; i < codes.length; i += 30) {
+            const snap = await getDocs(query(base, where('prodoctor_id', 'in', codes.slice(i, i + 30))))
+            all.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })))
+          }
+          setPatients(all)
+        })
+        .catch(() => setPatients([]))
+      return
+    }
+
     const q = canViewAll
       ? query(base, orderBy('createdAt', 'desc'))
-      : isProfRole
-        ? query(base, where('profissionalUid', '==', user.id))
-        : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
+      : query(base, where('createdBy', '==', user.id), orderBy('createdAt', 'desc'))
     getDocs(q)
       .then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       .catch(() => {
-        const qFallback = canViewAll ? base : isProfRole
-          ? query(base, where('profissionalUid', '==', user.id))
-          : query(base, where('createdBy', '==', user.id))
+        const qFallback = canViewAll ? base : query(base, where('createdBy', '==', user.id))
         getDocs(qFallback).then(snap => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
       })
   }, [user])
