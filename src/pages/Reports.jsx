@@ -2,6 +2,7 @@
 import { useLocation } from 'react-router-dom'
 import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
+import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useAuth } from '@/lib/AuthContext'
 import { useTestSession } from '@/hooks/useTestSession'
 import { FileText, Loader2, CheckCircle2, Download, AlertCircle, ShieldCheck, Send, X, Pencil, LockOpen, Lock } from 'lucide-react'
@@ -2641,10 +2642,12 @@ export default function Reports() {
 
   const reopenReport = async () => {
     if (!savedReportId || !isSupervisor) return
-    const correct = import.meta.env.VITE_ADMIN_DELETE_PASSWORD
-    if (reopenPassword !== correct) { setReopenError('Senha incorreta.'); return }
     setReopenLoading(true)
     try {
+      const u = auth.currentUser
+      if (!u?.email) { setReopenError('Sessão inválida. Faça login novamente.'); setReopenLoading(false); return }
+      const cred = EmailAuthProvider.credential(u.email, reopenPassword)
+      await reauthenticateWithCredential(u, cred)
       await updateDoc(doc(db, 'reports', savedReportId), {
         status: 'rascunho',
         supervisor_approval: null,
@@ -2664,7 +2667,11 @@ export default function Reports() {
         authorizedBy: user?.full_name || user?.id,
       })
     } catch (e) {
-      setReopenError('Erro ao reabrir: ' + e.message)
+      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
+        setReopenError('Senha incorreta.')
+      } else {
+        setReopenError('Erro ao verificar: ' + e.message)
+      }
     } finally {
       setReopenLoading(false)
     }
@@ -3069,7 +3076,7 @@ export default function Reports() {
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
-                      <Lock size={11} /> SENHA DE ADMINISTRADOR
+                      <Lock size={11} /> SUA SENHA DE LOGIN
                     </label>
                     <input
                       type="password"
