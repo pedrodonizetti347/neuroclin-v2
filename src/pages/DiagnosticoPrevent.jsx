@@ -4,7 +4,7 @@
  * Mostra relatório completo dos pacientes Prevent Sênior e por que
  * apenas alguns estão no fluxo de correção.
  */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
 
 // ── Mesmos parâmetros do fluxoAvaliacaoService ──────────────────────────────
@@ -60,17 +60,18 @@ function fmtDate(d) {
 }
 
 // ── Lógica principal de diagnóstico ────────────────────────────────────────
-async function executarDiagnostico(onProgress) {
+async function executarDiagnostico(onProgress, profFiltro) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
   const hojeMax = new Date(); hojeMax.setHours(23, 59, 59, 999)
 
   // 1 — Profissionais
   onProgress('Buscando profissionais...')
   const profData = await listProfessionals()
-  const professionals = profData
+  let professionals = profData
     .map(p => ({ id: String(p.codigo ?? p.id ?? ''), nome: p.nome ?? p.nomeCivil ?? '' }))
     .filter(p => p.id)
-  onProgress(`${professionals.length} profissionais encontrados. Buscando agendamentos...`)
+  if (profFiltro) professionals = professionals.filter(p => p.id === profFiltro)
+  onProgress(`${professionals.length} profissional(is) selecionado(s). Buscando agendamentos...`)
 
   // 2 — Agendamentos (mesmo range do serviço: -90 / +90 dias)
   const totalDias = DIAS_PASSADO + DIAS_FUTURO + 1
@@ -226,6 +227,14 @@ async function executarDiagnostico(onProgress) {
     })
   }
 
+  // Tipos de procedimento distintos (diagnóstico de devolutiva)
+  const tiposMap = new Map()
+  for (const ag of todos) {
+    const t = getTipoNome(ag) || '(vazio)'
+    tiposMap.set(t, (tiposMap.get(t) ?? 0) + 1)
+  }
+  const tiposProcedimento = [...tiposMap.entries()].sort((a, b) => b[1] - a[1])
+
   // Ordenar: quem tem mais testagens primeiro
   relatorio.sort((a, b) => b.passadas - a.passadas || a.nome.localeCompare(b.nome))
 
@@ -280,7 +289,7 @@ async function executarDiagnostico(onProgress) {
     if (grupo.length) console.log(`   ${n} testagens: ${grupo.length} paciente(s)`)
   }
 
-  return relatorio
+  return { relatorio, tiposProcedimento }
 }
 
 // ── Estilos ────────────────────────────────────────────────────────────────
@@ -333,12 +342,13 @@ function exportarCSV(relatorio) {
 }
 
 // ── Busca agendamentos de um paciente específico ────────────────────────────
-async function buscarAgendamentosPaciente(codigoPaciente, diasPassado, diasFuturo, onProgress) {
+async function buscarAgendamentosPaciente(codigoPaciente, diasPassado, diasFuturo, onProgress, profFiltro) {
   onProgress('Buscando profissionais...')
   const profData = await listProfessionals()
-  const professionals = profData
+  let professionals = profData
     .map(p => ({ id: String(p.codigo ?? p.id ?? ''), nome: p.nome ?? p.nomeCivil ?? '' }))
     .filter(p => p.id)
+  if (profFiltro) professionals = professionals.filter(p => p.id === profFiltro)
 
   const hoje = new Date(); hoje.setHours(12, 0, 0, 0)
   const totalDias = diasPassado + diasFuturo + 1
@@ -377,11 +387,25 @@ async function buscarAgendamentosPaciente(codigoPaciente, diasPassado, diasFutur
 }
 
 export default function DiagnosticoPrevent() {
-  const [rodando,   setRodando]   = useState(false)
-  const [progresso, setProgresso] = useState('')
-  const [relatorio, setRelatorio] = useState(null)
-  const [erro,      setErro]      = useState('')
-  const [busca,     setBusca]     = useState('')
+  const [rodando,          setRodando]          = useState(false)
+  const [progresso,        setProgresso]        = useState('')
+  const [relatorio,        setRelatorio]        = useState(null)
+  const [tiposProcedimento,setTiposProcedimento]= useState([])
+  const [erro,             setErro]             = useState('')
+  const [busca,            setBusca]            = useState('')
+
+  // ── Lista de profissionais e filtro ───────────────────────────────────────
+  const [profissionais, setProfissionais] = useState([])
+  const [profFiltro,    setProfFiltro]    = useState('')
+
+  useEffect(() => {
+    listProfessionals()
+      .then(data => setProfissionais(
+        data.map(p => ({ id: String(p.codigo ?? p.id ?? ''), nome: p.nome ?? p.nomeCivil ?? '' }))
+            .filter(p => p.id && p.nome)
+      ))
+      .catch(() => {})
+  }, [])
 
   // ── Busca por paciente específico ─────────────────────────────────────────
   const [codigoPac,     setCodigoPac]     = useState('11507')
@@ -396,7 +420,7 @@ export default function DiagnosticoPrevent() {
   async function rodarBuscaPaciente() {
     setBuscandoPac(true); setErroPac(''); setAgendamentos(null); setExpandido(null)
     try {
-      const ags = await buscarAgendamentosPaciente(codigoPac, diasPast, diasFut, msg => setProgPac(msg))
+      const ags = await buscarAgendamentosPaciente(codigoPac, diasPast, diasFut, msg => setProgPac(msg), profFiltro)
       setAgendamentos(ags)
       setProgPac(`Concluído — ${ags.length} agendamento(s) encontrado(s).`)
       console.log(`%c=== AGENDAMENTOS DO PACIENTE ${codigoPac} ===`, 'font-size:13px;font-weight:bold;color:#F59E0B')
@@ -417,9 +441,10 @@ export default function DiagnosticoPrevent() {
     setErro('')
     setRelatorio(null)
     try {
-      const r = await executarDiagnostico(msg => setProgresso(msg))
+      const { relatorio: r, tiposProcedimento: tipos } = await executarDiagnostico(msg => setProgresso(msg), profFiltro)
       setRelatorio(r)
-      setProgresso(`Concluído — ${r.length} pacientes Prevent encontrados. Veja o console (F12) para o relatório completo.`)
+      setTiposProcedimento(tipos)
+      setProgresso(`Concluído — ${r.length} pacientes Prevent encontrados.`)
     } catch (e) {
       setErro(e.message)
       setProgresso('')
@@ -429,6 +454,7 @@ export default function DiagnosticoPrevent() {
   }
 
   const totalNoFluxo = relatorio?.filter(r => r.motivo.startsWith('✅')).length ?? 0
+  const temDevolutiva = tiposProcedimento.some(([t]) => t.includes('retorn') || t.includes('devolut'))
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -442,6 +468,23 @@ export default function DiagnosticoPrevent() {
           Nenhuma lógica de produção é alterada.
         </p>
       </div>
+
+      {/* ── Filtro por profissional (compartilhado pelos dois painéis) ── */}
+      {profissionais.length > 0 && (
+        <div style={{ background: S.card, borderRadius: 10, border: `1px solid rgba(59,130,246,0.3)`, padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#93C5FD', whiteSpace: 'nowrap' }}>Filtrar por profissional:</span>
+          <select value={profFiltro} onChange={e => setProfFiltro(e.target.value)}
+            style={{ background: '#1E3A5F', border: '1px solid rgba(59,130,246,0.4)', color: '#fff', borderRadius: 7, padding: '6px 12px', fontSize: 12, outline: 'none', minWidth: 220 }}>
+            <option value="">Todos os profissionais</option>
+            {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+          </select>
+          {profFiltro && (
+            <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>
+              ⚡ Busca mais rápida — apenas 1 profissional
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── PAINEL: Busca agendamentos por paciente ── */}
       <div style={{ background: S.card, borderRadius: 12, border: `1px solid rgba(245,158,11,0.3)`, padding: 20, marginBottom: 24 }}>
