@@ -184,7 +184,6 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumir
   const temEtapa = !!etapa
   const [confirmando, setConfirmando] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [estagiarioSel, setEstagiarioSel] = useState('')
 
   function renderAcoes() {
     const btns = []
@@ -245,31 +244,25 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumir
       // Admin — atribuição rápida de estagiário direto no card
       if (isAdmin && temEtapa && etapa === 'aguardando_correcao' && !item.estagiarioId && estagiarios?.length > 0) {
         btns.push(
-          <div key="atribuir-estag" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <select
-              value={estagiarioSel}
-              onChange={e => setEstagiarioSel(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)',
-                color: estagiarioSel ? '#fff' : 'rgba(255,255,255,0.4)',
-                borderRadius: 6, padding: '4px 8px', fontSize: 11,
-                cursor: 'pointer', outline: 'none', maxWidth: 165,
-              }}
-            >
-              <option value="">Atribuir estagiário...</option>
-              {estagiarios.map(e => (
-                <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>
-              ))}
-            </select>
-            {estagiarioSel && (
-              <button
-                onClick={() => { onAtribuirEstagiario(item.id, estagiarioSel); setEstagiarioSel('') }}
-                style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}
-              >
-                <Check size={11} /> OK
-              </button>
-            )}
-          </div>
+          <select
+            key="atribuir-estag"
+            defaultValue=""
+            onChange={e => {
+              if (!e.target.value) return
+              onAtribuirEstagiario(item.id, e.target.value)
+              e.target.selectedIndex = 0
+            }}
+            style={{
+              background: '#1E3A5F', border: '1px solid rgba(59,130,246,0.4)',
+              color: '#93C5FD', borderRadius: 6, padding: '5px 10px', fontSize: 11,
+              cursor: 'pointer', outline: 'none', maxWidth: 180, fontWeight: 600,
+            }}
+          >
+            <option value="">Atribuir estagiário...</option>
+            {estagiarios.map(e => (
+              <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>
+            ))}
+          </select>
         )
       }
       // Admin/supervisor — aprovação
