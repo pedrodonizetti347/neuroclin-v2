@@ -332,12 +332,85 @@ function exportarCSV(relatorio) {
   URL.revokeObjectURL(url)
 }
 
+// ── Busca agendamentos de um paciente específico ────────────────────────────
+async function buscarAgendamentosPaciente(codigoPaciente, diasPassado, diasFuturo, onProgress) {
+  onProgress('Buscando profissionais...')
+  const profData = await listProfessionals()
+  const professionals = profData
+    .map(p => ({ id: String(p.codigo ?? p.id ?? ''), nome: p.nome ?? p.nomeCivil ?? '' }))
+    .filter(p => p.id)
+
+  const hoje = new Date(); hoje.setHours(12, 0, 0, 0)
+  const totalDias = diasPassado + diasFuturo + 1
+  const dias = Array.from({ length: totalDias }, (_, i) => {
+    const d = new Date(hoje)
+    d.setDate(hoje.getDate() - diasPassado + i)
+    return d
+  })
+
+  const encontrados = []
+
+  for (let pi = 0; pi < professionals.length; pi++) {
+    const prof = professionals[pi]
+    if (pi > 0) await sleep(1000)
+    onProgress(`Profissional ${pi + 1}/${professionals.length}: ${prof.nome}`)
+
+    for (let b = 0; b < dias.length; b += BATCH_DIAS) {
+      const lote = dias.slice(b, b + BATCH_DIAS)
+      const res = await Promise.all(
+        lote.map(async dia => {
+          const ags = await getAgendaDay(prof.id, dia)
+          return ags
+            .filter(ag => {
+              const pid = String(ag.paciente?.codigo ?? ag.paciente?.id ?? '')
+              return pid === String(codigoPaciente)
+            })
+            .map(ag => ({ ...ag, _diaLoop: dia, _profNome: prof.nome }))
+        })
+      )
+      encontrados.push(...res.flat())
+    }
+  }
+
+  encontrados.sort((a, b) => new Date(a._diaLoop) - new Date(b._diaLoop))
+  return encontrados
+}
+
 export default function DiagnosticoPrevent() {
   const [rodando,   setRodando]   = useState(false)
   const [progresso, setProgresso] = useState('')
   const [relatorio, setRelatorio] = useState(null)
   const [erro,      setErro]      = useState('')
   const [busca,     setBusca]     = useState('')
+
+  // ── Busca por paciente específico ─────────────────────────────────────────
+  const [codigoPac,     setCodigoPac]     = useState('11507')
+  const [diasPast,      setDiasPast]      = useState(180)
+  const [diasFut,       setDiasFut]       = useState(180)
+  const [buscandoPac,   setBuscandoPac]   = useState(false)
+  const [agendamentos,  setAgendamentos]  = useState(null)
+  const [erroPac,       setErroPac]       = useState('')
+  const [progPac,       setProgPac]       = useState('')
+  const [expandido,     setExpandido]     = useState(null)
+
+  async function rodarBuscaPaciente() {
+    setBuscandoPac(true); setErroPac(''); setAgendamentos(null); setExpandido(null)
+    try {
+      const ags = await buscarAgendamentosPaciente(codigoPac, diasPast, diasFut, msg => setProgPac(msg))
+      setAgendamentos(ags)
+      setProgPac(`Concluído — ${ags.length} agendamento(s) encontrado(s).`)
+      console.log(`%c=== AGENDAMENTOS DO PACIENTE ${codigoPac} ===`, 'font-size:13px;font-weight:bold;color:#F59E0B')
+      console.log(`Total: ${ags.length}`)
+      ags.forEach((ag, i) => {
+        console.log(`\n--- Agendamento ${i + 1} — ${ag._diaLoop?.toLocaleDateString('pt-BR')} (${ag._profNome}) ---`)
+        console.log(JSON.stringify(ag, null, 2))
+      })
+    } catch (e) {
+      setErroPac(e.message)
+    } finally {
+      setBuscandoPac(false)
+    }
+  }
 
   async function rodar() {
     setRodando(true)
@@ -368,6 +441,67 @@ export default function DiagnosticoPrevent() {
           Relatório completo do ciclo {new Date('2026-02-28').toLocaleDateString('pt-BR')} → hoje.
           Nenhuma lógica de produção é alterada.
         </p>
+      </div>
+
+      {/* ── PAINEL: Busca agendamentos por paciente ── */}
+      <div style={{ background: S.card, borderRadius: 12, border: `1px solid rgba(245,158,11,0.3)`, padding: 20, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+          🔎 Buscar agendamentos de paciente específico
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 4, textTransform: 'uppercase', fontWeight: 700 }}>Código ProDoctor</div>
+            <input value={codigoPac} onChange={e => setCodigoPac(e.target.value)} placeholder="ex: 11507"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: 7, padding: '7px 12px', fontSize: 13, outline: 'none', width: 120 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 4, textTransform: 'uppercase', fontWeight: 700 }}>Dias passado</div>
+            <input type="number" value={diasPast} onChange={e => setDiasPast(Number(e.target.value))}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: 7, padding: '7px 12px', fontSize: 13, outline: 'none', width: 90 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: S.muted, marginBottom: 4, textTransform: 'uppercase', fontWeight: 700 }}>Dias futuro</div>
+            <input type="number" value={diasFut} onChange={e => setDiasFut(Number(e.target.value))}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: 7, padding: '7px 12px', fontSize: 13, outline: 'none', width: 90 }} />
+          </div>
+          <button onClick={rodarBuscaPaciente} disabled={buscandoPac || !codigoPac}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: buscandoPac ? 'rgba(245,158,11,0.3)' : '#D97706', color: '#fff', fontSize: 12, fontWeight: 700, cursor: buscandoPac ? 'not-allowed' : 'pointer' }}>
+            {buscandoPac ? '⏳ Buscando...' : '▶ Buscar'}
+          </button>
+        </div>
+        {progPac && <div style={{ fontSize: 12, color: S.muted, marginBottom: 8 }}>{progPac}</div>}
+        {erroPac && <div style={{ fontSize: 12, color: S.red }}>{erroPac}</div>}
+
+        {agendamentos !== null && (
+          agendamentos.length === 0
+            ? <div style={{ fontSize: 13, color: S.muted, padding: '10px 0' }}>Nenhum agendamento encontrado para o código {codigoPac} no período.</div>
+            : <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: S.green, fontWeight: 700, marginBottom: 10 }}>
+                  ✅ {agendamentos.length} agendamento(s) encontrado(s) — JSON completo também no console (F12)
+                </div>
+                {agendamentos.map((ag, i) => {
+                  const dt = ag._diaLoop?.toLocaleDateString('pt-BR') ?? '—'
+                  const tipo = (ag.tipoConsulta?.nome ?? ag.tipo?.nome ?? ag.tipoAtendimento?.nome ?? ag.descricaoTipo ?? ag.descricao ?? '(sem tipo)').substring(0, 60)
+                  const aberto = expandido === i
+                  return (
+                    <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}`, borderRadius: 8, marginBottom: 6, overflow: 'hidden' }}>
+                      <div onClick={() => setExpandido(aberto ? null : i)}
+                        style={{ padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, minWidth: 90 }}>{dt}</span>
+                        <span style={{ fontSize: 11, color: S.muted, minWidth: 160 }}>{ag._profNome}</span>
+                        <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>{tipo}</span>
+                        <span style={{ fontSize: 10, color: S.muted, marginLeft: 'auto' }}>{aberto ? '▲ fechar' : '▼ ver JSON'}</span>
+                      </div>
+                      {aberto && (
+                        <pre style={{ margin: 0, padding: '10px 14px', fontSize: 10, color: '#93C5FD', background: 'rgba(0,0,0,0.3)', overflowX: 'auto', borderTop: `1px solid ${S.border}`, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                          {JSON.stringify(ag, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
