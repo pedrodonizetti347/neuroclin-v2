@@ -863,7 +863,7 @@ export default function Correcoes() {
   // Estagiário/entregador se auto-atribui pelo card (sem mudar etapa)
   async function assumirCorrecaoCard(id) {
     const updates = {
-      estagiarioId:   user.uid,
+      estagiarioId:   user.id,
       estagiarioNome: user.full_name || user.nome || user.email || 'Estagiário',
       assumidoEm:     new Date(),
     }
@@ -891,7 +891,7 @@ export default function Correcoes() {
   // Auto-atribuição de profissional (botão "Assumir caso" no card)
   async function assumirCaso(id) {
     const updates = {
-      profissionalUid:  user.uid,
+      profissionalUid:  user.id,
       profissionalNome: user.full_name || user.email || 'Profissional',
     }
     await updateDoc(doc(db, 'correcoes', id), updates)
@@ -901,7 +901,7 @@ export default function Correcoes() {
   // Estagiário assume correção pelo modal
   async function assumirCorrecao(id) {
     const updates = {
-      estagiarioId:   user.uid,
+      estagiarioId:   user.id,
       estagiarioNome: user.full_name || user.email || 'Estagiário',
       etapaAtual:     'em_correcao',
       assumidoEm:     new Date(),
@@ -938,10 +938,10 @@ export default function Correcoes() {
     // Visibilidade por role
     if ((isEstagiario || isEntregador) && !isBeliane && !isAdmin) {
       // vê seus cards atribuídos + cards sem dono (para poder se auto-atribuir)
-      if (i.estagiarioId !== user?.uid && i.estagiarioId != null) return false
+      if (i.estagiarioId !== user?.id && i.estagiarioId != null) return false
     }
     if (isProfissional && !isBeliane && !isAdmin) {
-      if (i.profissionalUid !== user?.uid && i.profissionalUid != null) return false
+      if (i.profissionalUid !== user?.id && i.profissionalUid != null) return false
     }
     // Filtro de etapa/status
     if (filtroEtapa !== 'todos' && getEfetivo(i) !== filtroEtapa) return false
@@ -1149,7 +1149,7 @@ export default function Correcoes() {
                     onGerarLaudo={() => handleGerarLaudo(item)}
                     onAtribuirEstagiario={atribuirEstagiario}
                     estagiarios={estagiarios}
-                    userId={user?.uid}
+                    userId={user?.id}
                   />
                 ))}
               </div>

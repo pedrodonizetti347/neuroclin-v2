@@ -2215,11 +2215,17 @@ export default function Reports() {
     const base = collection(db, 'patients')
 
     if (isProfRole) {
-      // Busca pacientes via correcoes (fonte de verdade para vínculo profissional)
+      // Busca pacientes via correcoes; se não houver vínculo, mostra todos (busca livre)
       getDocs(query(collection(db, 'correcoes'), where('profissionalUid', '==', user.id)))
         .then(async corrSnap => {
           const codes = [...new Set(corrSnap.docs.map(d => d.data().pacienteCodigo).filter(Boolean))]
-          if (codes.length === 0) { setPatients([]); return }
+          if (codes.length === 0) {
+            // Sem vínculo via correcoes — carrega todos os pacientes para busca livre
+            const snap = await getDocs(query(base, orderBy('createdAt', 'desc')))
+              .catch(() => getDocs(base))
+            setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+            return
+          }
           const all = []
           for (let i = 0; i < codes.length; i += 30) {
             const snap = await getDocs(query(base, where('prodoctor_id', 'in', codes.slice(i, i + 30))))
