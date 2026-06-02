@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { searchPatients, listProfessionals } from '@/services/prodoctorApi'
 import { sincronizarFluxoPrevent } from '@/services/fluxoAvaliacaoService'
+import { fetchDevolutivas } from '@/services/devolutivasProxy'
 import {
   ClipboardList, Plus, X, Check, RefreshCw,
   Clock, Search, Loader2, AlertCircle,
@@ -431,7 +432,8 @@ function nomeDisplay(u) {
   return u.full_name || u.nome || u.name || u.email || u.id
 }
 
-function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAssumir, onClose, isEstagiario, isAdmin, isBeliane }) {
+function ModalDetalhe({ item, profissionaisFirestore, estagiarios, devsProDoctor = [],
+                        onSave, onAssumir, onClose, isEstagiario, isAdmin, isBeliane }) {
   const cfg = getCfg(item)
   const etapa = item.etapaAtual
 
@@ -440,6 +442,18 @@ function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAss
   const [dataDevolutiva,   setDataDevolutiva]   = useState(toInputDate(item.dataDevolutiva))
   const [saving,           setSaving]           = useState(false)
   const [assumindo,        setAssumindo]        = useState(false)
+
+  const devMatch = devsProDoctor.find(d => {
+    if (!d.paciente || !item.paciente) return false
+    const primeiroNome = item.paciente.split(' ')[0].toLowerCase()
+    return d.paciente.toLowerCase().includes(primeiroNome)
+  })
+
+  useEffect(() => {
+    if (!devMatch || dataDevolutiva) return
+    const parts = devMatch.data.split('/')
+    if (parts.length === 3) setDataDevolutiva(`${parts[2]}-${parts[1]}-${parts[0]}`)
+  }, [devMatch?.data])
 
   const podeAssumir = isEstagiario && (etapa === 'aguardando_correcao' || !item.estagiarioId)
 
@@ -530,7 +544,15 @@ function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAss
           <div>
             <label style={labelStyle}>Data da devolutiva</label>
             {(isBeliane || isAdmin) ? (
-              <input type="date" value={dataDevolutiva} onChange={e => setDataDevolutiva(e.target.value)} style={inputStyle()} />
+              <>
+                <input type="date" value={dataDevolutiva} onChange={e => setDataDevolutiva(e.target.value)} style={inputStyle()} />
+                {devMatch && (
+                  <div style={{ fontSize: 11, color: '#8B5CF6', marginTop: 5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Calendar size={11} />
+                    ProDoctor: {devMatch.data}{devMatch.hora ? ` · ${devMatch.hora}` : ''} · {devMatch.profissional?.split(' ').slice(0, 2).join(' ')}
+                  </div>
+                )}
+              </>
             ) : (
               <div style={{ fontSize: 13, padding: '8px 0', color: item.dataDevolutiva ? '#8B5CF6' : S.muted, fontStyle: item.dataDevolutiva ? 'normal' : 'italic' }}>
                 {item.dataDevolutiva ? fmtDate(item.dataDevolutiva) : 'A agendar'}
@@ -580,7 +602,7 @@ function ModalDetalhe({ item, profissionaisFirestore, estagiarios, onSave, onAss
   )
 }
 
-function ModalCadastro({ estagiarios, onSave, onClose }) {
+function ModalCadastro({ estagiarios, devsProDoctor = [], onSave, onClose }) {
   const [form, setForm] = useState({
     pacienteNome:     '',
     pacienteCodigo:   '',
@@ -625,7 +647,28 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
 
   function selecionarPaciente(p) {
     setBuscaPaciente(p.full_name)
-    setForm(f => ({ ...f, pacienteNome: p.full_name, pacienteCodigo: p.prodoctor_id }))
+
+    const updates = { pacienteNome: p.full_name, pacienteCodigo: p.prodoctor_id }
+
+    // Convenio vindo do objeto paciente ProDoctor
+    if (p.convenio) updates.convenio = p.convenio
+
+    // Busca devolutiva pelo primeiro nome do paciente
+    const primeiroNome = p.full_name.split(' ')[0].toLowerCase()
+    const devMatch = devsProDoctor.find(d =>
+      d.paciente?.toLowerCase().includes(primeiroNome)
+    )
+    if (devMatch) {
+      const parts = devMatch.data?.split('/')
+      if (parts?.length === 3) {
+        updates.dataDevolutiva = `${parts[2]}-${parts[1]}-${parts[0]}`
+      }
+      if (!updates.convenio && devMatch.convenio) {
+        updates.convenio = devMatch.convenio
+      }
+    }
+
+    setForm(f => ({ ...f, ...updates }))
     setResultadosPac([])
     setPacienteSelecionado(true)
   }
@@ -653,7 +696,7 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
       profissional:         form.profissionalNome, // compat legado
       profissionalUid:      null,
       estagiarioId:         form.estagiarioId || null,
-      estagiarioNome:       estag?.nome || estag?.name || estag?.full_name || null,
+      estagiarioNome:       estag ? nomeDisplay(estag) : null,
       convenio:             form.convenio || 'prevent_senior',
       dataCorte:            new Date(form.dataCorte + 'T12:00:00'),
       dataDevolutiva:       form.dataDevolutiva ? new Date(form.dataDevolutiva + 'T12:00:00') : null,
@@ -748,6 +791,11 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
             <select value={form.convenio} onChange={e => set('convenio', e.target.value)} style={inputStyle()}>
               <option value="prevent_senior">Prevent Sênior</option>
             </select>
+            {pacienteSelecionado && form.convenio && form.convenio !== 'prevent_senior' && (
+              <div style={{ fontSize: 11, color: '#2DD4BF', marginTop: 5 }}>
+                ProDoctor: {form.convenio}
+              </div>
+            )}
           </div>
 
           {/* Estagiário */}
@@ -755,7 +803,7 @@ function ModalCadastro({ estagiarios, onSave, onClose }) {
             <label style={labelStyle}>Estagiário <span style={{ color: 'rgba(255,255,255,0.4)' }}>(opcional)</span></label>
             <select value={form.estagiarioId} onChange={e => set('estagiarioId', e.target.value)} style={inputStyle()}>
               <option value="">Atribuir depois...</option>
-              {estagiarios.map(e => <option key={e.id} value={e.id}>{e.nome || e.name || e.full_name}</option>)}
+              {estagiarios.map(e => <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>)}
             </select>
           </div>
 
@@ -818,7 +866,7 @@ export default function Correcoes() {
       const base = collection(db, 'correcoes')
       let docs = []
 
-      if (isEstagiario && !isAdmin && !isBeliane) {
+      if ((isEstagiario || isEntregador) && !isAdmin && !isBeliane) {
         // Estagiário: seus atribuídos + não atribuídos
         const [s1, s2] = await Promise.all([
           getDocs(query(base, where('estagiarioId', '==', user.id))).catch(() => ({ docs: [] })),
@@ -851,6 +899,14 @@ export default function Correcoes() {
   }
 
   useEffect(() => { carregar() }, [user])
+
+  const [devsProDoctor, setDevsProDoctor] = useState([])
+  useEffect(() => {
+    if (isProfissional) return
+    fetchDevolutivas()
+      .then(setDevsProDoctor)
+      .catch(() => {})
+  }, [])
 
   async function salvarNova(dados) {
     await addDoc(collection(db, 'correcoes'), dados)
@@ -1114,7 +1170,7 @@ export default function Correcoes() {
         {(isBeliane || isAdmin) && (
           <select value={filtroEstag} onChange={e => setFiltroEstag(e.target.value)} style={inputStyle({ width: 'auto', minWidth: 180 })}>
             <option value="todos">Todos os estagiários</option>
-            {estagiarios.map(e => <option key={e.id} value={e.id}>{e.nome || e.name || e.full_name}</option>)}
+            {estagiarios.map(e => <option key={e.id} value={e.id}>{nomeDisplay(e)}</option>)}
           </select>
         )}
       </div>
@@ -1179,7 +1235,12 @@ export default function Correcoes() {
       )}
 
       {modalAberto && (
-        <ModalCadastro estagiarios={estagiarios} onSave={salvarNova} onClose={() => setModalAberto(false)} />
+        <ModalCadastro
+          estagiarios={estagiarios}
+          devsProDoctor={devsProDoctor}
+          onSave={salvarNova}
+          onClose={() => setModalAberto(false)}
+        />
       )}
 
       {itemSelecionado && (
@@ -1187,6 +1248,7 @@ export default function Correcoes() {
           item={itemSelecionado}
           profissionaisFirestore={profissionaisFirestore}
           estagiarios={estagiarios}
+          devsProDoctor={devsProDoctor}
           onSave={salvarAtribuicoes}
           onAssumir={assumirCorrecao}
           onClose={() => setItemSelecionado(null)}

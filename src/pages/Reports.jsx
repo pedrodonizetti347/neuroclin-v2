@@ -2200,18 +2200,24 @@ export default function Reports() {
   const [savingQuick, setSavingQuick] = useState(false)
   const reportRef = useRef(null)
 
+  const [approvedReports,  setApprovedReports]  = useState([])
+  const [loadingApproved,  setLoadingApproved]  = useState(false)
+  const [buscaAprovados,   setBuscaAprovados]   = useState('')
+
   const isSupervisor   = user?.role === 'admin' || user?.role === 'supervisor'
   const isEntregador   = user?.role === 'entregador'
-  const isProfessional = user?.role === 'professional' || user?.role === 'entregador'
+  const isProfessional = user?.role === 'professional' || user?.role === 'profissional' || user?.role === 'entregador'
+  const isProfOnly     = user?.role === 'professional' || user?.role === 'profissional'
 
   const [corrSaving, setCorrSaving] = useState(false)
+  const [expandModal, setExpandModal] = useState(false)
 
   const session = useTestSession(patientId)
 
   useEffect(() => {
     if (!user) return
     const canViewAll = user.role === 'admin' || user.role === 'supervisor' || user.role === 'entregador'
-    const isProfRole = user.role === 'professional'
+    const isProfRole = user.role === 'professional' || user.role === 'profissional'
     const base = collection(db, 'patients')
 
     if (isProfRole) {
@@ -2248,6 +2254,39 @@ export default function Reports() {
       })
   }, [user])
 
+  // ── Carrega todos os laudos (rascunho, ag. aprovação, aprovado) — visível para todos ─
+  useEffect(() => {
+    if (!isProfOnly || !user) return
+    setLoadingApproved(true)
+    getDocs(collection(db, 'reports'))
+      .then(snap => {
+        const list = snap.docs
+          .filter(d => !d.data().deleted)
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => {
+            const ord = { rascunho: 0, aguardando_aprovacao: 1, aprovado: 2 }
+            const ao = ord[a.status] ?? 0
+            const bo = ord[b.status] ?? 0
+            if (ao !== bo) return ao - bo
+            return (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)
+          })
+        setApprovedReports(list)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingApproved(false))
+  }, [isProfOnly, user])
+
+  function selecionarLaudoAprovado(r) {
+    setSavedReportId(r.id)
+    setPatientId(r.patientId || '')
+    setReport(r.reportHtml || '')
+    setReportStatus(r.status)
+    setApprovalInfo(r.supervisor_approval || null)
+    setSaved(true)
+    setSelectedTests(r.selectedTests || [])
+    setEditMode(false)
+  }
+
   // ── Auto-seleciona paciente quando vem do PainelLaudos ──────────────────────
   useEffect(() => {
     const pid = location.state?.patientId
@@ -2276,24 +2315,24 @@ export default function Reports() {
           setAnamneseStatus('found')
         } else {
           setAnamneseStatus('empty')
-          // Pré-popula com o que existir no Firestore — nunca deixa em branco
-          setQuickAnamnese({
-            objetivoAvaliacao:         data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
-            descricaoDemanda:          data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais || '',
-            infoGerais:                data.infoGerais || '',
-            relacionamentos:           data.relacionamentos || '',
-            vidaAcademicaLaboral:      data.vidaAcademicaLaboral || '',
-            saudeAntecedentes:         data.saudeAntecedentes || data.historicoSaude || '',
-            historiaClinicaAtual:      data.historiaClinicaAtual || data.desenvolvimento_sintomas || '',
-            habitosVida:               data.habitosVida || '',
-            historiaNeuropsicologica:  data.historiaNeuropsicologica || '',
-            queixasCognitivas:         data.queixasCognitivas || data.queixas_cognitivas_emocionais || '',
-            comportamentoObservacional: data.comportamentoObservacional || data.observacoes_comportamentais || '',
-          })
         }
+        // Sempre pré-popula para permitir edição pelo profissional
+        setQuickAnamnese({
+          objetivoAvaliacao:         data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
+          descricaoDemanda:          data.descricaoDemanda  || data.queixas || data.queixas_cognitivas_emocionais || '',
+          infoGerais:                data.infoGerais || '',
+          relacionamentos:           data.relacionamentos || '',
+          vidaAcademicaLaboral:      data.vidaAcademicaLaboral || '',
+          saudeAntecedentes:         data.saudeAntecedentes || data.historicoSaude || '',
+          historiaClinicaAtual:      data.historiaClinicaAtual || data.desenvolvimento_sintomas || '',
+          habitosVida:               data.habitosVida || '',
+          historiaNeuropsicologica:  data.historiaNeuropsicologica || '',
+          queixasCognitivas:         data.queixasCognitivas || data.queixas_cognitivas_emocionais || '',
+          comportamentoObservacional: data.comportamentoObservacional || data.observacoes_comportamentais || '',
+        })
       })
       .catch(() => setAnamneseStatus('empty'))
-  }, [patientId, isSupervisor])
+  }, [patientId, isSupervisor, isProfessional])
 
   useEffect(() => {
     if (!patientId || !user) return
@@ -2444,6 +2483,7 @@ export default function Reports() {
           appliedBy: professional,
           reportDate: dataFormatada,
           testsData: td,
+          patientName: patient?.full_name,
         }).catch(() => {})
         logAction(user, 'laudo_gerado', { patientId, reportId, testes: selectedTests })
       } else {
@@ -2517,6 +2557,7 @@ export default function Reports() {
           await updateDoc(doc(db, 'reports', savedReportId), {
             reportHtml: newHtml,
             updatedAt: serverTimestamp(),
+            patientName: patient?.full_name,
           })
         } catch (e) { console.warn('[autosave]', e) }
       }
@@ -2527,14 +2568,16 @@ export default function Reports() {
 
   // Captura conteúdo ao sair; carrega do Firestore ao entrar para garantir edições salvas
   const handleToggleEditMode = async () => {
+    if (!editMode && isProfOnly && reportStatus === 'aprovado') return
     if (editMode && reportRef.current) {
       const captured = reportRef.current.innerHTML
       setReport(captured)
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
       if (savedReportId) {
-        updateDoc(doc(db, 'reports', savedReportId), {
+        await updateDoc(doc(db, 'reports', savedReportId), {
           reportHtml: captured,
           updatedAt: serverTimestamp(),
+          patientName: patient?.full_name,
         }).catch(e => console.warn('[save-on-exit]', e))
       }
       setEditMode(false)
@@ -2639,6 +2682,7 @@ export default function Reports() {
         patientId, professionalId: user.id, professionalName: user.full_name,
         selectedTests, reportHtml: content, status: 'rascunho',
         source: 'prevent', updatedAt: serverTimestamp(),
+        patientName: patient?.full_name,
         ...(savedReportId ? {} : { createdAt: serverTimestamp() }),
       }, { merge: true })
       if (!savedReportId) { setSavedReportId(refId); setSaved(true) }
@@ -2664,6 +2708,7 @@ export default function Reports() {
           patientId, professionalId: user.id, professionalName: user.full_name,
           selectedTests, reportHtml: content, status: 'aguardando_aprovacao',
           source: 'prevent', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+          patientName: patient?.full_name,
         })
         setSavedReportId(ref.id)
         setSaved(true)
@@ -2673,6 +2718,7 @@ export default function Reports() {
       }
       await setDoc(doc(db, 'reports', savedReportId), {
         reportHtml: content, status: 'aguardando_aprovacao', updatedAt: serverTimestamp(),
+        patientName: patient?.full_name,
       }, { merge: true })
       setReportStatus('aguardando_aprovacao')
       // Se veio do PainelLaudos, atualiza status lá para 'aguardando_supervisao'
@@ -2696,7 +2742,7 @@ export default function Reports() {
     setCorrSaving(true)
     try {
       const content = getReportContent() || report
-      await updateDoc(doc(db, 'reports', savedReportId), { reportHtml: content, updatedAt: serverTimestamp() })
+      await updateDoc(doc(db, 'reports', savedReportId), { reportHtml: content, updatedAt: serverTimestamp(), patientName: patient?.full_name })
       setReport(content)
       setEditMode(false)
       logAction(user, 'laudo_corrigido_entrega',  { patientId, reportId: savedReportId })
@@ -2722,6 +2768,7 @@ export default function Reports() {
         reopenedAt: serverTimestamp(),
         reopenedBy: user?.id || '',
         updatedAt: serverTimestamp(),
+        patientName: patient?.full_name,
       })
       setReportStatus('rascunho')
       setApprovalInfo(null)
@@ -2829,13 +2876,8 @@ export default function Reports() {
           approvalMarker + '\n' + stampHtml + '\n\n' + refsMarker
         )
       } else {
-        // Fallback: reconstrói do zero (laudo antigo sem marcadores)
-        updatedDoc = buildFullDocument({
-          patient, selectedTests, appliedBy, user, ad, td,
-          aiBody: aiBodyState,
-          dataFormatada: reportDate || new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }),
-          approvalInfo: approval,
-        })
+        // Fallback: injeta carimbo no final do conteúdo existente (preserva edições do admin)
+        updatedDoc = baseHtml + '\n' + stampHtml
       }
       setReport(updatedDoc)
 
@@ -2847,6 +2889,7 @@ export default function Reports() {
           reopenedAt: null,
           reopenedBy: null,
           updatedAt: serverTimestamp(),
+          patientName: patient?.full_name,
         })
       }
       setApprovalInfo(approval)
@@ -2879,7 +2922,75 @@ export default function Reports() {
         {/* Painel esquerdo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {!isEntregador && (
+          {/* ── Vista do profissional: todos os laudos (rascunho / ag. aprovação / aprovado) ── */}
+          {isProfOnly && (
+            <>
+              <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+                <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
+                  MEUS LAUDOS
+                </div>
+                <input
+                  value={buscaAprovados}
+                  onChange={e => setBuscaAprovados(e.target.value)}
+                  placeholder="Buscar paciente..."
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 12, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+                />
+                {loadingApproved && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: S.muted, padding: '8px 0' }}>
+                    <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Carregando laudos...
+                  </div>
+                )}
+                {!loadingApproved && approvedReports.length === 0 && (
+                  <div style={{ fontSize: 12, color: S.muted, fontStyle: 'italic', padding: '8px 0' }}>
+                    Nenhum laudo encontrado.
+                  </div>
+                )}
+                {!loadingApproved && (() => {
+                  const STATUS_BADGE = {
+                    rascunho:             { label: 'Rascunho',      color: '#F59E0B' },
+                    aguardando_aprovacao: { label: 'Ag. Aprovação', color: '#8B5CF6' },
+                    aprovado:             { label: 'Aprovado',       color: '#4CAF50' },
+                  }
+                  return approvedReports
+                    .filter(r => {
+                      if (!buscaAprovados) return true
+                      const nome = patients.find(p => p.id === r.patientId)?.full_name || r.patientName || ''
+                      return nome.toLowerCase().includes(buscaAprovados.toLowerCase())
+                    })
+                    .map(r => {
+                      const nome = patients.find(p => p.id === r.patientId)?.full_name || r.patientName || r.patientId || '—'
+                      const dt   = r.updatedAt?.toDate?.()?.toLocaleDateString('pt-BR') || '—'
+                      const active = savedReportId === r.id
+                      const badge  = STATUS_BADGE[r.status] || STATUS_BADGE.rascunho
+                      const dtLabel = r.status === 'aprovado'             ? `Aprovado em ${dt}`
+                                    : r.status === 'aguardando_aprovacao' ? `Enviado em ${dt}`
+                                    : `Editado em ${dt}`
+                      return (
+                        <div
+                          key={r.id}
+                          onClick={() => selecionarLaudoAprovado(r)}
+                          style={{
+                            padding: '9px 12px', borderRadius: 8, marginBottom: 5, cursor: 'pointer',
+                            background: active ? 'rgba(46,125,50,0.18)' : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${active ? 'rgba(46,125,50,0.5)' : S.border}`,
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</div>
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: badge.color + '22', color: badge.color, flexShrink: 0, marginLeft: 8 }}>
+                              {badge.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: S.muted, marginTop: 2 }}>{dtLabel}</div>
+                        </div>
+                      )
+                    })
+                })()}
+              </div>
+            </>
+          )}
+
+          {!isProfOnly && !isEntregador && (
             <div style={{ background: S.cardG, borderRadius: 10, border: '1px solid rgba(46,125,50,0.3)', padding: '12px 14px' }}>
               <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 6 }}>SUPERVISÃO</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{SUPERVISOR.name}</div>
@@ -2888,7 +2999,7 @@ export default function Reports() {
             </div>
           )}
 
-          <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+          {!isProfOnly && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>1. PACIENTE</div>
             <PatientSearchInput
               patients={patients}
@@ -2902,12 +3013,12 @@ export default function Reports() {
                 {patient.education ? ` · ${patient.education}` : ''}
               </div>
             )}
-          </div>
+          </div>}
 
-          {patientId && !isEntregador && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
+          {patientId && !isProfOnly && !isEntregador && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
 
           {/* ── Painel de anamnese ─────────────────────────────────────────── */}
-          {patientId && (isSupervisor || isProfessional) && anamneseStatus !== 'idle' && (
+          {patientId && (isSupervisor || isProfessional || isProfOnly) && anamneseStatus !== 'idle' && (
             <div style={{
               background: S.card, borderRadius: 10, padding: '12px 14px',
               border: `1px solid ${anamneseStatus === 'found' ? 'rgba(46,125,50,0.4)' : anamneseStatus === 'empty' ? 'rgba(245,158,11,0.4)' : S.border}`,
@@ -2917,12 +3028,12 @@ export default function Reports() {
                   <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Verificando anamnese...
                 </div>
               )}
-              {anamneseStatus === 'found' && (
+              {anamneseStatus === 'found' && !isProfessional && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: S.greenL, fontWeight: 700 }}>
                   <CheckCircle2 size={13} /> Anamnese completa encontrada — será incluída no laudo
                 </div>
               )}
-              {anamneseStatus === 'empty' && (
+              {(anamneseStatus === 'empty' || (isProfessional && anamneseStatus === 'found')) && (
                 <div>
                   <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
                     ⚠ ANAMNESE NÃO ENCONTRADA — preencha rapidamente para o laudo
@@ -2981,7 +3092,7 @@ export default function Reports() {
             </div>
           )}
 
-          {!isEntregador && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+          {!isProfOnly && !isEntregador && !(isProfessional && reportStatus === 'aprovado') && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
               3. TESTES APLICADOS ({selectedTests.length})
             </div>
@@ -3009,13 +3120,24 @@ export default function Reports() {
             ))}
           </div>}
 
-          {!isEntregador && error && (
+          {!isProfOnly && !isEntregador && error && (
             <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
               <AlertCircle size={14} /> {error}
             </div>
           )}
 
-          {!isEntregador && <button onClick={generate} disabled={loading} style={{
+          {!isProfOnly && isProfessional && reportStatus === 'aprovado' && (
+            <div style={{
+              padding: '12px 14px', background: 'rgba(46,125,50,0.1)',
+              borderRadius: 10, border: '1px solid rgba(46,125,50,0.35)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, color: '#4CAF50', fontWeight: 700,
+            }}>
+              <CheckCircle2 size={14} /> Laudo aprovado — disponível para visualização
+            </div>
+          )}
+
+          {!isProfOnly && !isEntregador && !(isProfessional && reportStatus === 'aprovado') && <button onClick={generate} disabled={loading} style={{
             padding: '13px', borderRadius: 10, border: 'none',
             background: loading ? 'rgba(46,125,50,0.4)' : S.green,
             color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
@@ -3133,6 +3255,11 @@ export default function Reports() {
                   <Download size={13} /> IMPRIMIR / PDF
                 </button>
               )}
+              {isProfOnly && report && reportStatus === 'aprovado' && (
+                <button onClick={() => setExpandModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
+                  ⛶ EXPANDIR
+                </button>
+              )}
             </div>
           </div>
 
@@ -3223,7 +3350,9 @@ export default function Reports() {
               <div style={{ textAlign: 'center', padding: 60, color: S.muted }}>
                 <FileText size={36} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
                 <p style={{ fontSize: 13, fontWeight: 600 }}>O laudo aparecerá aqui</p>
-                <p style={{ fontSize: 11, marginTop: 6 }}>Preencha os campos ao lado e clique em Gerar Laudo</p>
+                {isProfessional
+                  ? <p style={{ fontSize: 11, marginTop: 6 }}>Selecione um paciente para visualizar o laudo aprovado</p>
+                  : <p style={{ fontSize: 11, marginTop: 6 }}>Preencha os campos ao lado e clique em Gerar Laudo</p>}
               </div>
             )}
 
@@ -3234,6 +3363,20 @@ export default function Reports() {
         </div>
       </div>
 
+
+      {expandModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '10px 20px', flexShrink: 0 }}>
+            <button onClick={() => setExpandModal(false)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <X size={14} /> FECHAR
+            </button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 40px' }}>
+            <div style={{ background: '#fff', color: '#111', borderRadius: 8, padding: '40px 48px', maxWidth: 860, margin: '0 auto', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}
+              dangerouslySetInnerHTML={{ __html: report }} />
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
         input::placeholder { color: rgba(255,255,255,0.2); }

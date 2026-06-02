@@ -88,6 +88,11 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
     const files = Array.from(e.target.files || [])
     if (!files.length || !patientId) return
     setUploadError('')
+    if (attachments.length + files.length > 20) {
+      setUploadError(`Limite de 20 arquivos. Você já tem ${attachments.length} — pode adicionar mais ${20 - attachments.length}.`)
+      e.target.value = ''
+      return
+    }
     setUploading(true)
     try {
       const newAttachments = []
@@ -95,7 +100,7 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const path = `anamneses-docs/${patientId}/${Date.now()}_${safeName}`
         const storageRef = ref(storage, path)
-        await uploadBytes(storageRef, file, { contentType: file.type })
+        await uploadBytes(storageRef, file, { contentType: file.type || 'application/octet-stream' })
         const url = await getDownloadURL(storageRef)
         newAttachments.push({ url, name: file.name, storagePath: path, uploadedAt: new Date().toISOString() })
       }
@@ -155,6 +160,16 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
         {saving && <><Loader2 size={12} color={S.muted} style={{ animation: 'spin 1s linear infinite' }} /><span style={{ fontSize: 11, color: S.muted }}>Salvando...</span></>}
         {saved && !saving && <><CheckCircle2 size={12} color={S.greenL} /><span style={{ fontSize: 11, color: S.greenL }}>Salvo</span></>}
       </div>
+
+      {/* ANAMNESE RÁPIDA */}
+      <Sec title="ANAMNESE RÁPIDA" open>
+        <div style={FULL}><Fld label="Objetivo da avaliação" name="objetivoAvaliacao" value={form.objetivoAvaliacao} onChange={ch} type="textarea" rows={2} /></div>
+        <div style={FULL}><Fld label="Descrição da demanda" name="descricaoDemanda" value={form.descricaoDemanda} onChange={ch} type="textarea" rows={3} /></div>
+        <div style={FULL}><Fld label="Informações gerais (texto corrido)" name="infoGerais" value={form.infoGerais} onChange={ch} type="textarea" rows={3} /></div>
+        <div style={FULL}><Fld label="Relacionamentos" name="relacionamentos" value={form.relacionamentos} onChange={ch} type="textarea" rows={2} /></div>
+        <div style={FULL}><Fld label="Vida acadêmica / laboral" name="vidaAcademicaLaboral" value={form.vidaAcademicaLaboral} onChange={ch} type="textarea" rows={2} /></div>
+        <div style={FULL}><Fld label="Saúde e antecedentes familiares" name="saudeAntecedentes" value={form.saudeAntecedentes} onChange={ch} type="textarea" rows={2} /></div>
+      </Sec>
 
       {/* Cabeçalho */}
       <div style={{ background: 'rgba(46,125,50,0.08)', border: '1px solid rgba(46,125,50,0.2)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
@@ -393,7 +408,7 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
       <div style={{ border: `1px solid ${S.border}`, borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
         <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', background: 'rgba(255,255,255,0.03)', color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
           14. ANEXOS DA ANAMNESE
-          <span style={{ fontSize: 10, color: S.muted, fontWeight: 400 }}>PDF ou imagem · máx. 10 MB por arquivo</span>
+          <span style={{ fontSize: 10, color: S.muted, fontWeight: 400 }}>qualquer tipo · até 20 arquivos · máx. 10 MB por arquivo</span>
         </div>
         <div style={{ padding: 16 }}>
           {attachments.length > 0 && (
@@ -433,11 +448,10 @@ export default function AnamneseForm({ patientId, prodoctorId }) {
           <input
             ref={uploadRef}
             type="file"
-            accept="application/pdf,image/*"
             multiple
             style={{ display: 'none' }}
             onChange={handleUpload}
-            disabled={uploading}
+            disabled={uploading || attachments.length >= 20}
           />
         </div>
       </div>

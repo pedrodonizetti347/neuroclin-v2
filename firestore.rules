@@ -70,6 +70,8 @@ service cloud.firestore {
       allow read, update: if isAuth() && resource.data.professionalId == request.auth.uid;
       allow create: if isAuth();
       allow read, update: if isEntregador();
+      allow read:   if isProfissional();
+      allow update: if isProfissional() && resource.data.status != 'aprovado';
       allow delete: if false;
     }
 

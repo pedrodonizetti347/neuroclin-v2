@@ -196,8 +196,11 @@ export async function sincronizarFluxoPrevent() {
     const dt = dtRaw ? parseDate(String(dtRaw)) : ag._diaLoop
     if (!dt) continue
 
-    if (isRetornoFinal(ag))       porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
-    else if (isConsultaContavel(ag)) porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
+    if (isRetornoFinal(ag)) {
+      porPaciente[id].retornos.push({ data: dt, hora: ag.hora ?? '' })
+    } else if (isConsultaContavel(ag) && ag.estadoAgendaConsulta?.compareceu === true) {
+      porPaciente[id].consultas.push({ data: dt, tipo: getTipoNome(ag) })
+    }
   }
 
   const totalPrevent = Object.keys(porPaciente).length

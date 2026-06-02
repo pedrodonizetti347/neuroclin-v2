@@ -54,6 +54,9 @@ function normalizePatient(raw) {
     email,
     sex:          normSex(sexRaw),
     education:    String(education),
+    convenio:     raw.registroConvenio1?.convenio?.nome
+               ?? raw.registroConvenio1?.convenio
+               ?? '',
   }
 }
 
@@ -235,6 +238,7 @@ function formatDateBR(date) {
  * Tenta múltiplos campos possíveis e faz fallback para busca no JSON completo
  */
 function isDevolutiva(ag) {
+  if (ag.tipoAgendamento?.retorno === true) return true
   const tipo = (
     ag.tipoConsulta?.nome ??
     ag.tipo?.nome ??
@@ -242,9 +246,11 @@ function isDevolutiva(ag) {
     ag.descricaoTipo ??
     ag.descricao ??
     ''
-  )
-  if (tipo.toLowerCase().includes('devolutiva')) return true
-  return JSON.stringify(ag).toLowerCase().includes('devolutiva')
+  ).toLowerCase()
+  if (tipo.includes('devolutiva')) return true
+  if (tipo.includes('retorno')) return true
+  const raw = JSON.stringify(ag).toLowerCase()
+  return raw.includes('devolutiva') || raw.includes('retorno')
 }
 
 /**

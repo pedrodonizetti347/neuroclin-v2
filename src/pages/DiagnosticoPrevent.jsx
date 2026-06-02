@@ -6,6 +6,8 @@
  */
 import React, { useState, useEffect } from 'react'
 import { getAgendaDay, listProfessionals } from '@/services/prodoctorApi'
+import { useAuth } from '@/lib/AuthContext'
+import { fetchDevolutivas } from '@/services/devolutivasProxy'
 
 // ── Mesmos parâmetros do fluxoAvaliacaoService ──────────────────────────────
 const DIAS_PASSADO  = 90
@@ -387,12 +389,30 @@ async function buscarAgendamentosPaciente(codigoPaciente, diasPassado, diasFutur
 }
 
 export default function DiagnosticoPrevent() {
+  const { user } = useAuth()
+  const isProfissional = user?.role === 'profissional' || user?.role === 'professional'
+
   const [rodando,          setRodando]          = useState(false)
   const [progresso,        setProgresso]        = useState('')
   const [relatorio,        setRelatorio]        = useState(null)
   const [tiposProcedimento,setTiposProcedimento]= useState([])
   const [erro,             setErro]             = useState('')
   const [busca,            setBusca]            = useState('')
+
+  const [devsResumo, setDevsResumo] = useState([])
+  useEffect(() => {
+    if (isProfissional) return
+    fetchDevolutivas()
+      .then(list => {
+        const byProf = {}
+        list.forEach(d => {
+          const p = d.profissional || '—'
+          byProf[p] = (byProf[p] || 0) + 1
+        })
+        setDevsResumo(Object.entries(byProf).sort((a, b) => b[1] - a[1]))
+      })
+      .catch(() => {})
+  }, [])
 
   // ── Lista de profissionais e filtro ───────────────────────────────────────
   const [profissionais, setProfissionais] = useState([])
@@ -581,6 +601,26 @@ export default function DiagnosticoPrevent() {
           <span style={{ fontSize: 12, color: S.red }}>⚠️ {erro}</span>
         )}
       </div>
+
+      {!isProfissional && devsResumo.length > 0 && (
+        <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: S.muted, letterSpacing: '0.06em', marginBottom: 8 }}>
+            DEVOLUTIVAS AGENDADAS — PRÓXIMOS 90 DIAS (ProDoctor)
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {devsResumo.map(([prof, count]) => (
+              <div key={prof} style={{
+                fontSize: 12, padding: '5px 14px', borderRadius: 8,
+                background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                border: '1px solid rgba(139,92,246,0.3)', fontWeight: 700,
+              }}>
+                {prof.split(' ').slice(0, 2).join(' ')}{' '}
+                <span style={{ opacity: 0.7, fontWeight: 400 }}>({count})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {relatorio && (
         <>

@@ -4,6 +4,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { getDevolutivas14Days } from '@/services/prodoctorApi'
+import { fetchDevolutivas } from '@/services/devolutivasProxy'
 import {
   Users, FileText, FlaskConical, ArrowRight, Clock,
   CalendarClock, CheckCircle2, AlertTriangle, Loader2,
@@ -137,13 +138,14 @@ export default function Dashboard() {
   const isProfissional      = user?.role === 'profissional' || user?.role === 'professional'
   const isEstagiario        = user?.role === 'estagiario'
   const canSeeFluxo         = isAdminOrSupervisor || isSecretaria || isProfissional
-  const canSeeDevolutivas   = isAdminOrSupervisor || isSecretaria
+  const canSeeDevolutivas   = isAdminOrSupervisor || isSecretaria || isEstagiario
 
   const [loading,        setLoading]        = useState(true)
   const [devolvLoading,  setDevolvLoading]  = useState(false)
   const [devolvError,    setDevolvError]    = useState('')
   const [patients,       setPatients]       = useState([])
   const [enrichedDevs,   setEnrichedDevs]   = useState([])
+  const [allDevs90,      setAllDevs90]      = useState([])
   const [correcoes,      setCorrecoes]      = useState([])
   const [correcoesLoad,  setCorrecoesLoad]  = useState(false)
 
@@ -165,9 +167,9 @@ export default function Dashboard() {
             const corrSnap = await getDocs(collection(db, 'correcoes'))
             let all = corrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
             if (isProfissional) {
-              all = all.filter(c => c.profissionalUid === user.uid)
+              all = all.filter(c => c.profissionalUid === user.id)
             } else if (isEstagiario) {
-              all = all.filter(c => c.estagiarioId === user.uid)
+              all = all.filter(c => c.estagiarioId === user.id)
             }
             setCorrecoes(all)
           } catch (e) {
@@ -227,6 +229,13 @@ export default function Dashboard() {
           return { ...dv, ncPatient, laudoStatus, hasApprovedReport }
         })
         setEnrichedDevs(enriched)
+
+        try {
+          const all90 = await fetchDevolutivas()
+          setAllDevs90(all90)
+        } catch (e) {
+          console.warn('[Dashboard] devs90:', e.message)
+        }
       } catch (e) {
         console.error('[Dashboard]', e)
         setDevolvError('Erro ao carregar devolutivas')
@@ -281,6 +290,13 @@ export default function Dashboard() {
   }
 
   const nextDevs = [...enrichedDevs].sort((a, b) => a.date - b.date).slice(0, 8)
+
+  const devsPorProfissional = {}
+  allDevs90.forEach(d => {
+    const prof = d.profissional || '—'
+    devsPorProfissional[prof] = (devsPorProfissional[prof] || 0) + 1
+  })
+  const devsProfList = Object.entries(devsPorProfissional).sort((a, b) => b[1] - a[1])
 
   const QUICK_ACTIONS = [
     { label: 'NOVO PACIENTE',  sub: 'Cadastrar registro',    path: '/pacientes',  icon: Users,        color: S.greenL,  bg: 'rgba(46,125,50,0.15)', adminOnly: true },
@@ -420,11 +436,26 @@ export default function Dashboard() {
       {/* ── Próximas Devolutivas ──────────────────────────────────────── */}
       {canSeeDevolutivas && (
         <div style={{ background: S.card, borderRadius: 12, border: `1px solid ${S.border}`, marginBottom: 14, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 18px', borderBottom: `1px solid ${S.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <CalendarClock size={14} color={S.greenL} /> PRÓXIMAS DEVOLUTIVAS
-            </span>
-            <Link to="/devolutivas" style={{ fontSize: 11, color: S.greenL, fontWeight: 600 }}>Ver todas →</Link>
+          <div style={{ padding: '12px 18px', borderBottom: `1px solid ${S.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <CalendarClock size={14} color={S.greenL} /> PRÓXIMAS DEVOLUTIVAS
+              </span>
+              <Link to="/devolutivas" style={{ fontSize: 11, color: S.greenL, fontWeight: 600 }}>Ver todas →</Link>
+            </div>
+            {devsProfList.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {devsProfList.map(([prof, count]) => (
+                  <span key={prof} style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                    background: 'rgba(13,148,136,0.15)', color: '#2DD4BF',
+                    border: '1px solid rgba(13,148,136,0.3)',
+                  }}>
+                    {prof.split(' ').slice(0, 2).join(' ')}: {count}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {devolvLoading ? (
