@@ -180,7 +180,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
+        const res = await fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
         if (data.v > BUILD_ID) setNewVersion(true)
