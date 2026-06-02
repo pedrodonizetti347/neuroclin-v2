@@ -180,7 +180,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch(import.meta.env.BASE_URL + 'version.json?_=' + Date.now(), { cache: 'no-store' })
+        const res = await fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
         if (data.v > BUILD_ID) setNewVersion(true)
@@ -248,7 +248,7 @@ export default function Layout({ children }) {
         {/* Nav */}
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {NAV.filter(n => {
-            if (user?.role === 'professional') return !['Laudos', 'Relatórios'].includes(n.label)
+            if (user?.role === 'professional') return !['Relatórios'].includes(n.label)
             if (user?.role === 'estagiario')   return !['Laudos', 'Relatórios', 'Devolutivas'].includes(n.label)
             if (user?.role === 'entregador')   return !['Relatórios'].includes(n.label)
             return true
