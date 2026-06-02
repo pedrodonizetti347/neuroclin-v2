@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { auth, db } from '@/lib/firebase'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
@@ -178,19 +178,16 @@ export default function Layout({ children }) {
   const countdownRef = useRef(null)
 
   useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
-        if (!res.ok) return
-        const data = await res.json()
-        if (data.v > BUILD_ID) setNewVersion(true)
-      } catch {}
-    }
-    check()
-    const interval = setInterval(check, 10 * 1000)
-    const onVisible = () => { if (document.visibilityState === 'visible') check() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
+    const unsub = onSnapshot(
+      doc(db, 'configuracoes', 'versao'),
+      (snap) => {
+        if (!snap.exists()) return
+        const { buildId } = snap.data()
+        if (buildId > BUILD_ID) setNewVersion(true)
+      },
+      () => {}
+    )
+    return () => unsub()
   }, [])
 
   useEffect(() => {

@@ -7,8 +7,9 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import {
   UserPlus, Users, Shield, RefreshCw, CheckCircle2,
-  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings, Trash2, ClipboardList,
+  AlertCircle, Loader2, X, Eye, EyeOff, Edit2, Save, Settings, Trash2, ClipboardList, Zap,
 } from 'lucide-react'
+import { BUILD_ID } from '@/version'
 
 const S = {
   bg:     '#0D1117',
@@ -565,6 +566,24 @@ export default function Admin() {
   const [checkingAuth,   setCheckingAuth]   = useState(false)
   const [createAuthUser, setCreateAuthUser] = useState(null)
   const [deleteUser,     setDeleteUser]     = useState(null)
+  const [publishing,     setPublishing]     = useState(false)
+  const [published,      setPublished]      = useState(false)
+
+  const publishUpdate = async () => {
+    setPublishing(true)
+    try {
+      await setDoc(doc(db, 'configuracoes', 'versao'), {
+        buildId: Date.now(),
+        updatedAt: serverTimestamp(),
+      })
+      setPublished(true)
+      setTimeout(() => setPublished(false), 4000)
+    } catch (e) {
+      console.error('[publishUpdate]', e)
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   const emailDupes = useMemo(() => {
     const count = {}
@@ -684,6 +703,21 @@ export default function Admin() {
           <p style={{ fontSize: 12, color: S.muted, marginTop: 4 }}>Crie e gerencie os acessos da equipe ao NeuroClin</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={publishUpdate} disabled={publishing} style={{
+            padding: '8px 16px', borderRadius: 8,
+            border: `1px solid ${published ? 'rgba(76,175,80,0.5)' : 'rgba(46,125,50,0.5)'}`,
+            background: published ? 'rgba(76,175,80,0.15)' : 'rgba(46,125,50,0.12)',
+            color: published ? '#4CAF50' : '#2E7D32',
+            fontSize: 12, fontWeight: 700,
+            cursor: publishing ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {publishing
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Publicando...</>
+              : published
+                ? <><CheckCircle2 size={13} /> Sinal verde enviado!</>
+                : <><Zap size={13} /> Publicar atualização</>}
+          </button>
           <button onClick={loadUsers} style={{
             padding: '8px 14px', borderRadius: 8, border: `1px solid ${S.border}`,
             background: 'transparent', color: S.muted, fontSize: 12, cursor: 'pointer',
