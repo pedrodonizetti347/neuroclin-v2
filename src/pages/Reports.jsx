@@ -3224,7 +3224,7 @@ export default function Reports() {
                 </button>
               )}
               {/* Indicador de somente leitura — laudo aprovado aguardando autorização */}
-              {report && reportStatus === 'aprovado' && !editMode && (
+              {report && reportStatus === 'aprovado' && !editMode && !isEntregador && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: S.muted, padding: '5px 10px', borderRadius: 7, border: `1px solid ${S.border}` }}>
                   <Lock size={11} /> SOMENTE LEITURA
                 </span>
