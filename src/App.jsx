@@ -16,6 +16,7 @@ import Devolutivas from '@/pages/Devolutivas'
 import Manual      from '@/pages/Manual'
 import Correcoes          from '@/pages/Correcoes'
 import DiagnosticoPrevent from '@/pages/DiagnosticoPrevent'
+import UploadConvenio     from '@/pages/UploadConvenio'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } }
@@ -41,7 +42,8 @@ function AppRoutes() {
         <Route path="/prontuario"    element={<MedicalRecords />} />
         <Route path="/relatorios"    element={<Analytics />} />
         <Route path="/devolutivas"   element={<Devolutivas />} />
-        <Route path="/correcoes"     element={<Correcoes />} />
+        <Route path="/correcoes"       element={<Correcoes />} />
+        <Route path="/upload-convenio" element={<UploadConvenio />} />
         <Route path="/configuracoes" element={<Settings />} />
         <Route path="/admin"         element={<Admin />} />
         <Route path="/admin-setup"   element={<AdminSetup />} />

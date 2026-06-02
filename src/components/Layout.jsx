@@ -9,7 +9,7 @@ import {
   Brain, LayoutDashboard, Users, FileText,
   FlaskConical, BookOpen, BarChart3, CalendarClock,
   LogOut, Menu, ChevronRight, Settings, ShieldCheck, KeyRound, X, Eye, EyeOff,
-  BookMarked, ClipboardList,
+  BookMarked, ClipboardList, Upload,
 } from 'lucide-react'
 
 const NAV = [
@@ -276,6 +276,27 @@ export default function Layout({ children }) {
               </Link>
             )
           })}
+          {user?.role === 'estagiario' && (
+            <Link to="/upload-convenio">
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                gap: 9, padding: collapsed ? '10px 12px' : '9px 12px',
+                borderRadius: 7, marginBottom: 2,
+                background: location.pathname === '/upload-convenio' ? S.green : 'transparent',
+                color: location.pathname === '/upload-convenio' ? '#fff' : S.muted,
+                fontSize: 12, fontWeight: location.pathname === '/upload-convenio' ? 700 : 400,
+                cursor: 'pointer', transition: 'all 0.15s',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                letterSpacing: location.pathname === '/upload-convenio' ? '0.02em' : '0',
+              }}>
+                <Upload size={16} style={{ flexShrink: 0 }} />
+                {!collapsed && <span>Upload Convênio</span>}
+                {!collapsed && location.pathname === '/upload-convenio' && (
+                  <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
+                )}
+              </div>
+            </Link>
+          )}
           {isAdmin && (
             <>
               {!collapsed && (
