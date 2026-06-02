@@ -1909,10 +1909,15 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   const queixasCogn    = ad?.queixasCognitivas       || ad?.queixas_cognitivas_emocionais || ''
   const comportObs     = ad?.comportamentoObservacional || ''
 
+  const relacionamentos = ad?.relacionamentos      || ''
+  const vidaAcadLab     = ad?.vidaAcademicaLaboral || ''
+
   const anamneseSections = [
     objAval         && `<p style="${AP}"><strong>Objetivo da avaliação:</strong> ${objAval}</p>`,
     descDemanda     && `<p style="${AP}"><strong>Descrição da demanda:</strong> ${descDemanda}</p>`,
     infoGeraisProsa && `<p style="${AP}"><strong>Informações gerais:</strong> ${infoGeraisProsa}</p>`,
+    relacionamentos && `<p style="${AP}"><strong>Relacionamentos:</strong> ${relacionamentos}</p>`,
+    vidaAcadLab     && `<p style="${AP}"><strong>Vida acadêmica / laboral:</strong> ${vidaAcadLab}</p>`,
     saudeProsa      && `<p style="${AP}"><strong>Saúde e antecedentes familiares:</strong> ${saudeProsa}</p>`,
     histClinica     && `<p style="${AP}"><strong>História clínica atual:</strong> ${histClinica}</p>`,
     habitosVida     && `<p style="${AP}"><strong>Hábitos de vida:</strong> ${habitosVida}</p>`,
@@ -1986,7 +1991,8 @@ function buildFullDocument({ patient, selectedTests, appliedBy, user, ad, td, ai
   </table>
 
   <!-- ANAMNESE — 6 seções -->
-  ${anamneseHtml ? secHead('ANAMNESE') + anamneseHtml : ''}
+  ${secHead('ANAMNESE')}
+  ${anamneseHtml || `<p style="${AP}">[Dados de anamnese não preenchidos — complete a anamnese antes de gerar o laudo.]</p>`}
 
   <!-- EXAMES IMAGIOLÓGICOS -->
   ${secHead('EXAMES IMAGIOLÓGICOS')}
@@ -2472,7 +2478,9 @@ export default function Reports() {
         try {
           const aSnap = await getDoc(doc(db, 'anamneses', patientId))
           if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
-        } catch (_) {}
+        } catch (e) {
+          console.warn('[generate] Erro ao ler anamneses/' + patientId, e)
+        }
       }
       console.log('[generate] td keys:', Object.keys(td))
       const dataFormatada = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
