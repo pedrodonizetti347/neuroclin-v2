@@ -2203,6 +2203,7 @@ export default function Reports() {
   const [approvedReports,  setApprovedReports]  = useState([])
   const [loadingApproved,  setLoadingApproved]  = useState(false)
   const [buscaAprovados,   setBuscaAprovados]   = useState('')
+  const [patientNamesMap,  setPatientNamesMap]  = useState({})
 
   const isSupervisor   = user?.role === 'admin' || user?.role === 'supervisor'
   const isEntregador   = user?.role === 'entregador'
@@ -2258,8 +2259,9 @@ export default function Reports() {
   useEffect(() => {
     if (!isProfOnly || !user) return
     setLoadingApproved(true)
-    getDocs(collection(db, 'reports'))
-      .then(snap => {
+    ;(async () => {
+      try {
+        const snap = await getDocs(collection(db, 'reports'))
         const list = snap.docs
           .filter(d => !d.data().deleted)
           .map(d => ({ id: d.id, ...d.data() }))
@@ -2271,10 +2273,24 @@ export default function Reports() {
             return (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)
           })
         setApprovedReports(list)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingApproved(false))
-  }, [isProfOnly, user])
+
+        // Busca nomes de pacientes que não estão no state local
+        const knownIds = new Set(patients.map(p => p.id))
+        const missing  = [...new Set(list.map(r => r.patientId).filter(pid => pid && !knownIds.has(pid)))]
+        if (missing.length > 0) {
+          const nameMap = {}
+          await Promise.all(missing.map(async pid => {
+            try {
+              const pSnap = await getDoc(doc(db, 'patients', pid))
+              if (pSnap.exists()) nameMap[pid] = pSnap.data().full_name || ''
+            } catch {}
+          }))
+          setPatientNamesMap(nameMap)
+        }
+      } catch {}
+      finally { setLoadingApproved(false) }
+    })()
+  }, [isProfOnly, user, patients])
 
   function selecionarLaudoAprovado(r) {
     setSavedReportId(r.id)
@@ -2954,11 +2970,11 @@ export default function Reports() {
                   return approvedReports
                     .filter(r => {
                       if (!buscaAprovados) return true
-                      const nome = patients.find(p => p.id === r.patientId)?.full_name || r.patientName || ''
+                      const nome = patients.find(p => p.id === r.patientId)?.full_name || patientNamesMap[r.patientId] || r.patientName || ''
                       return nome.toLowerCase().includes(buscaAprovados.toLowerCase())
                     })
                     .map(r => {
-                      const nome = patients.find(p => p.id === r.patientId)?.full_name || r.patientName || r.patientId || '—'
+                      const nome = patients.find(p => p.id === r.patientId)?.full_name || patientNamesMap[r.patientId] || r.patientName || r.patientId || '—'
                       const dt   = r.updatedAt?.toDate?.()?.toLocaleDateString('pt-BR') || '—'
                       const active = savedReportId === r.id
                       const badge  = STATUS_BADGE[r.status] || STATUS_BADGE.rascunho
@@ -2999,7 +3015,7 @@ export default function Reports() {
             </div>
           )}
 
-          {!isProfOnly && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+          <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>1. PACIENTE</div>
             <PatientSearchInput
               patients={patients}
@@ -3013,7 +3029,7 @@ export default function Reports() {
                 {patient.education ? ` · ${patient.education}` : ''}
               </div>
             )}
-          </div>}
+          </div>
 
           {patientId && !isProfOnly && !isEntregador && <TestStatusPanel sessionTests={session.session?.tests} patientName={patient?.full_name} />}
 
@@ -3137,7 +3153,7 @@ export default function Reports() {
             </div>
           )}
 
-          {!isProfOnly && !isEntregador && !(isProfessional && reportStatus === 'aprovado') && <button onClick={generate} disabled={loading} style={{
+          {!isEntregador && !(isProfessional && reportStatus === 'aprovado') && <button onClick={generate} disabled={loading} style={{
             padding: '13px', borderRadius: 10, border: 'none',
             background: loading ? 'rgba(46,125,50,0.4)' : S.green,
             color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
