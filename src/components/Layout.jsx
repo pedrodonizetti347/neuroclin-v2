@@ -187,7 +187,7 @@ export default function Layout({ children }) {
       } catch {}
     }
     check()
-    const interval = setInterval(check, 30 * 1000)
+    const interval = setInterval(check, 10 * 1000)
     const onVisible = () => { if (document.visibilityState === 'visible') check() }
     document.addEventListener('visibilitychange', onVisible)
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
