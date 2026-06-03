@@ -42,6 +42,83 @@ const TESTES_CONVENIO = [
   { categoria: 'Outras Escalas', testes: ['EFS', 'YBOCS', 'STROOP'] },
 ]
 
+// ─── Configuração de fotos esperadas por teste ────────────────────────────────
+const TESTES_FOTOS_CONFIG = [
+  // Atenção / Rastreio
+  { nome: 'BPA',      totalFotos: 6 },
+  { nome: 'TAVIS',    totalFotos: null },
+  { nome: 'TEACO',    totalFotos: null },  // conjunto com TEADI+TEALTI = 6 — split indefinido
+  { nome: 'TEADI',    totalFotos: null },
+  { nome: 'TEALTI',   totalFotos: null },
+  { nome: 'TB',       totalFotos: null },  // conjunto com TPB = 4 — split indefinido
+  { nome: 'TPB',      totalFotos: null },
+  // Inteligência
+  { nome: 'WISC-IV',    totalFotos: 30 },
+  { nome: 'WAIS-III',   totalFotos: 24 },
+  { nome: 'SON-R 2½-7', totalFotos: 20 },
+  { nome: 'SON-R 6-40', totalFotos: 30 },
+  // Linguagem
+  { nome: 'BOSTON',            totalFotos: 2 },
+  { nome: 'PROLEC',            totalFotos: null },  // Fund I=4 / Fund II=7 — entrada única no sistema
+  { nome: 'NOMEAÇÃO INFANTIL', totalFotos: 2 },
+  { nome: 'TISD',              totalFotos: 3 },
+  // Comportamento / Personalidade
+  { nome: 'BFP',      totalFotos: 2 },
+  { nome: 'BDEFS',    totalFotos: 4 },
+  { nome: 'BPQ',      totalFotos: null },
+  { nome: 'BRIEF 2',  totalFotos: null },  // PAIS=3 / PROFESSORES=3 — entrada única no sistema
+  { nome: 'ABAS',     totalFotos: 15 },
+  { nome: 'SSRS',     totalFotos: null },
+  { nome: 'SRS-2',    totalFotos: 2 },
+  { nome: 'SNAP-IV',  totalFotos: 3 },
+  { nome: 'E-TDAH',   totalFotos: null },  // AD=3 / PAIS=2 — entrada única no sistema
+  { nome: 'EPF-TDAH', totalFotos: 7 },
+  { nome: 'EPQJ',     totalFotos: 3 },
+  { nome: 'DIVA',     totalFotos: 11 },
+  { nome: 'RAADS-R',  totalFotos: 12 },
+  { nome: 'SCQ',      totalFotos: 1 },
+  { nome: 'SCARED',   totalFotos: 1 },
+  // Memória / Aprendizagem
+  { nome: 'BVMT-R',                             totalFotos: 5 },
+  { nome: 'NEPSY-2',                             totalFotos: 20 },
+  { nome: 'MEMÓRIA PROSPECTIVA E RETROSPECTIVA', totalFotos: null },
+  // Funções Executivas
+  { nome: 'TORRE DE Londres', totalFotos: 4 },
+  { nome: 'FAM (TFV)',        totalFotos: 1 },
+  { nome: 'FAS',              totalFotos: null },
+  { nome: 'FBI',              totalFotos: 2 },
+  { nome: 'FDT',              totalFotos: 2 },
+  // Humor / Ansiedade
+  { nome: 'EBADEP-A',                        totalFotos: 4 },
+  { nome: 'EBADEP-IJ',                       totalFotos: 2 },
+  { nome: 'COLUMBIA',                        totalFotos: 2 },
+  { nome: 'LIEBOWITZ',                       totalFotos: 1 },
+  { nome: 'ESCALA DE HUMOR IJ',              totalFotos: 10 },
+  { nome: 'ESAVI-A',                         totalFotos: 1 },
+  { nome: 'ESCALA COMPORTAMENTO DISRUPTIVO', totalFotos: 7 },
+  // Funcional / Informante
+  { nome: 'PDQ39',      totalFotos: 3 },
+  { nome: 'UPDRS',      totalFotos: 3 },
+  { nome: 'QA',         totalFotos: 4 },
+  { nome: 'QHS',        totalFotos: 11 },
+  { nome: 'PFISTER',    totalFotos: 1 },
+  { nome: 'VINELAND 3', totalFotos: 7 },
+  { nome: 'IDADI',      totalFotos: 18 },
+  { nome: 'IHS2',       totalFotos: 1 },
+  { nome: 'PROTEA',     totalFotos: 8 },
+  { nome: 'THCP',       totalFotos: 7 },
+  { nome: "TIAH'S",     totalFotos: 6 },
+  // Outras Escalas
+  { nome: 'EFS',    totalFotos: null },
+  { nome: 'YBOCS',  totalFotos: 5 },
+  { nome: 'STROOP', totalFotos: null },
+  // Testes adicionais (fora do TESTES_CONVENIO, com valor fornecido)
+  { nome: 'FAZ',              totalFotos: 1 },
+  { nome: 'IPSF',             totalFotos: 2 },
+  { nome: 'TDE-2',            totalFotos: 7 },
+  { nome: 'TRIAGEM INFANTIL', totalFotos: 8 },
+]
+
 // ─── Compressor de imagem (igual ao TestScanUpload) ──────────────────────────
 function comprimirImagem(file) {
   return new Promise((resolve) => {
