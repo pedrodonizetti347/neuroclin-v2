@@ -142,7 +142,7 @@ function comprimirImagem(file) {
 }
 
 // ─── Componente de upload por teste ──────────────────────────────────────────
-function TesteUploadItem({ nome, patientId, convenio, onStatusChange }) {
+function TesteUploadItem({ nome, patientId, patientName, convenio, onStatusChange }) {
   const [arquivos, setArquivos] = useState([])
   const [uploading, setUploading] = useState(false)
   const [erro, setErro] = useState('')
@@ -174,6 +174,7 @@ function TesteUploadItem({ nome, patientId, convenio, onStatusChange }) {
       const docRef = doc(db, 'convenio_uploads', chaveDoc)
       await setDoc(docRef, {
         patientId,
+        patientName,
         convenio,
         testes: { [nome]: atualizados },
         updatedAt: serverTimestamp(),
@@ -500,6 +501,7 @@ export default function UploadConvenio() {
               key={nome}
               nome={nome}
               patientId={paciente}
+              patientName={pacienteObj?.full_name || ''}
               convenio={convenio}
               onStatusChange={handleStatusChange}
             />
