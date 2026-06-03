@@ -451,7 +451,7 @@ export default function Analytics() {
                     style={{ background: '#0F1B2D', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none' }}
                   >
                     <option value="">Todos os convênios</option>
-                    {['Particular','Hapvida Notredame Intermedica','Cassi','Cabesp','Plan Assist'].map(c => (
+                    {['Particular','Hapvida Notredame Intermedica','Cassi','Cabesp','Plan Assist','Prevent Sênior'].map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -475,7 +475,7 @@ export default function Analytics() {
                     const testes   = Object.entries(u.testes || {})
                     const CONV_CLR = {
                       'Particular': '#60A5FA', 'Hapvida Notredame Intermedica': '#a78bfa',
-                      'Cassi': '#34d399', 'Cabesp': '#fb923c', 'Plan Assist': '#f472b6',
+                      'Cassi': '#34d399', 'Cabesp': '#fb923c', 'Plan Assist': '#f472b6', 'Prevent Sênior': '#4CAF50',
                     }
                     const badgeColor = CONV_CLR[u.convenio] || S.muted
                     const allComplete = testes.every(([nome, arqs]) => {
