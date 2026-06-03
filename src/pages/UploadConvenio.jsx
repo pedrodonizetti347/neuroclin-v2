@@ -27,6 +27,7 @@ const CONVENIOS = [
   'Cassi',
   'Cabesp',
   'Plan Assist',
+  'Prevent Sênior',
 ]
 
 // ─── Testes que NÃO estão no sistema (apenas esses aparecem para upload) ──────
