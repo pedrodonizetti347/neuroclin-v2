@@ -463,15 +463,13 @@ export default function Analytics() {
                   .filter(u => {
                     if (filterConvenio && u.convenio !== filterConvenio) return false
                     if (searchConvenio) {
-                      const patient = patients.find(p => p.id === u.patientId)
-                      const name = patient?.full_name || patient?.name || u.patientId || ''
+                      const name = u.patientName || u.patientId || ''
                       return name.toLowerCase().includes(searchConvenio.toLowerCase())
                     }
                     return true
                   })
                   .map(u => {
-                    const patient  = patients.find(p => p.id === u.patientId)
-                    const name     = u.patientName || patients.find(p => p.id === u.patientId)?.full_name || u.patientId
+                    const name     = u.patientName || u.patientId
                     const testes   = Object.entries(u.testes || {})
                     const CONV_CLR = {
                       'Particular': '#60A5FA', 'Hapvida Notredame Intermedica': '#a78bfa',
