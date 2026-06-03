@@ -3,6 +3,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/lib/AuthContext'
 import { BarChart2, Users, FileText, CheckCircle, Clock, Download, AlertTriangle, RefreshCw } from 'lucide-react'
+import { TESTES_FOTOS_CONFIG } from '@/pages/UploadConvenio'
 
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MONTHS_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
@@ -75,7 +76,7 @@ function Section({ title, children, style }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Analytics() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'estagiario'
 
   const now = new Date()
   const [filterYear, setFilterYear]   = useState(now.getFullYear())
@@ -91,6 +92,9 @@ export default function Analytics() {
   const [searchDocs, setSearchDocs]         = useState('')
   const [searchProd, setSearchProd]         = useState('')
   const [searchAnamnese, setSearchAnamnese] = useState('')
+  const [convenioUploads,  setConvenioUploads]  = useState([])
+  const [searchConvenio,   setSearchConvenio]   = useState('')
+  const [filterConvenio,   setFilterConvenio]   = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -114,6 +118,12 @@ export default function Analytics() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+
+  useEffect(() => {
+    getDocs(collection(db, 'convenio_uploads'))
+      .then(snap => setConvenioUploads(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(e => console.warn('[Analytics] convenio_uploads:', e))
+  }, [])
 
   // ── Acesso restrito ──
   if (!isAdmin) {
@@ -415,6 +425,89 @@ export default function Analytics() {
                             )
                           })}
                         </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </Section>
+
+          {/* ── SEÇÃO 5b — Convênios e Particular ── */}
+          <Section title="Convênios e Particular — documentação de testes" style={{ marginBottom: 20 }}>
+            {convenioUploads.length === 0 ? (
+              <p style={{ fontSize: 13, color: S.muted }}>Nenhum upload de convênio registrado ainda.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                  <input
+                    value={searchConvenio}
+                    onChange={e => setSearchConvenio(e.target.value)}
+                    placeholder="Buscar paciente..."
+                    style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none', flex: 1, minWidth: 160 }}
+                  />
+                  <select
+                    value={filterConvenio}
+                    onChange={e => setFilterConvenio(e.target.value)}
+                    style={{ background: '#0F1B2D', border: `1px solid ${S.border}`, borderRadius: 8, color: '#fff', padding: '7px 12px', fontSize: 12, outline: 'none' }}
+                  >
+                    <option value="">Todos os convênios</option>
+                    {['Particular','Hapvida Notredame Intermedica','Cassi','Cabesp','Plan Assist'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: S.muted }}>🔴 Sem arquivos &nbsp;|&nbsp; 🟡 Parcial &nbsp;|&nbsp; 🟢 Completo</span>
+                </div>
+                {convenioUploads
+                  .filter(u => {
+                    if (filterConvenio && u.convenio !== filterConvenio) return false
+                    if (searchConvenio) {
+                      const patient = patients.find(p => p.id === u.patientId)
+                      const name = patient?.full_name || patient?.name || u.patientId || ''
+                      return name.toLowerCase().includes(searchConvenio.toLowerCase())
+                    }
+                    return true
+                  })
+                  .map(u => {
+                    const patient  = patients.find(p => p.id === u.patientId)
+                    const name     = patient?.full_name || patient?.name || u.patientId
+                    const testes   = Object.entries(u.testes || {})
+                    const CONV_CLR = {
+                      'Particular': '#60A5FA', 'Hapvida Notredame Intermedica': '#a78bfa',
+                      'Cassi': '#34d399', 'Cabesp': '#fb923c', 'Plan Assist': '#f472b6',
+                    }
+                    const badgeColor = CONV_CLR[u.convenio] || S.muted
+                    const allComplete = testes.every(([nome, arqs]) => {
+                      const cfg = TESTES_FOTOS_CONFIG.find(t => t.nome === nome)
+                      return cfg?.totalFotos != null && (arqs?.length || 0) >= cfg.totalFotos
+                    })
+                    const anyFiles  = testes.some(([, arqs]) => (arqs?.length || 0) > 0)
+                    const rowColor  = allComplete ? 'rgba(76,175,80,0.06)'  : anyFiles ? 'rgba(245,158,11,0.06)'  : 'rgba(239,68,68,0.06)'
+                    const rowBorder = allComplete ? 'rgba(76,175,80,0.2)'   : anyFiles ? 'rgba(245,158,11,0.2)'   : 'rgba(239,68,68,0.2)'
+                    return (
+                      <div key={u.id} style={{ padding: '10px 14px', borderRadius: 8, background: rowColor, border: `1px solid ${rowBorder}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: testes.length ? 8 : 0, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, flex: '1 1 140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, color: badgeColor, border: `1px solid ${badgeColor}`, background: 'rgba(255,255,255,0.04)' }}>
+                            {u.convenio}
+                          </span>
+                        </div>
+                        {testes.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {testes.map(([nome, arqs]) => {
+                              const cnt   = arqs?.length || 0
+                              const cfg   = TESTES_FOTOS_CONFIG.find(t => t.nome === nome)
+                              const total = cfg?.totalFotos ?? null
+                              const emoji = cnt === 0 ? '🔴' : total != null && cnt >= total ? '🟢' : '🟡'
+                              return (
+                                <span key={nome} style={{ fontSize: 11, color: S.muted, background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '2px 7px' }}>
+                                  {emoji} {nome} ({cnt}{total != null ? `/${total}` : ''})
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )
                   })}

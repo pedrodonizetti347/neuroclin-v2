@@ -43,7 +43,7 @@ const TESTES_CONVENIO = [
 ]
 
 // ─── Configuração de fotos esperadas por teste ────────────────────────────────
-const TESTES_FOTOS_CONFIG = [
+export const TESTES_FOTOS_CONFIG = [
   // Atenção / Rastreio
   { nome: 'BPA',      totalFotos: 6 },
   { nome: 'TAVIS',    totalFotos: null },

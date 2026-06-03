@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { auth, db } from '@/lib/firebase'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore'
+import { doc, updateDoc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { BUILD_TIME, BUILD_ID } from '@/version'
 import {
   Brain, LayoutDashboard, Users, FileText,
@@ -190,6 +190,19 @@ export default function Layout({ children }) {
     return () => unsub()
   }, [])
 
+  // Admin/supervisor auto-publica o BUILD_ID ao carregar — dispara sinal para todos
+  useEffect(() => {
+    if (!user) return
+    if (user.role !== 'admin' && user.role !== 'supervisor') return
+    const ref = doc(db, 'configuracoes', 'versao')
+    getDoc(ref).then(snap => {
+      const existing = snap.exists() ? (snap.data().buildId || 0) : 0
+      if (BUILD_ID > existing) {
+        setDoc(ref, { buildId: BUILD_ID, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
+      }
+    }).catch(() => {})
+  }, [user])
+
   useEffect(() => {
     if (!newVersion) return
     countdownRef.current = setInterval(() => {
@@ -246,7 +259,7 @@ export default function Layout({ children }) {
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {NAV.filter(n => {
             if (user?.role === 'professional') return !['Relatórios'].includes(n.label)
-            if (user?.role === 'estagiario')   return !['Laudos', 'Relatórios', 'Devolutivas'].includes(n.label)
+            if (user?.role === 'estagiario')   return !['Laudos', 'Devolutivas'].includes(n.label)
             if (user?.role === 'entregador')   return !['Relatórios'].includes(n.label)
             return true
           }).map(({ label, icon: Icon, path }) => {
