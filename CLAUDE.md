@@ -5,6 +5,21 @@
 
 ---
 
+## PORTA DE ENTRADA — ARQUIVO DE INICIALIZAÇÃO
+
+O arquivo de inicialização obrigatório do Claude Code para este projeto é:
+
+```
+C:\Users\Pedro Donizetti\Desktop\NeuroClin-Porco.bat
+```
+
+- Este arquivo é a **ÚNICA porta de entrada** para todas as sessões de desenvolvimento
+- Quando Dr. Pedro mencionar **"abrir o CMD"** ou **"abrir o porco"**, significa abrir este arquivo
+- **NUNCA** deve ser movido, renomeado ou apagado
+- Qualquer sessão iniciada fora deste arquivo não segue o fluxo correto do projeto
+
+---
+
 ## Stack
 
 React + Vite + Tailwind | Firebase Auth (Google) + Firestore + Storage | Claude API direto (`VITE_ANTHROPIC_API_KEY`)
