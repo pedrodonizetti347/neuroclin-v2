@@ -2324,8 +2324,17 @@ export default function Reports() {
   useEffect(() => {
     if (!patientId || !user?.id || (!isSupervisor && !isProfessional)) { setAnamneseStatus('idle'); return }
     setAnamneseStatus('loading')
-    getDoc(doc(db, 'anamneses', `${patientId}_${user.id}`))
-      .then(snap => {
+    ;(async () => {
+      try {
+        let snap = await getDoc(doc(db, 'anamneses', `${patientId}_${user.id}`))
+        // Fallback: ID antigo sem userId — migra automaticamente para o novo ID
+        if (!snap.exists()) {
+          const oldSnap = await getDoc(doc(db, 'anamneses', patientId))
+          if (oldSnap.exists()) {
+            snap = oldSnap
+            setDoc(doc(db, 'anamneses', `${patientId}_${user.id}`), oldSnap.data(), { merge: true }).catch(() => {})
+          }
+        }
         const data = snap.exists() ? snap.data() : {}
         const hasContent = !!(
           data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento ||
@@ -2333,11 +2342,7 @@ export default function Reports() {
           data.relacionamentos   || data.vidaAcademicaLaboral || data.historicoSaude ||
           data.estado_civil      || data.profissao || data.doencas_preexistentes?.length
         )
-        if (hasContent) {
-          setAnamneseStatus('found')
-        } else {
-          setAnamneseStatus('empty')
-        }
+        setAnamneseStatus(hasContent ? 'found' : 'empty')
         // Sempre pré-popula para permitir edição pelo profissional
         setQuickAnamnese({
           objetivoAvaliacao:         data.objetivoAvaliacao || data.objetivo_avaliacao || data.motivo_encaminhamento || '',
@@ -2352,8 +2357,8 @@ export default function Reports() {
           queixasCognitivas:         data.queixasCognitivas || data.queixas_cognitivas_emocionais || '',
           comportamentoObservacional: data.comportamentoObservacional || data.observacoes_comportamentais || '',
         })
-      })
-      .catch(() => setAnamneseStatus('empty'))
+      } catch { setAnamneseStatus('empty') }
+    })()
   }, [patientId, user?.id, isSupervisor, isProfessional])
 
   useEffect(() => {
