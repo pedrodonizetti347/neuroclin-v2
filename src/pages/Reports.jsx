@@ -3154,7 +3154,7 @@ export default function Reports() {
             ))}
           </div>}
 
-          {!isProfOnly && !isEntregador && error && (
+          {!isEntregador && error && (
             <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 12, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
               <AlertCircle size={14} /> {error}
             </div>
