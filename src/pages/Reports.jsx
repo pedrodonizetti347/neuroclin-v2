@@ -2448,7 +2448,7 @@ export default function Reports() {
 
   const generate = async () => {
     if (!patientId)               return setError('Selecione um paciente.')
-    if (selectedTests.length === 0) return setError('Selecione ao menos um teste.')
+    if (selectedTests.length === 0 && !isProfOnly && !isEstagiario) return setError('Selecione ao menos um teste.')
     setError('')
     setLoading(true)
     setSaved(false)
