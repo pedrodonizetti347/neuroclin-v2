@@ -84,9 +84,9 @@ test('Fallback determinístico garantido quando aiBody vazio', () => {
 // ── BLOCO 2 — Anamnese pelo patientId correto ────────────────────────────────
 console.log('\nBLOCO 2 — Anamnese buscada do Firestore pelo patientId\n')
 
-test("doc(db, 'anamneses', patientId) presente na geração", () => {
-  if (!reports.includes("'anamneses', patientId"))
-    return "Padrão doc(db, 'anamneses', patientId) não encontrado"
+test("doc(db, 'anamneses', `${patientId}_${user.id}`) presente na geração", () => {
+  if (!reports.includes("'anamneses', `${patientId}_${user.id}`"))
+    return "Padrão doc(db, 'anamneses', `${patientId}_${user.id}`) não encontrado — ID da anamnese deve incluir userId"
   return true
 })
 

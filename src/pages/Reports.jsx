@@ -2322,9 +2322,9 @@ export default function Reports() {
 
   // ── Detecção de anamnese ao trocar de paciente ───────────────────────────────
   useEffect(() => {
-    if (!patientId || (!isSupervisor && !isProfessional)) { setAnamneseStatus('idle'); return }
+    if (!patientId || !user?.id || (!isSupervisor && !isProfessional)) { setAnamneseStatus('idle'); return }
     setAnamneseStatus('loading')
-    getDoc(doc(db, 'anamneses', patientId))
+    getDoc(doc(db, 'anamneses', `${patientId}_${user.id}`))
       .then(snap => {
         const data = snap.exists() ? snap.data() : {}
         const hasContent = !!(
@@ -2354,7 +2354,7 @@ export default function Reports() {
         })
       })
       .catch(() => setAnamneseStatus('empty'))
-  }, [patientId, isSupervisor, isProfessional])
+  }, [patientId, user?.id, isSupervisor, isProfessional])
 
   useEffect(() => {
     if (!patientId || !user) return
@@ -2426,15 +2426,18 @@ export default function Reports() {
   const patient = patients.find(p => p.id === patientId)
 
   const saveQuickAnamnese = async () => {
-    if (!patientId) return
+    if (!patientId || !user?.id) return
     setSavingQuick(true)
     try {
-      await setDoc(doc(db, 'anamneses', patientId), {
+      await setDoc(doc(db, 'anamneses', `${patientId}_${user.id}`), {
         ...quickAnamnese,
         updatedAt: serverTimestamp(),
       }, { merge: true })
       setAnamneseStatus('found')
-    } catch (e) { console.error('[saveQuickAnamnese]', e) }
+    } catch (e) {
+      console.error('[saveQuickAnamnese]', e)
+      setError('Erro ao salvar anamnese. Verifique sua conexão e tente novamente.')
+    }
     finally { setSavingQuick(false) }
   }
 
@@ -2473,10 +2476,10 @@ export default function Reports() {
         } catch (_) {}
       }
       setStep(1)
-      // Coleção anamneses/{patientId} — prioridade máxima se existir
-      if (patientId) {
+      // Coleção anamneses/{patientId}_{userId} — prioridade máxima se existir
+      if (patientId && user?.id) {
         try {
-          const aSnap = await getDoc(doc(db, 'anamneses', patientId))
+          const aSnap = await getDoc(doc(db, 'anamneses', `${patientId}_${user.id}`))
           if (aSnap.exists()) ad = { ...ad, ...aSnap.data() }
         } catch (e) {
           console.warn('[generate] Erro ao ler anamneses/' + patientId, e)
@@ -2979,7 +2982,7 @@ export default function Reports() {
                     .filter(r => {
                       if (!buscaAprovados) return true
                       const nome = patients.find(p => p.id === r.patientId)?.full_name || patientNamesMap[r.patientId] || r.patientName || ''
-                      return nome.toLowerCase().includes(buscaAprovados.toLowerCase())
+                      return nome.toLowerCase().trim().includes(buscaAprovados.toLowerCase().trim())
                     })
                     .map(r => {
                       const nome = patients.find(p => p.id === r.patientId)?.full_name || patientNamesMap[r.patientId] || r.patientName || r.patientId || '—'
@@ -3059,9 +3062,11 @@ export default function Reports() {
               )}
               {(anamneseStatus === 'empty' || (isProfessional && anamneseStatus === 'found')) && (
                 <div>
+                  {anamneseStatus === 'empty' && (
                   <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
                     ⚠ ANAMNESE NÃO ENCONTRADA — preencha rapidamente para o laudo
                   </div>
+                  )}
                   {[
                     ['Objetivo da avaliação', 'objetivoAvaliacao'],
                     ['Descrição da demanda', 'descricaoDemanda'],
