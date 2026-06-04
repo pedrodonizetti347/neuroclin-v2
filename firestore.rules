@@ -68,9 +68,10 @@ service cloud.firestore {
     match /reports/{reportId} {
       allow read, create, update: if isAdminOrSupervisor();
       allow read, update: if isAuth() && resource.data.professionalId == request.auth.uid;
-      allow create, update: if isProfissional() || isEstagiario();
-      allow read: if isProfissional() || isEstagiario();
+      allow create: if isAuth();
       allow read, update: if isEntregador();
+      allow read:   if isProfissional();
+      allow update: if isProfissional() && resource.data.status != 'aprovado';
       allow delete: if false;
     }
 
