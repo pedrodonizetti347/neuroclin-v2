@@ -59,8 +59,8 @@ function gerarMemoria(p) {
 
   const codificacao = clean(
     p.compreendia === 'NÃO'
-      ? `${p.nome} não apresentou dificuldades no processo de codificação da memória na realização das tarefas, pois parecia NÃO compreender o que era pedido;`
-      : `${p.nome} apresentou dificuldades no processo de codificação da memória na realização das tarefas, pois parecia  compreender o que era pedido;`
+      ? `${p.nome} apresentou dificuldades no processo de codificação da memória na realização das tarefas, pois parecia NÃO compreender o que era pedido;`
+      : `${p.nome} não apresentou dificuldades no processo de codificação da memória na realização das tarefas, pois parecia compreender o que era pedido;`
   )
 
   const introTipos = clean(`${G} paciente foi submetid${g} a diversas tarefas para avaliar os seguintes tipos de memória:`)
@@ -134,7 +134,7 @@ function gerarMemoria(p) {
 
   return [
     introMemoria, codificacao, introTipos, curtoPrazo, memoriaOperacional,
-    introEpisodica, longoPrazo, recordacaoTempo,
+    introEpisodica, longoPrazo, recordacaoTempo, pistasVerbais,
     memoriaSematica, memoriaProspectiva, memoriaRetrospectiva,
   ].join(' ')
 }
@@ -196,11 +196,11 @@ function gerarLinguagem(p) {
     : clean(`${G} paciente teve desempenho ${toLangLabel(p.categorizacaoVerbal)} categorização de palavras e desempenho ${toLangLabel(p.definicaoPalavras)} em definição de vocábulos.`)
 
   const fluencias = clean(
-    `Desempenho ${toLangLabel(p.fluenciaSematica)} frente ao esperado para sua faixa etária e grau de escolaridade em tarefas envolvendo a fluência semântica e desempenho ${p.fluenciaFonemica} em fluência verbal fonêmica.`
+    `Desempenho ${toLangLabel(p.fluenciaSematica)} frente ao esperado para sua faixa etária e grau de escolaridade em tarefas envolvendo a fluência semântica e desempenho ${toLangLabel(p.fluenciaFonemica)} em fluência verbal fonêmica.`
   )
 
   const tokenTexto = clean(
-    `Desempenho ${p.token} em tarefas que envolviam ordens diretas demonstrando assim ${p.tokenDesc} de compreensão de comandos simples e complexos.`
+    `Desempenho ${toLangLabel(p.token)} em tarefas que envolviam ordens diretas demonstrando assim ${toLangLabel(p.tokenDesc)} de compreensão de comandos simples e complexos.`
   )
 
   return [intro, defCatConc, fluencias, tokenTexto].join(' ')
