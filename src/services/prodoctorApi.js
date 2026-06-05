@@ -84,13 +84,13 @@ const CACHE_TTL_MS      = 10 * 60 * 1000  // 10 min
 
 // Formatos de paginação que a API ProDoctor pode aceitar (tenta em ordem)
 const PAGINATION_FORMATS = (page) => [
-  { pagina: page, quantidade: 100, somenteAtivos: true },
   { pagina: page, quantidade: 100 },
-  { pagina: page, limite: 100, somenteAtivos: true },
+  { pagina: page, quantidade: 100 },
+  { pagina: page, limite: 100 },
   { page,         per_page: 100 },
-  { offset: (page - 1) * 100, limite: 100, somenteAtivos: true },
-  { termo: '', campo: 0, pagina: page, somenteAtivos: true, quantidade: 100 },
-  { termo: '', campo: 1, pagina: page, somenteAtivos: true, quantidade: 100 },
+  { offset: (page - 1) * 100, limite: 100 },
+  { termo: '', campo: 0, pagina: page, quantidade: 100 },
+  { termo: '', campo: 1, pagina: page, quantidade: 100 },
 ]
 
 async function fetchPage(page) {
@@ -200,6 +200,30 @@ export async function searchPatients(termo, forceRefresh = false, birthDate = nu
     if (birthDate && p.birth_date && p.birth_date !== birthDate) return false
     return true
   })
+}
+
+export async function searchPatientsByTerm(termo) {
+  if (!termo || termo.trim().length < 2) return []
+  const t = termo.trim()
+  const results = []
+  const seenIds = new Set()
+  for (const campo of [0, 1]) {
+    try {
+      const data = await request('/api/v1/Pacientes', 'POST', {
+        termo: t, campo, pagina: 1, quantidade: 50
+      })
+      const batch = data?.payload?.pacientes ?? data?.pacientes ?? []
+      for (const raw of batch) {
+        const id = String(raw.codigo ?? raw.id ?? '')
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id)
+          results.push(normalizePatient(raw))
+        }
+      }
+      if (results.length > 0) break
+    } catch { /* tenta próximo campo */ }
+  }
+  return results
 }
 
 /**

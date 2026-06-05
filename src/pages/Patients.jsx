@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePatients } from '@/hooks/usePatients'
 import { useAuth } from '@/lib/AuthContext'
-import { searchPatients, clearPatientsCache, getCachedCount } from '@/services/prodoctorApi'
+import { searchPatients, searchPatientsByTerm, clearPatientsCache, getCachedCount } from '@/services/prodoctorApi'
 import { Plus, Search, User, Phone, Mail, Pencil, Trash2, X, Loader2, CloudDownload, CheckCircle2, RefreshCw, AlertTriangle, Lock, GitMerge } from 'lucide-react'
 
 const EMPTY = {
@@ -75,10 +75,14 @@ function ProDoctorSearch({ value, onChange, onSelect, birthDate }) {
     return () => document.removeEventListener('mousedown', hide)
   }, [])
 
-  // Executa a busca de fato (separado para reuso)
+  // Executa a busca de fato — tenta busca direta por termo, fallback para cache local
   const runSearch = (termo, force = false) => {
     setSearching(true)
-    searchPatients(termo, force, birthDateRef.current)
+    searchPatientsByTerm(termo)
+      .then(list => {
+        if (list.length > 0) return list
+        return searchPatients(termo, force, birthDateRef.current)
+      })
       .then(list => {
         setCachedQty(getCachedCount())
         setResults(list)
