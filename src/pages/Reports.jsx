@@ -2263,7 +2263,7 @@ export default function Reports() {
 
   // ── Carrega todos os laudos (rascunho, ag. aprovação, aprovado) — visível para todos ─
   useEffect(() => {
-    if (!isProfOnly || !user) return
+    if ((!isProfOnly && !isEntregador) || !user) return
     setLoadingApproved(true)
     ;(async () => {
       try {
@@ -2296,7 +2296,7 @@ export default function Reports() {
       } catch {}
       finally { setLoadingApproved(false) }
     })()
-  }, [isProfOnly, user, patients])
+  }, [isProfOnly, isEntregador, user, patients])
 
   function selecionarLaudoAprovado(r) {
     setSavedReportId(r.id)
@@ -2448,7 +2448,7 @@ export default function Reports() {
 
   const generate = async () => {
     if (!patientId)               return setError('Selecione um paciente.')
-    if (selectedTests.length === 0 && !isProfOnly && !isEstagiario) return setError('Selecione ao menos um teste.')
+    if (selectedTests.length === 0 && !isProfOnly && !isEntregador && !isEstagiario) return setError('Selecione ao menos um teste.')
     setError('')
     setLoading(true)
     setSaved(false)
@@ -2955,7 +2955,7 @@ export default function Reports() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* ── Vista do profissional: todos os laudos (rascunho / ag. aprovação / aprovado) ── */}
-          {isProfOnly && (
+          {(isProfOnly || isEntregador) && (
             <>
               <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
                 <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
@@ -3171,7 +3171,7 @@ export default function Reports() {
             </div>
           )}
 
-          {!isEntregador && !(isProfessional && reportStatus === 'aprovado') && <button onClick={generate} disabled={loading} style={{
+          {!(isProfessional && reportStatus === 'aprovado') && <button onClick={generate} disabled={loading} style={{
             padding: '13px', borderRadius: 10, border: 'none',
             background: loading ? 'rgba(46,125,50,0.4)' : S.green,
             color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
@@ -3283,13 +3283,13 @@ export default function Reports() {
                   <LockOpen size={13} /> REABRIR LAUDO
                 </button>
               )}
-              {/* Imprimir — oculto para professional */}
-              {report && !isProfessional && (
+              {/* Imprimir — oculto para professional, visível para entregador */}
+              {report && !isProfOnly && (
                 <button onClick={() => print()} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   <Download size={13} /> IMPRIMIR / PDF
                 </button>
               )}
-              {isProfOnly && report && reportStatus === 'aprovado' && (
+              {(isProfOnly || isEntregador) && report && reportStatus === 'aprovado' && (
                 <button onClick={() => setExpandModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer', color: S.greenL }}>
                   ⛶ EXPANDIR
                 </button>

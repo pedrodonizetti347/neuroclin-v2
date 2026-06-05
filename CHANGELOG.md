@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-06-04
+
+- **feat:** Permissões do `entregador` equiparadas ao `professional`: lista MEUS LAUDOS, botão GERAR LAUDO, gerar sem selecionar testes, botão IMPRIMIR/PDF, botão EXPANDIR — `src/pages/Reports.jsx` (7 condições de role)
+
+---
+
 ## 2026-06-03
 
 - **docs:** CLAUDE.md reescrito com blindagem completa e seção de workflow dos três agentes
