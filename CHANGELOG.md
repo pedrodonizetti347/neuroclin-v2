@@ -6,6 +6,33 @@
 
 ---
 
+## 2026-06-09
+
+- **fix:** Botão "Assumir correção" no card do dashboard agora muda `etapaAtual` para `em_correcao` em um único clique (antes só atribuía `estagiarioId` sem mudar a etapa) — `src/pages/Correcoes.jsx` (função `assumirCorrecaoCard`)
+
+- **fix urgente:** PDF bloqueado ("Conclusão — seção ausente") — catch block de `buildAiBodyFromData` engolia erro silenciosamente e retornava `null`; agora expõe erro no `console.error` e faz fallback com `buildConclusaoHtml({})` garantindo que 'CONCLUSÃO' sempre esteja presente no HTML gerado — `src/pages/Reports.jsx` (linha 1754)
+
+- **fix:** Dashboard da estagiária agora exibe card "Aguardando Correção" e carrega casos sem estagiário atribuído — permite auto-atribuição diretamente pelo dashboard sem precisar ir ao prontuário do paciente — `src/pages/Dashboard.jsx` (linhas 172 e 340)
+
+- **fix:** Corrige inconsistências entre texto de conclusão e tabelas do laudo — `src/pages/Reports.jsx`, `src/utils/generateTextoConclusao.js`
+  - NEUPSILIN: LIMÍTROFE substituído por COMPROMETIDA em todas as variáveis de texto (nova função `toFemNP`)
+  - Memória Visual de Curto Prazo: passa a usar z-score de `memory_visual_short` (antes usava z-score geral de memória)
+  - Memória de Trabalho: passa a usar z-score de `memory_working` (antes usava z-score geral de memória)
+  - Fluência Semântica (BAMS): passa a usar z-score real da soma dos acertos de fluência (`fv_animals + fv_fruits + fv_utensils + fv_clothes`) — antes usava z-score de categorização
+  - Controle Inibitório: corrige variável de descrição (`errosPersDesc` em vez de `errosNaoPersDesc`)
+
+## 2026-06-08
+
+- **fix:** Chips de testes na seção "Convênios e Particular" do Analytics ficam verdes (🟢 X/X) quando arquivos foram enviados para testes sem totalFotos definido (TEACO, TEADI, TEALTI, E-TDAH, etc.) — lógica: `total = cfg?.totalFotos ?? cnt` — `src/pages/Analytics.jsx`
+
+---
+
+## 2026-06-05
+
+- **feat:** `searchPatientsByTerm` adicionada em `prodoctorApi.js` — busca direta na API ProDoctor pelo termo antes de recorrer ao cache local — `src/services/prodoctorApi.js`, `src/pages/Patients.jsx`
+
+---
+
 ## 2026-06-04
 
 - **feat:** Permissões do `entregador` equiparadas ao `professional`: lista MEUS LAUDOS, botão GERAR LAUDO, gerar sem selecionar testes, botão IMPRIMIR/PDF, botão EXPANDIR — `src/pages/Reports.jsx` (7 condições de role)

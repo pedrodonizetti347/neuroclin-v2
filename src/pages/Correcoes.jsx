@@ -941,6 +941,7 @@ export default function Correcoes() {
     const updates = {
       estagiarioId:   user.id,
       estagiarioNome: user.full_name || user.nome || user.email || 'Estagiário',
+      etapaAtual:     'em_correcao',
       assumidoEm:     new Date(),
     }
     await updateDoc(doc(db, 'correcoes', id), updates)
