@@ -160,7 +160,7 @@ function gerarFuncoesExecutivas(p) {
   )
 
   const controleInibitorios = clean(
-    `Quanto ao Controle Inibitório, isto é, o automonitoramento do comportamento quando tem que suprimir uma resposta frente a um estímulo intrusivo, e que envolve processos de controle do comportamento, da atenção e dos pensamentos/emoções, ${g} paciente demonstrou ter ${p.errosNaoPersDesc} no controle da impulsividade frente às respostas cognitivas, apresentando desempenho ${p.errosPerseverativos}.`
+    `Quanto ao Controle Inibitório, isto é, o automonitoramento do comportamento quando tem que suprimir uma resposta frente a um estímulo intrusivo, e que envolve processos de controle do comportamento, da atenção e dos pensamentos/emoções, ${g} paciente demonstrou ter ${p.errosPersDesc} no controle da impulsividade frente às respostas cognitivas, apresentando desempenho ${p.errosPerseverativos}.`
   )
 
   const flexibilidade = clean(

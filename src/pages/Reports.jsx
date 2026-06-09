@@ -1274,6 +1274,8 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     if (v === 'COMPROMETIDO') return 'COMPROMETIDA'
     return val
   }
+  // Para variáveis NEUPSILIN: LIMÍTROFE não existe no texto — vira COMPROMETIDA
+  const toFemNP = (val) => { const r = toFem(val); return (r && String(r).toUpperCase().includes('LIMÍT')) ? 'COMPROMETIDA' : r }
   const toDesc  = (val) => {
     if (!val) return 'CAPACIDADE'
     const v = String(val).toUpperCase()
@@ -1285,17 +1287,17 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   const sex  = (patient?.sex || '').toUpperCase()
   const sexo = sex.includes('FEM') ? 'FEMININO' : 'MASCULINO'
 
-  const npOri  = toFem(lbl(npZscores?.orientation))
-  const npOriT = toFem(lbl(npZscores?.orientation_time))  || npOri
-  const npOriS = toFem(lbl(npZscores?.orientation_space)) || npOri
-  const npAtt  = toFem(lbl(npZscores?.attention))
-  const npPerc = toFem(lbl(npZscores?.perception))
-  const npMem  = toFem(lbl(npZscores?.memory))
-  const npPrax       = toFem(lbl(npZscores?.praxis))
-  const npPraxIdeo   = toFem(lbl(npZscores?.praxis_ideomotor))           || npPrax
-  const npPraxReflex = toFem(lbl(npZscores?.praxis_reflexive))           || npPrax
-  const npExec       = toFem(lbl(npZscores?.executive))
-  const npFluFon     = toFem(lbl(npZscores?.executive_verbal_fluency))   || npExec
+  const npOri  = toFemNP(lbl(npZscores?.orientation))
+  const npOriT = toFemNP(lbl(npZscores?.orientation_time))  || npOri
+  const npOriS = toFemNP(lbl(npZscores?.orientation_space)) || npOri
+  const npAtt  = toFemNP(lbl(npZscores?.attention))
+  const npPerc = toFemNP(lbl(npZscores?.perception))
+  const npMem  = toFemNP(lbl(npZscores?.memory))
+  const npPrax       = toFemNP(lbl(npZscores?.praxis))
+  const npPraxIdeo   = toFemNP(lbl(npZscores?.praxis_ideomotor))           || npPrax
+  const npPraxReflex = toFemNP(lbl(npZscores?.praxis_reflexive))           || npPrax
+  const npExec       = toFemNP(lbl(npZscores?.executive))
+  const npFluFon     = toFemNP(lbl(npZscores?.executive_verbal_fluency))   || npExec
 
   // RAVLT — classifica escore bruto igual à função classify.ravlt_a7
   const classRvlt = (score) => {
@@ -1418,6 +1420,10 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   }
   const bamsCatZ = (bams?.z_categorizacao != null && bams.z_categorizacao !== '')
     ? parseFloat(bams.z_categorizacao) : null
+  const bamsFvNorma = bams?.edu_group ? BAMS_NORMAS_EDU_RPT[bams.edu_group]?.fv : null
+  const bamsFvTotal = (Number(bams?.fv_animals_hits)||0) + (Number(bams?.fv_fruits_hits)||0) + (Number(bams?.fv_utensils_hits)||0) + (Number(bams?.fv_clothes_hits)||0)
+  const bamsFvZ     = (bamsFvNorma && bamsFvTotal > 0) ? (bamsFvTotal - bamsFvNorma.media) / bamsFvNorma.dp : null
+  const bamsFluenciaSem = bamsFvZ != null ? toFem(lbl(bamsFvZ)) : bamsGlobal
   const bamsZlbl = (z) => {
     if (z == null || z === '') return null
     const pct = rptBamsZToPct(parseFloat(z))
@@ -1488,8 +1494,8 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     atencaoDesc: toDesc(npAtt),
     percepcao: npPerc,
     percepcaoDesc: toDesc(npPerc),
-    memoriaTrabalho: npMem,
-    memoriaVCurtoPrazo: npMem,
+    memoriaTrabalho:    npZscores?.memory_working      != null ? toFemNP(lbl(npZscores.memory_working))      : npMem,
+    memoriaVCurtoPrazo: npZscores?.memory_visual_short != null ? toFemNP(lbl(npZscores.memory_visual_short)) : npMem,
     memoriaProspectiva: td?.NEUPSILIN?.memory_prospective != null
       ? (Number(td.NEUPSILIN.memory_prospective) >= 2 ? 'PRESERVADA' : Number(td.NEUPSILIN.memory_prospective) >= 1 ? 'LIMÍTROFE' : 'COMPROMETIDA')
       : (mm ? mmCls(mm.patient_prospective, 40) : npMem),
@@ -1497,7 +1503,7 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     praxiaConstrutiva: npPrax,
     praxiaReflexiva: npPraxReflex,
     fluenciaFonemica: npFluFon,
-    fluenciaSematica: bamsCatZ != null ? toFem(lbl(bamsCatZ)) : bamsGlobal,
+    fluenciaSematica: bamsFluenciaSem,
     definicaoPalavras: bamsZlbl(bams?.z_lexico) ?? bamsSubCls(bams?.dp_total, 10),
     categorizacaoVerbal: bamsZlbl(bams?.z_categorizacao) ?? bamsSubCls(bams?.cv_total, 10),
     conceituacao: bamsZlbl(bams?.z_conceitualizacao) ?? bamsSubCls(bams?.cg_total, 10),
@@ -1725,6 +1731,8 @@ function buildAiBodyFromData(patient, ad, td) {
           attention:   npCalcZ(attT,    'attention',   nAge, nEdu),
           perception:  npCalcZ(percT,   'perception',  nAge, nEdu),
           memory:      npCalcZ(memT,    'memory',      nAge, nEdu),
+          memory_visual_short: (np.memory_visual_short != null && np.memory_visual_short !== '') ? npCalcZ(Number(np.memory_visual_short), 'memory_visual_short', nAge, nEdu) : null,
+          memory_working:      (np.memory_working      != null && np.memory_working      !== '') ? npCalcZ(Number(np.memory_working),      'memory_working',      nAge, nEdu) : null,
           arithmetic:  npCalcZ(np.arithmetic, 'arithmetic', nAge, nEdu),
           language:    npCalcZ(langO + langE, 'language',   nAge, nEdu),
           praxis:                   npCalcZ(praxT,   'praxis',                   nAge, nEdu),
