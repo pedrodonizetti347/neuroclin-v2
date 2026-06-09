@@ -1751,8 +1751,9 @@ function buildAiBodyFromData(patient, ad, td) {
     const dadosPaciente = mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials)
     const blocos = generateTextoConclusao(dadosPaciente)
     return buildConclusaoHtml(blocos, ad, td)
-  } catch (_) {
-    return null
+  } catch (e) {
+    console.error('[NeuroClin] buildAiBodyFromData falhou:', e)
+    try { return buildConclusaoHtml({}, ad, td) } catch (_) { return null }
   }
 }
 
@@ -3421,9 +3422,4 @@ export default function Reports() {
       )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
-        input::placeholder { color: rgba(255,255,255,0.2); }
-        input:focus { border-color: rgba(46,125,50,0.6) !important; }
-      `}</style>
-    </div>
-  )
-}
+        input::placeholder { color: rgba(255,2
