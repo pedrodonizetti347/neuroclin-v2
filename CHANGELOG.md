@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-06-10 (2)
+
+- **fix:** `firebase.json` — `Cache-Control: no-cache` expandido de `/index.html` para `**`, garantindo que todas as rotas do app recebam o build mais recente após deploy — `firebase.json`
+
+---
+
 ## 2026-06-10
 
 - **fix:** `firestore.rules` — coleção `correcoes` separada em `allow get` (restrito por role) e `allow list` (qualquer autenticado), corrigindo bloqueio silencioso de `getDocs` para estagiários que impedia o carregamento dos documentos de correção — `firestore.rules`
