@@ -185,6 +185,8 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumir
   const temEtapa = !!etapa
   const [confirmando, setConfirmando] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [assumindo, setAssumindo] = useState(false)
+  const [assumidoOk, setAssumidoOk] = useState(false)
 
   function renderAcoes() {
     const btns = []
@@ -207,14 +209,42 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumir
           </button>
         )
       }
-      // Estagiário/entregador — assumir card sem dono
-      if ((isEstagiario || isEntregador) && etapa === 'aguardando_correcao' && !item.estagiarioId) {
-        btns.push(
-          <button key="assumir-estag" onClick={() => onAssumirEstag(item.id)}
-            style={btnStyle('#3B82F6', 'rgba(59,130,246,0.15)')}>
-            <UserCheck size={11} /> Assumir correção
-          </button>
-        )
+      // Estagiário/entregador — assumir ou ver aviso de atribuição
+      if ((isEstagiario || isEntregador) && (item._noCor || etapa === 'aguardando_correcao')) {
+        if (!item.estagiarioId) {
+          btns.push(
+            <button key="assumir-estag"
+              disabled={assumindo}
+              onClick={async () => {
+                setAssumindo(true)
+                try {
+                  await onAssumirEstag(item.id)
+                  setAssumidoOk(true)
+                  setTimeout(() => setAssumidoOk(false), 4000)
+                } catch (e) {
+                  alert('Erro ao assumir correção: ' + (e?.message || 'Tente novamente.'))
+                } finally {
+                  setAssumindo(false)
+                }
+              }}
+              style={btnStyle(assumindo ? '#6B7280' : '#3B82F6', assumindo ? 'rgba(107,114,128,0.15)' : 'rgba(59,130,246,0.15)')}>
+              {assumindo
+                ? <><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Assumindo...</>
+                : <><UserCheck size={11} /> Assumir correção</>}
+            </button>
+          )
+        } else if (item.estagiarioId !== userId) {
+          btns.push(
+            <span key="outro-estag" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+              background: 'rgba(249,115,22,0.12)', color: '#F97316',
+              border: '1px solid rgba(249,115,22,0.3)', whiteSpace: 'nowrap',
+            }}>
+              🔒 {item.estagiarioNome || 'Outro estagiário'}
+            </span>
+          )
+        }
       }
       // Estagiário OU entregador — marcar correção como concluída
       if (isEntregador && etapa === 'aguardando_correcao') {
@@ -423,6 +453,15 @@ function CorrecaoCard({ item, onChangeStatus, onMudarEtapa, onAssumir, onAssumir
         onClick={e => e.stopPropagation()}
       >
         {renderAcoes()}
+        {assumidoOk && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 7,
+            background: 'rgba(46,125,50,0.18)', color: '#4CAF50',
+            border: '1px solid rgba(46,125,50,0.4)', display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            ✓ Paciente atribuído com sucesso!
+          </span>
+        )}
       </div>
     </div>
   )
@@ -852,6 +891,7 @@ export default function Correcoes() {
   const [estagiarios,          setEstagiarios]          = useState([])
   const [profissionaisFirestore, setProfissionaisFirestore] = useState([])
   const [loading,              setLoading]              = useState(true)
+  const [toastAtribuido,       setToastAtribuido]       = useState('')
   const [syncing,              setSyncing]              = useState(false)
   const [syncResult,           setSyncResult]           = useState(null)
   const [modalAberto,          setModalAberto]          = useState(false)
@@ -863,26 +903,71 @@ export default function Correcoes() {
   async function carregar() {
     setLoading(true)
     try {
-      const base = collection(db, 'correcoes')
-      let docs = []
+      // Carrega todos os documentos de correcoes
+      const corSnap = await getDocs(collection(db, 'correcoes')).catch(() => ({ docs: [] }))
+      const corDocs = corSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
-      if ((isEstagiario || isEntregador) && !isAdmin && !isBeliane) {
-        // Estagiário: seus atribuídos + não atribuídos
-        const [s1, s2] = await Promise.all([
-          getDocs(query(base, where('estagiarioId', '==', user.id))).catch(() => ({ docs: [] })),
-          getDocs(query(base, where('estagiarioId', '==', null))).catch(() => ({ docs: [] })),
-        ])
-        const seen = new Set()
-        docs = [...s1.docs, ...s2.docs].filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true })
-      } else if (isProfissional && !isAdmin && !isBeliane) {
-        // Profissional: apenas seus prontuários vinculados (concluídos ou não)
-        const s1 = await getDocs(query(base, where('profissionalUid', '==', user.id))).catch(() => ({ docs: [] }))
-        docs = s1.docs
+      let merged = []
+
+      if (isProfissional && !isAdmin && !isBeliane) {
+        // Profissional: apenas seus prontuários vinculados
+        merged = corDocs.filter(c => c.profissionalUid === user.id)
       } else {
-        const snap = await getDocs(query(base, orderBy('criadoEm', 'desc')))
-        docs = snap.docs
+        // Admin, beliane, estagiário, entregador: todos os pacientes + merge com correcoes
+        let patients = []
+        try {
+          const patSnap = await getDocs(query(collection(db, 'patients'), orderBy('createdAt', 'desc')))
+          patients = patSnap.docs.filter(d => !d.data().deleted).map(d => ({ id: d.id, ...d.data() }))
+        } catch (_) {
+          try {
+            const patSnap = await getDocs(collection(db, 'patients'))
+            patients = patSnap.docs.filter(d => !d.data().deleted).map(d => ({ id: d.id, ...d.data() }))
+          } catch (_2) { /* sem pacientes */ }
+        }
+
+        // Mapa: pacienteCodigo (prodoctor_id) → correcao doc
+        const corMap = new Map()
+        const corByPatientId = new Map()
+        const corByName = new Map()
+        corDocs.forEach(c => {
+          if (c.pacienteCodigo) corMap.set(String(c.pacienteCodigo), c)
+          if (c.patientId) corByPatientId.set(c.patientId, c)
+          if (!c.pacienteCodigo && c.paciente) corByName.set(c.paciente.toLowerCase().trim(), c)
+        })
+
+        const matchedCorIds = new Set()
+
+        // Para cada paciente, busca seu documento de correcoes
+        patients.forEach(p => {
+          const cor = p.prodoctor_id
+            ? corMap.get(String(p.prodoctor_id))
+            : (corByPatientId.get(p.id) || corByName.get(p.full_name?.toLowerCase().trim()) || null)
+          if (cor) {
+            merged.push(cor)
+            matchedCorIds.add(cor.id)
+          } else {
+            // Paciente sem documento de correcoes — item virtual
+            merged.push({
+              id:             `_pat_${p.id}`,
+              _patientId:     p.id,
+              _noCor:         true,
+              paciente:       p.full_name,
+              pacienteCodigo: p.prodoctor_id || null,
+              etapaAtual:     'aguardando_correcao',
+              estagiarioId:   null,
+              estagiarioNome: null,
+              criadoEm:       p.createdAt || null,
+            })
+          }
+        })
+
+        // Documentos de correcoes sem paciente correspondente (legados ou sem código)
+        corDocs.forEach(c => {
+          if (!matchedCorIds.has(c.id)) merged.push(c)
+        })
       }
-      setItens(docs.map(d => ({ id: d.id, ...d.data() })))
+
+      setItens(merged)
 
       // Usuários: só admin/beliane consegue listar todos
       if (isAdmin || isBeliane) {
@@ -936,27 +1021,72 @@ export default function Correcoes() {
     setItens(prev => prev.map(i => i.id === id ? { ...i, etapaAtual: novaEtapa, ...extra } : i))
   }
 
-  // Estagiário/entregador se auto-atribui pelo card (sem mudar etapa)
+  // Estagiário/entregador se auto-atribui pelo card
   async function assumirCorrecaoCard(id) {
+    const item = itens.find(i => i.id === id)
+    if (!item) return
+
+    // Bloqueia se já atribuído a outro estagiário
+    if (item.estagiarioId && item.estagiarioId !== user.id) {
+      alert(`Este paciente já está atribuído a ${item.estagiarioNome || 'outro estagiário'}.`)
+      return
+    }
+
     const updates = {
       estagiarioId:   user.id,
       estagiarioNome: user.full_name || user.nome || user.email || 'Estagiário',
       etapaAtual:     'em_correcao',
       assumidoEm:     new Date(),
     }
-    await updateDoc(doc(db, 'correcoes', id), updates)
-    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+
+    if (item._noCor) {
+      // Cria documento no Firestore para paciente que ainda não tinha
+      const novoDoc = {
+        paciente:       item.paciente,
+        pacienteCodigo: item.pacienteCodigo || null,
+        patientId:      item._patientId || null,
+        criadoEm:       new Date(),
+        ...updates,
+      }
+      const ref = await addDoc(collection(db, 'correcoes'), novoDoc)
+      setItens(prev => prev.map(i =>
+        i.id === id ? { ...novoDoc, id: ref.id, _noCor: false } : i
+      ))
+    } else {
+      await updateDoc(doc(db, 'correcoes', id), updates)
+      setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    }
+    setToastAtribuido(`✓ ${item.paciente} atribuído com sucesso!`)
+    setTimeout(() => setToastAtribuido(''), 5000)
   }
 
   // Atribuição rápida de estagiário pelo admin (dropdown no card)
   async function atribuirEstagiario(id, estagiarioId) {
+    const item = itens.find(i => i.id === id)
     const estag = estagiarios.find(e => e.id === estagiarioId)
     const updates = {
       estagiarioId,
       estagiarioNome: estag ? nomeDisplay(estag) : null,
     }
-    await updateDoc(doc(db, 'correcoes', id), updates)
-    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+
+    if (item?._noCor) {
+      // Cria documento no Firestore para paciente que ainda não tinha
+      const novoDoc = {
+        paciente:       item.paciente,
+        pacienteCodigo: item.pacienteCodigo || null,
+        patientId:      item._patientId || null,
+        etapaAtual:     'aguardando_correcao',
+        criadoEm:       new Date(),
+        ...updates,
+      }
+      const ref = await addDoc(collection(db, 'correcoes'), novoDoc)
+      setItens(prev => prev.map(i =>
+        i.id === id ? { ...novoDoc, id: ref.id, _noCor: false } : i
+      ))
+    } else {
+      await updateDoc(doc(db, 'correcoes', id), updates)
+      setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    }
   }
 
   // Exclusão (apenas fluxo legado, apenas admin)
@@ -977,19 +1107,52 @@ export default function Correcoes() {
 
   // Estagiário assume correção pelo modal
   async function assumirCorrecao(id) {
+    const item = itens.find(i => i.id === id)
     const updates = {
       estagiarioId:   user.id,
       estagiarioNome: user.full_name || user.email || 'Estagiário',
       etapaAtual:     'em_correcao',
       assumidoEm:     new Date(),
     }
-    await updateDoc(doc(db, 'correcoes', id), updates)
-    setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+
+    if (item?._noCor) {
+      const novoDoc = {
+        paciente:       item.paciente,
+        pacienteCodigo: item.pacienteCodigo || null,
+        patientId:      item._patientId || null,
+        criadoEm:       new Date(),
+        ...updates,
+      }
+      const ref = await addDoc(collection(db, 'correcoes'), novoDoc)
+      setItens(prev => prev.map(i =>
+        i.id === id ? { ...novoDoc, id: ref.id, _noCor: false } : i
+      ))
+    } else {
+      await updateDoc(doc(db, 'correcoes', id), updates)
+      setItens(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    }
     setItemSelecionado(null)
   }
 
   // Salvar atribuições pelo modal de detalhe
   async function salvarAtribuicoes(id, dados) {
+    const item = itens.find(i => i.id === id)
+    if (item?._noCor) {
+      const novoDoc = {
+        paciente:       item.paciente,
+        pacienteCodigo: item.pacienteCodigo || null,
+        patientId:      item._patientId || null,
+        etapaAtual:     'aguardando_correcao',
+        criadoEm:       new Date(),
+        ...dados,
+      }
+      const ref = await addDoc(collection(db, 'correcoes'), novoDoc)
+      setItens(prev => prev.map(i =>
+        i.id === id ? { ...novoDoc, id: ref.id, _noCor: false } : i
+      ))
+      setItemSelecionado(null)
+      return
+    }
     await updateDoc(doc(db, 'correcoes', id), dados)
     setItens(prev => prev.map(i => i.id === id ? { ...i, ...dados } : i))
     setItemSelecionado(null)
@@ -1013,10 +1176,8 @@ export default function Correcoes() {
   // Filtro de visibilidade por role
   const itensFiltrados = itens.filter(i => {
     // Visibilidade por role
-    if ((isEstagiario || isEntregador) && !isBeliane && !isAdmin) {
-      // vê seus cards atribuídos + cards sem dono (para poder se auto-atribuir)
-      if (i.estagiarioId !== user?.id && i.estagiarioId != null) return false
-    }
+    // Estagiário/entregador vê todos os pacientes (atribuídos ou não, de qualquer estagiário)
+    // O aviso visual no card indica quem é o responsável quando já atribuído a outro
     if (isProfissional && !isBeliane && !isAdmin) {
       if (i.profissionalUid !== user?.id && i.profissionalUid != null) return false
     }
@@ -1061,6 +1222,20 @@ export default function Correcoes() {
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+
+      {/* Toast de atribuição */}
+      {toastAtribuido && (
+        <div style={{
+          position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 9999, padding: '12px 24px', borderRadius: 10,
+          background: '#1A3D2B', border: '1.5px solid rgba(46,125,50,0.6)',
+          color: '#4CAF50', fontSize: 13, fontWeight: 700,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {toastAtribuido}
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

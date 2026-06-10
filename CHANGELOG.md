@@ -6,6 +6,61 @@
 
 ---
 
+## 2026-06-10
+
+- **fix:** Corrigido bug em `carregar()` que causava reversão de atribuições para pacientes manuais (sem `prodoctor_id`). Adicionados dois mapas de fallback: `corByPatientId` (por `patientId`) e `corByName` (por nome, para docs legados). Todas as funções que criam docs para pacientes `_noCor` passam a salvar `patientId` — `src/pages/Correcoes.jsx`
+
+---
+
+## 2026-06-09 (noite 6)
+
+- **fix:** 2 correções finais no texto de conclusão confirmadas pelo laudo PDF Valter Novais Carvalho:
+  1. `escoreGlobal` (BAMS Memória Semântica): substituído `toMemLbl` por inline que retorna 'MÉDIO' — "desempenho" é substantivo masculino, exige MÉDIO não MÉDIA — `src/pages/Reports.jsx`
+  2. `ravltA7Desc`: corrigido `ravltA7 === 'PRESERVADA' ? 'CAPACIDADE' : 'DIFICULDADE'` → `ravltA7 === 'Déficit' ? 'DIFICULDADE' : 'CAPACIDADE'` — `ravltFromZOrRaw` nunca retorna 'PRESERVADA', então desc era sempre DIFICULDADE; agora só Déficit → DIFICULDADE, demais níveis → CAPACIDADE — `src/pages/Reports.jsx`
+
+---
+
+## 2026-06-09 (noite 5)
+
+- **fix:** 3 correções no texto de conclusão confirmadas pelo documento protocolo Word:
+  1. BAMS Escore Global (Memória Semântica): `escoreGlobal` agora passa por `toMemLbl` — PRESERVADA→MÉDIA — `src/pages/Reports.jsx`
+  2. Fluência Fonêmica (NEUPSILIN): removido `toLangLabel` — valor COMPROMETIDA/LIMÍTROFE/PRESERVADA passa direto, sem converter para DEFICITÁRIO — `src/utils/generateTextoConclusao.js`
+  3. `toLangLabel` corrigida: PRESERVADA→'MÉDIA' (antes era 'MÉDIO') — afeta Fluência Semântica e TOKEN — `src/utils/generateTextoConclusao.js`
+
+---
+
+## 2026-06-09 (noite 4)
+
+- **fix:** Labels RAVLT no texto de memória agora mapeiam para palavras corretas do protocolo: COMPROMETIDA → DEFICITÁRIO, PRESERVADA → MÉDIO (análogo ao `toLangLabel` já existente em gerarLinguagem). Adicionada função `toMemLbl` em `mapToDadosPaciente`. Afeta: `ravltA1`, `ravltB1`, `ravltA6`, `ravltA7`, `reconhecimento`. Campos `*Desc` preservados usando o valor original — sem toque em Tests.jsx nem em cálculos — `src/pages/Reports.jsx`
+
+---
+
+## 2026-06-09 (noite 3)
+
+- **fix/feat:** Ajustes em `TESTES_FOTOS_CONFIG` — NOMEAÇÃO INFANTIL 2→1 folha, YBOCS 5→4 folhas. Adicionados: ETDAH-PAIS (2), TRIAGEM TDAH INFANTIL (8), VINELAND PAIS (7), VINELAND ESCOLA (7), ESCALA ENGLAND (1), TRIACOG (5) — `src/pages/UploadConvenio.jsx`
+
+---
+
+## 2026-06-09 (noite 2)
+
+- **fix urgente:** Profissional (Agnes) não via EDELVITA COSTA ARAUJO no dropdown — `useEffect` de laudos buscava pacientes mas só salvava nome em `patientNamesMap`, nunca adicionava ao estado `patients`. Agora adiciona todos os pacientes dos laudos ao dropdown. Removido `patients` das deps para evitar loop — `src/pages/Reports.jsx`
+
+- **feat:** Botão "Assumir correção" exibe spinner + toast verde fixo no topo ("✓ [PACIENTE] atribuído com sucesso!") por 5s — `src/pages/Correcoes.jsx`
+
+---
+
+## 2026-06-09 (noite)
+
+- **fix:** Botão "Assumir correção" travava para estagiário em itens virtuais (_noCor) — regra Firestore `allow create: if isBeliane()` bloqueava silenciosamente o addDoc. Adicionada exceção: estagiário pode criar doc de correcoes se e somente se estiver se auto-atribuindo (`estagiarioId == request.auth.uid && etapaAtual == 'em_correcao'`) — `firestore.rules`
+
+---
+
+## 2026-06-09 (tarde)
+
+- **fix:** Botão "Salvar anamnese" parecia não reagir para Vitor (entregador) — causa: sucesso era silencioso (só sumia o aviso amarelo, sem confirmação explícita) e erros eram completamente ocultos pela condição `!isEntregador && error`. Adicionado estado `anamneseMsg` com mensagem verde "✓ Anamnese salva! Agora clique em GERAR LAUDO." (6s) e vermelha com código do erro. Mensagem visível para TODOS os papéis incluindo entregador e profOnly — `src/pages/Reports.jsx` (+4 pontos: estado, reset no useEffect, success/error em saveQuickAnamnese, JSX no painel de anamnese)
+
+---
+
 ## 2026-06-09
 
 - **fix:** Botão "Assumir correção" no card do dashboard agora muda `etapaAtual` para `em_correcao` em um único clique (antes só atribuía `estagiarioId` sem mudar a etapa) — `src/pages/Correcoes.jsx` (função `assumirCorrecaoCard`)
