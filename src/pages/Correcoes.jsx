@@ -932,7 +932,7 @@ export default function Correcoes() {
         corDocs.forEach(c => {
           if (c.pacienteCodigo) corMap.set(String(c.pacienteCodigo), c)
           if (c.patientId) corByPatientId.set(c.patientId, c)
-          if (!c.pacienteCodigo && c.paciente) corByName.set(c.paciente.toLowerCase().trim(), c)
+          if (c.paciente) corByName.set(c.paciente.toLowerCase().trim(), c)
         })
 
         const matchedCorIds = new Set()
