@@ -121,11 +121,11 @@ service cloud.firestore {
 
     // Controle de correções e fluxo de avaliação
     match /correcoes/{correcaoId} {
-      // Leitura:
-      //   admin/beliane → tudo
-      //   estagiário → apenas os seus
-      //   profissional → os seus + os sem atribuição (para self-assign)
-      allow read: if isAuth() && (
+      // list (query de coleção) — qualquer autenticado pode listar
+      allow list: if isAuth();
+
+      // get (documento único) — regras restritas por role
+      allow get: if isAuth() && (
         isBeliane() ||
         (isEstagiario() && (
           resource.data.estagiarioId == request.auth.uid ||
@@ -137,8 +137,10 @@ service cloud.firestore {
         ))
       );
 
-      // Criação: apenas admin/beliane (inclui sincronização pelo fluxoAvaliacaoService)
-      allow create: if isBeliane();
+      // Criação: admin/beliane OU estagiário auto-atribuindo
+      allow create: if isBeliane() ||
+        (isEstagiario() && request.resource.data.estagiarioId == request.auth.uid
+         && request.resource.data.etapaAtual == 'em_correcao');
 
       // Atualização: regras por role
       allow update: if isAuth() && (

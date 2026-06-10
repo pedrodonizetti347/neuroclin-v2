@@ -8,6 +8,7 @@
 
 ## 2026-06-10
 
+- **fix:** `firestore.rules` — coleção `correcoes` separada em `allow get` (restrito por role) e `allow list` (qualquer autenticado), corrigindo bloqueio silencioso de `getDocs` para estagiários que impedia o carregamento dos documentos de correção — `firestore.rules`
 - **fix:** `corByName` agora cobre todos os docs com nome (removida restrição `!c.pacienteCodigo`), resolvendo casos onde `patientId` está errado e `pacienteCodigo` não bate com `prodoctor_id` do paciente — `src/pages/Correcoes.jsx`
 - **fix:** Corrigido bug em `carregar()` que causava reversão de atribuições para pacientes manuais (sem `prodoctor_id`). Adicionados dois mapas de fallback: `corByPatientId` (por `patientId`) e `corByName` (por nome, para docs legados). Todas as funções que criam docs para pacientes `_noCor` passam a salvar `patientId` — `src/pages/Correcoes.jsx`
 
