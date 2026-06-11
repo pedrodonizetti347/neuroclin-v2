@@ -6,6 +6,13 @@
 
 ---
 
+## 2026-06-11
+
+- **fix:** Validação de duplicidade em `Patients.jsx` refinada — alerta de paciente duplicado agora exige **nome normalizado E data de nascimento iguais** (antes disparava por similaridade de nome isolado, sem verificar data). Função `findSimilarPatients` recebe `birthDate` como terceiro parâmetro; nome similar sem data correspondente não gera mais alerta — `src/pages/Patients.jsx`
+- **manutenção Firestore:** Removida duplicata de BENEDITO DE JESUS (`patients/AuMGJaYVQiMkp4pgwbOQ`) via Firestore REST API. Deletados: 2 laudos em rascunho (`reports/AuMGJaYVQiMkp4pgwbOQ_*`) e sessão de testes vazia (`sessions/AuMGJaYVQiMkp4pgwbOQ`). Registro correto preservado: `OVGOXg8ZhYFaOjmypghm` (laudo aprovado + testes preenchidos intactos)
+
+---
+
 ## 2026-06-10 (2)
 
 - **fix:** `firebase.json` — `Cache-Control: no-cache` expandido de `/index.html` para `**`, garantindo que todas as rotas do app recebam o build mais recente após deploy — `firebase.json`
