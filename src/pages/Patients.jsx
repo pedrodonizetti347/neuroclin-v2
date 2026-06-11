@@ -281,15 +281,18 @@ export default function Patients() {
   const normalizeName = (name) =>
     name?.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ') || ''
 
-  const findSimilarPatients = (name, cpf) => {
+  const findSimilarPatients = (name, cpf, birthDate) => {
     const norm = normalizeName(name)
     if (norm.length < 3) return []
     return patients.filter(p => {
       const pNorm = normalizeName(p.full_name)
       if (cpf && p.cpf && cpf.replace(/\D/g, '') === p.cpf.replace(/\D/g, '')) return true
-      return pNorm === norm ||
+      const nameMatch = pNorm === norm ||
         (norm.length > 6 && pNorm.includes(norm)) ||
         (pNorm.length > 6 && norm.includes(pNorm))
+      if (!nameMatch) return false
+      if (!birthDate || !p.birth_date) return false
+      return birthDate === p.birth_date
     })
   }
 
@@ -310,7 +313,7 @@ export default function Patients() {
   const handleSave = async () => {
     if (!form.full_name?.trim()) return alert('Nome é obrigatório')
     if (!editing) {
-      const similar = findSimilarPatients(form.full_name, form.cpf)
+      const similar = findSimilarPatients(form.full_name, form.cpf, form.birth_date)
       if (similar.length > 0) {
         setDupWarning({ open: true, duplicates: similar, pendingForm: form })
         return
