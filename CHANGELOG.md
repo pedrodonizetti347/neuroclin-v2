@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-06-11 (2)
+
+- **fix:** Modal de duplicidade (`dupWarning`) aparecia atrás do modal de cadastro — corrigido adicionando prop `zIndex` ao componente `Modal` (default 1000) e passando `zIndex={1100}` no modal de aviso de duplicidade — `src/pages/Patients.jsx`
+
+---
+
 ## 2026-06-11
 
 - **fix:** Validação de duplicidade em `Patients.jsx` refinada — alerta de paciente duplicado agora exige **nome normalizado E data de nascimento iguais** (antes disparava por similaridade de nome isolado, sem verificar data). Função `findSimilarPatients` recebe `birthDate` como terceiro parâmetro; nome similar sem data correspondente não gera mais alerta — `src/pages/Patients.jsx`
