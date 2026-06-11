@@ -11,11 +11,11 @@ const EMPTY = {
   card_number: '', notes: '', prodoctor_id: ''
 }
 
-function Modal({ open, onClose, title, children }) {
+function Modal({ open, onClose, title, children, zIndex = 1000 }) {
   if (!open) return null
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      position: 'fixed', inset: 0, zIndex,
       background: 'rgba(4,44,83,0.5)', backdropFilter: 'blur(3px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
     }}>
@@ -571,6 +571,7 @@ export default function Patients() {
         open={dupWarning.open}
         onClose={() => setDupWarning({ open: false, duplicates: [], pendingForm: null })}
         title="Possível paciente duplicado"
+        zIndex={1100}
       >
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
