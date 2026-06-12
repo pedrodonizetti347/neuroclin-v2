@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { collection, getDocs, query, orderBy, where, doc, updateDoc, setDoc, serverTimestamp, limit, getDoc } from 'firebase/firestore'
+import { onSnapshot } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useAuth } from '@/lib/AuthContext'
@@ -1276,6 +1277,14 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
   }
   // Para variáveis NEUPSILIN: LIMÍTROFE não existe no texto — vira COMPROMETIDA
   const toFemNP = (val) => { const r = toFem(val); return (r && String(r).toUpperCase().includes('LIMÍT')) ? 'COMPROMETIDA' : r }
+  // Para labels RAVLT no texto de memória: COMPROMETIDA → DEFICITÁRIO, PRESERVADA → MÉDIO
+  const toMemLbl = (val) => {
+    if (!val) return val
+    const v = String(val).toUpperCase()
+    if (v.includes('COMPROM') || v.includes('DÉFIC') || v.includes('DEFIC')) return 'DEFICITÁRIO'
+    if (v === 'PRESERVADA' || v === 'PRESERVADO') return 'MÉDIA'
+    return val
+  }
   const toDesc  = (val) => {
     if (!val) return 'CAPACIDADE'
     const v = String(val).toUpperCase()
@@ -1507,15 +1516,15 @@ function mapToDadosPaciente(patient, ad, td, npZscores, lbl, initials) {
     definicaoPalavras: bamsZlbl(bams?.z_lexico) ?? bamsSubCls(bams?.dp_total, 10),
     categorizacaoVerbal: bamsZlbl(bams?.z_categorizacao) ?? bamsSubCls(bams?.cv_total, 10),
     conceituacao: bamsZlbl(bams?.z_conceitualizacao) ?? bamsSubCls(bams?.cg_total, 10),
-    escoreGlobal: bamsGlobal,
+    escoreGlobal: (() => { const v = String(bamsGlobal || '').toUpperCase(); if (v.includes('COMPROM') || v.includes('DÉFIC') || v.includes('DEFIC')) return 'DEFICITÁRIO'; if (v.includes('LIMIT')) return 'LIMÍTROFE'; return 'MÉDIO'; })(),
     escoreGlobalDesc: bamsGlobalDesc,
-    ravltA1, ravltA1Desc: toDesc(ravltA1),
-    ravltB1,
-    ravltA6, ravltA6Desc: toDesc(ravltA6),
-    ravltA7, ravltA7Desc: ravltA7 === 'PRESERVADA' ? 'CAPACIDADE' : 'DIFICULDADE',
+    ravltA1: toMemLbl(ravltA1), ravltA1Desc: toDesc(ravltA1),
+    ravltB1: toMemLbl(ravltB1),
+    ravltA6: toMemLbl(ravltA6), ravltA6Desc: toDesc(ravltA6),
+    ravltA7: toMemLbl(ravltA7), ravltA7Desc: ravltA7 === 'Déficit' ? 'DIFICULDADE' : 'CAPACIDADE',
     velEsquecimento: velEsq,
     velEsquecimentoDesc: toRateD(velEsq),
-    reconhecimento: recogn,
+    reconhecimento: toMemLbl(recogn),
     reconhecimentoDesc: recogn.includes('PRESERV') ? 'facilitou o reconhecimento' : 'NÃO facilitou o reconhecimento',
     categoriasCompletas: wcstCat,
     errosPerseverativos: wcstPE, errosPersDesc: toDesc(wcstPE),
@@ -2206,6 +2215,7 @@ export default function Reports() {
   const [reportLoading,  setReportLoading]  = useState(false)
   const autoSaveTimer = useRef(null)
   const [anamneseStatus, setAnamneseStatus] = useState('idle') // 'idle'|'loading'|'found'|'empty'
+  const [anamneseMsg,    setAnamneseMsg]    = useState('')     // feedback de save para o profissional/entregador
   const [quickAnamnese,  setQuickAnamnese]  = useState({
     objetivoAvaliacao: '', descricaoDemanda: '', infoGerais: '',
     relacionamentos: '', vidaAcademicaLaboral: '', saudeAntecedentes: '',
@@ -2289,23 +2299,32 @@ export default function Reports() {
           })
         setApprovedReports(list)
 
-        // Busca nomes de pacientes que não estão no state local
-        const knownIds = new Set(patients.map(p => p.id))
-        const missing  = [...new Set(list.map(r => r.patientId).filter(pid => pid && !knownIds.has(pid)))]
-        if (missing.length > 0) {
+        // Busca pacientes dos laudos e adiciona ao dropdown
+        const allLaudoPatientIds = [...new Set(list.map(r => r.patientId).filter(Boolean))]
+        if (allLaudoPatientIds.length > 0) {
           const nameMap = {}
-          await Promise.all(missing.map(async pid => {
+          const newPatients = []
+          await Promise.all(allLaudoPatientIds.map(async pid => {
             try {
               const pSnap = await getDoc(doc(db, 'patients', pid))
-              if (pSnap.exists()) nameMap[pid] = pSnap.data().full_name || ''
+              if (pSnap.exists()) {
+                nameMap[pid] = pSnap.data().full_name || ''
+                newPatients.push({ id: pSnap.id, ...pSnap.data() })
+              }
             } catch {}
           }))
           setPatientNamesMap(nameMap)
+          if (newPatients.length > 0) {
+            setPatients(prev => {
+              const ids = new Set(prev.map(p => p.id))
+              return [...prev, ...newPatients.filter(p => !ids.has(p.id))]
+            })
+          }
         }
       } catch {}
       finally { setLoadingApproved(false) }
     })()
-  }, [isProfOnly, isEntregador, user, patients])
+  }, [isProfOnly, isEntregador, user])
 
   function selecionarLaudoAprovado(r) {
     setSavedReportId(r.id)
@@ -2331,6 +2350,7 @@ export default function Reports() {
 
   // ── Detecção de anamnese ao trocar de paciente ───────────────────────────────
   useEffect(() => {
+    setAnamneseMsg('')
     if (!patientId || !user?.id || (!isSupervisor && !isProfessional)) { setAnamneseStatus('idle'); return }
     setAnamneseStatus('loading')
     ;(async () => {
@@ -2448,8 +2468,11 @@ export default function Reports() {
         updatedAt: serverTimestamp(),
       }, { merge: true })
       setAnamneseStatus('found')
+      setAnamneseMsg('✓ Anamnese salva! Agora clique em GERAR LAUDO.')
+      setTimeout(() => setAnamneseMsg(''), 6000)
     } catch (e) {
       console.error('[saveQuickAnamnese]', e)
+      setAnamneseMsg('❌ Erro ao salvar anamnese: ' + (e.code || e.message || 'Verifique sua conexão.'))
       setError('Erro ao salvar anamnese. Verifique sua conexão e tente novamente.')
     }
     finally { setSavingQuick(false) }
@@ -2710,6 +2733,8 @@ export default function Reports() {
 
   const [salvandoRascunho, setSalvandoRascunho] = useState(false)
   const [rascunhoSalvo,    setRascunhoSalvo]    = useState(false)
+  const [toastEnvio, setToastEnvio] = useState('')
+  const [laudoAprovadoNome, setLaudoAprovadoNome] = useState('')
 
   const salvarRascunho = async () => {
     if (!patientId) { alert('Selecione um paciente antes de salvar.'); return }
@@ -2762,6 +2787,8 @@ export default function Reports() {
         patientName: patient?.full_name,
       }, { merge: true })
       setReportStatus('aguardando_aprovacao')
+      setToastEnvio('✅ Laudo enviado para aprovação. Aguarde a revisão.')
+      setTimeout(() => setToastEnvio(''), 6000)
       // Se veio do PainelLaudos, atualiza status lá para 'aguardando_supervisao'
       const painelData = location.state?.painelData
       if (painelData?.paciente && painelData?.data) {
@@ -2777,6 +2804,20 @@ export default function Reports() {
       console.error(e)
     }
   }
+
+  useEffect(() => {
+    if (!savedReportId) return
+    const ref = doc(db, 'reports', savedReportId)
+    const unsub = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return
+      const data = snap.data()
+      if (data.status === 'aprovado' && isProfessional && !laudoAprovadoNome) {
+        const nome = data.patientName || 'Paciente'
+        setLaudoAprovadoNome(nome)
+      }
+    })
+    return () => unsub()
+  }, [savedReportId, isProfessional])
 
   const confirmCorrectionEntrega = async () => {
     if (!savedReportId) return
@@ -3119,6 +3160,16 @@ export default function Reports() {
                       ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
                       : <><CheckCircle2 size={12} /> Salvar anamnese</>}
                   </button>
+                  {anamneseMsg && (
+                    <div style={{
+                      marginTop: 8, padding: '8px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                      background: anamneseMsg.startsWith('✓') ? 'rgba(46,125,50,0.18)' : 'rgba(239,68,68,0.12)',
+                      color: anamneseMsg.startsWith('✓') ? '#4CAF50' : '#EF4444',
+                      border: `1px solid ${anamneseMsg.startsWith('✓') ? 'rgba(46,125,50,0.4)' : 'rgba(239,68,68,0.3)'}`,
+                    }}>
+                      {anamneseMsg}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3135,7 +3186,7 @@ export default function Reports() {
             </div>
           )}
 
-          {!isProfOnly && !isEntregador && !(isProfessional && reportStatus === 'aprovado') && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
+          {!isProfOnly && !(isProfessional && reportStatus === 'aprovado') && <div style={{ background: S.card, borderRadius: 10, border: `1px solid ${S.border}`, padding: '14px' }}>
             <div style={{ fontSize: 10, color: S.muted, fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>
               3. TESTES APLICADOS ({selectedTests.length})
             </div>
@@ -3421,5 +3472,66 @@ export default function Reports() {
         </div>
       )}
 
+      {/* Toast — laudo enviado para aprovação */}
+      {toastEnvio && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px',
+          background: '#1e40af', color: '#fff',
+          padding: '16px 24px', borderRadius: '10px',
+          fontSize: '14px', fontWeight: 500,
+          zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          maxWidth: '360px', lineHeight: '1.5'
+        }}>
+          {toastEnvio}
+        </div>
+      )}
+
+      {/* Modal — laudo aprovado, notificação em tempo real */}
+      {laudoAprovadoNome && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '16px',
+            padding: '40px', maxWidth: '440px', width: '90%',
+            textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+            <h2 style={{
+              color: '#1e293b', fontSize: '20px',
+              fontWeight: 700, marginBottom: '12px'
+            }}>
+              Laudo Aprovado!
+            </h2>
+            <p style={{
+              color: '#475569', fontSize: '15px',
+              marginBottom: '28px', lineHeight: '1.6'
+            }}>
+              O laudo de <strong>{laudoAprovadoNome}</strong> foi
+              aprovado e está disponível para leitura.
+            </p>
+            <button
+              onClick={() => setLaudoAprovadoNome('')}
+              style={{
+                background: '#1e40af', color: '#fff',
+                border: 'none', borderRadius: '8px',
+                padding: '12px 32px', fontSize: '15px',
+                fontWeight: 600, cursor: 'pointer'
+              }}
+            >
+              Acessar Modo Leitura
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }
-        input::placeholder { color: rgba(255,2
+        input::placeholder { color: rgba(255,255,255,0.2); }
+        input:focus { border-color: rgba(46,125,50,0.6) !important; }
+      `}</style>
+    </div>
+  )
+}
